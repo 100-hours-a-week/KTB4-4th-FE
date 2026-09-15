@@ -1,4 +1,4 @@
-# Need U 프런트엔드
+# Need U FrontEnd
 
 React와 Next.js App Router 기반 모바일 웹 프로젝트입니다.
 
