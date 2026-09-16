@@ -1,1 +1,184 @@
 @import "tailwindcss";
+
+/* Tailwind 유틸리티에서 사용할 모바일 디자인 토큰 */
+@theme {
+  /* 브랜드 색상 */
+  --color-brand-50: #fff8b8;
+  --color-brand-100: #ffef85;
+  --color-brand-200: #ffea51;
+  --color-brand-300: #fee52b;
+  --color-brand-400: #fee500;
+  --color-brand-500: #fee500;
+  --color-brand-600: #e5ce00;
+  --color-brand-700: #b8a500;
+  --color-brand-800: #8c7e00;
+  --color-brand-900: #5c5300;
+
+  /* 화면에서의 용도에 따라 사용하는 색상 */
+  --color-primary: #fee500;
+  --color-primary-hover: #fee52b;
+  --color-on-primary: #191919;
+  --color-background: #ffffff;
+  --color-background-subtle: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-foreground: #191919;
+  --color-foreground-secondary: #555555;
+  --color-muted: #888888;
+  --color-disabled: #d9d9d9;
+  --color-border: #f0f0f0;
+  --color-border-strong: #d9d9d9;
+  --color-overlay: rgb(25 25 25 / 50%);
+  --color-success: #1aad5c;
+  --color-success-subtle: #dcf7e5;
+  --color-warning: #b8a500;
+  --color-warning-subtle: #fff8b8;
+  --color-danger: #ff3838;
+  --color-danger-subtle: #ffe5e5;
+  --color-info: #2563eb;
+  --color-info-subtle: #e0f0fe;
+
+  /* 한글 중심 글꼴과 텍스트 크기 */
+  --font-sans:
+    "KakaoFont", "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+    "Noto Sans KR", sans-serif;
+  --text-display: 3.5rem;
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.025em;
+  --text-heading-1: 2rem;
+  --text-heading-1--line-height: 1.15;
+  --text-heading-1--letter-spacing: -0.02em;
+  --text-heading-2: 1.375rem;
+  --text-heading-2--line-height: 1.25;
+  --text-heading-2--letter-spacing: -0.015em;
+  --text-heading-3: 1.0625rem;
+  --text-heading-3--line-height: 1.3;
+  --text-heading-3--letter-spacing: -0.01em;
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.5;
+  --text-body-lg--letter-spacing: -0.01em;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.5;
+  --text-body--letter-spacing: -0.005em;
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.43;
+  --text-caption: 0.6875rem;
+  --text-caption--line-height: 1.27;
+
+  /* 페이지 간격, 터치 영역, 모서리와 그림자 */
+  --spacing-page: 1rem;
+  --spacing-section: 2.5rem;
+  --spacing-touch: 2.75rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.5rem;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 4%);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 8%);
+  --shadow-lg: 0 8px 24px rgb(0 0 0 / 12%);
+  --shadow-xl: 0 16px 32px rgb(254 229 0 / 30%);
+
+  /* 전환 효과의 속도와 움직임 */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.65, 0, 0.35, 1);
+  --default-transition-duration: 200ms;
+  --default-transition-timing-function: var(--ease-standard);
+}
+
+/* Tailwind 유틸리티와 무관하게 전역 스타일에서 사용하는 값 */
+:root {
+  --app-max-width: 430px;
+  --duration-fast: 100ms;
+  --duration-base: 200ms;
+  --duration-slow: 350ms;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* 모바일 화면의 기본 배경과 본문 텍스트 */
+html {
+  min-width: 320px;
+  background: var(--color-background-subtle);
+}
+
+body {
+  min-height: 100dvh;
+  margin: 0;
+  color: var(--color-foreground);
+  background: var(--color-background-subtle);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-lg);
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 폼 요소에 본문 글꼴을 적용 */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* 조작 가능한 요소는 최소 44px 높이를 확보하되 체크박스와 라디오는 제외 */
+button,
+select,
+textarea,
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+  min-height: var(--spacing-touch);
+}
+
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* 키보드 탐색 등에 필요한 포커스 표시 */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+}
+
+/* 넓은 화면에서도 모바일 콘텐츠 폭을 유지 */
+.mobile-layout {
+  width: 100%;
+  max-width: var(--app-max-width);
+  min-height: 100dvh;
+  margin: 0 auto;
+  overflow-x: hidden;
+  background: var(--color-background);
+}
+
+/* 노치가 있는 기기의 좌우 안전 영역을 포함한 공통 페이지 여백 */
+.page-content {
+  width: 100%;
+  padding-right: max(var(--spacing-page), env(safe-area-inset-right));
+  padding-left: max(var(--spacing-page), env(safe-area-inset-left));
+}
+
+.touch-target {
+  min-width: var(--spacing-touch);
+  min-height: var(--spacing-touch);
+}
+
+/* 사용자가 움직임 줄이기를 설정한 경우 애니메이션을 최소화 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
