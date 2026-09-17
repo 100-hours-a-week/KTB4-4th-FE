@@ -19,8 +19,20 @@ export default function BottomNavigation() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="하단 메뉴" className="z-10 shrink-0 border-t border-border bg-surface">
-      <ul className="flex list-none justify-between px-[10px] pt-[6px] pb-[max(10px,env(safe-area-inset-bottom))]">
+    <nav
+      aria-label="하단 메뉴"
+      className="relative z-10 shrink-0 border-t border-border-strong bg-surface"
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-9 left-1/2 h-9 w-[120px] -translate-x-1/2 rounded-t-[60px] border-x border-t border-border-strong bg-surface"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-px left-1/2 h-2 w-[118px] -translate-x-1/2 bg-surface"
+      />
+
+      <ul className="relative z-10 flex list-none justify-between px-[10px] pt-[6px] pb-[max(10px,env(safe-area-inset-bottom))]">
         {navigationItems.map((item) => {
           const { label, href, icon } = item;
           const isActive = pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
@@ -34,7 +46,7 @@ export default function BottomNavigation() {
                 aria-current={isActive ? "page" : undefined}
                 className={
                   isFeatured
-                    ? `-mt-5 flex h-[68px] w-[104px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-full border-2 border-border-strong bg-surface text-caption font-bold text-foreground shadow-md transition-shadow ${
+                    ? `-mt-8 flex h-[68px] w-[104px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-full border-2 border-border-strong bg-surface text-caption font-bold text-foreground shadow-md transition-shadow ${
                         isActive ? "ring-2 ring-foreground/15" : ""
                       }`
                     : `flex min-h-[54px] w-full flex-col items-center justify-center gap-0.5 rounded-md text-caption font-semibold transition-colors ${
