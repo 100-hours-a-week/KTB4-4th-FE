@@ -151,11 +151,13 @@ button,
 
 /* 넓은 화면에서도 모바일 콘텐츠 폭을 유지 */
 .mobile-layout {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: var(--app-max-width);
-  min-height: 100dvh;
+  height: 100dvh;
   margin: 0 auto;
-  overflow-x: hidden;
+  overflow: hidden;
   background: var(--color-background);
 }
 

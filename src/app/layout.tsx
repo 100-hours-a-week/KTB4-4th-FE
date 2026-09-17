@@ -1,3 +1,6 @@
+import BottomNavigation from "@/components/layout/BottomNavigation";
+import Header from "@/components/layout/Header";
+
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -18,7 +21,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko">
       <body>
-        <div className="mobile-layout">{children}</div>
+        <div className="mobile-layout">
+          <Header />
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
+          <BottomNavigation />
+        </div>
       </body>
     </html>
   );
