@@ -1,3 +1,4 @@
+/** 선택지 버튼 */
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type Choice = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {

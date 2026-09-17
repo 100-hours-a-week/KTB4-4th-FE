@@ -1,3 +1,4 @@
+/** 주요 동작 버튼 */
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type ActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

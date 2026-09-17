@@ -1,3 +1,4 @@
+/** 에러 페이지 내 버튼 */
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type ErrorPageButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
