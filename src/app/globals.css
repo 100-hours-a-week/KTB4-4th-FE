@@ -150,6 +150,11 @@ dialog[data-modal] :focus-visible {
   outline: none;
 }
 
+/* 기본 backdrop은 뷰포트 전체를 덮으므로 공통 모달에서 모바일 폭의 오버레이를 별도로 그림 */
+dialog[data-modal]::backdrop {
+  background: transparent;
+}
+
 ::selection {
   color: var(--color-on-primary);
   background: var(--color-primary);
