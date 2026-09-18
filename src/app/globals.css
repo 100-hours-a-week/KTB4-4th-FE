@@ -144,6 +144,12 @@ button,
   outline-offset: 2px;
 }
 
+/* 모달 내부에는 전역 포커스 테두리를 표시하지 않음 */
+dialog[data-modal]:focus-visible,
+dialog[data-modal] :focus-visible {
+  outline: none;
+}
+
 ::selection {
   color: var(--color-on-primary);
   background: var(--color-primary);
