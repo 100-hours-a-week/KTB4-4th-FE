@@ -32,6 +32,7 @@ export default function FriendsPage() {
           {friends.map((friend) => (
             <li key={friend.id}>
               <FriendCard
+                friendId={friend.id}
                 name={friend.name}
                 detail={friend.detail}
                 highlightDetail={friend.highlightDetail}
