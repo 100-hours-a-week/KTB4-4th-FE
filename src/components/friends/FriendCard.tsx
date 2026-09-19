@@ -1,15 +1,26 @@
 // 친구의 이름과 기념일 정보를 표시하는 목록 카드
 
+import Link from "next/link";
+
 type FriendCardProps = {
+  friendId: number;
   name: string;
   detail: string;
   highlightDetail?: boolean;
 };
 
-export default function FriendCard({ name, detail, highlightDetail = false }: FriendCardProps) {
-  // TODO: 카드 선택 동작이 정해지면 전체 카드를 Link 또는 button으로 전환하고 키보드 포커스 스타일 적용
+export default function FriendCard({
+  friendId,
+  name,
+  detail,
+  highlightDetail = false,
+}: FriendCardProps) {
   return (
-    <article className="flex min-h-12 items-center gap-3 bg-surface">
+    <Link
+      href={`/friends/${friendId}`}
+      aria-label={`${name} 상세 보기`}
+      className="flex min-h-12 items-center gap-3 bg-surface"
+    >
       <div
         aria-hidden="true"
         className="h-12 w-12 shrink-0 overflow-hidden rounded-[35%] bg-background-subtle"
@@ -20,6 +31,6 @@ export default function FriendCard({ name, detail, highlightDetail = false }: Fr
           {detail}
         </p>
       </div>
-    </article>
+    </Link>
   );
 }
