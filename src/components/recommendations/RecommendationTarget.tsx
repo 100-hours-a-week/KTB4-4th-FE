@@ -18,9 +18,10 @@ export default function RecommendationTarget({
     target.type === "SELF" ? (
       "나를 위한 추천"
     ) : (
-      <>
-        <span className="text-[#4684e9]">{target.name}</span> 님을 위한 추천 상품
-      </>
+      <span className="flex min-w-0 items-center whitespace-nowrap">
+        <span className="min-w-0 truncate text-[#4684e9]">{target.name}</span>
+        <span className="shrink-0">&nbsp;님을 위한 추천 상품</span>
+      </span>
     );
 
   return (
@@ -34,7 +35,7 @@ export default function RecommendationTarget({
 
       <div className="min-w-0 flex-1">
         {/* TODO: 추천 API의 취향·관심사 키워드를 상품 추천 요청에 활용 */}
-        <h1 className="text-heading-3 font-bold text-foreground">{recommendationTitle}</h1>
+        <h1 className="min-w-0 text-heading-3 font-bold text-foreground">{recommendationTitle}</h1>
         <PriceRangeSlider
           availableMinPrice={availableMinPrice}
           availableMaxPrice={availableMaxPrice}
