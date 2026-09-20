@@ -4,3 +4,12 @@ export interface PreferenceAnalysis {
   progress: number;
   description: string;
 }
+
+export type ChatMessageRole = "ASSISTANT" | "USER";
+
+export interface ChatMessage {
+  id: number;
+  role: ChatMessageRole;
+  senderName: string;
+  content: string;
+}
