@@ -1,5 +1,6 @@
 // 사용자의 취향 데이터에 맞는 콘텐츠를 제공하는 메인 화면
 
+import EmptyPreferenceHome from "@/components/home/EmptyPreferenceHome";
 import PersonalizedHome from "@/components/home/PersonalizedHome";
 import { temporaryRecommendedProducts } from "@/mocks/recommendedProducts";
 
@@ -8,17 +9,23 @@ const temporaryUser = {
   id: 0,
   name: "수연",
   birthdayDaysRemaining: 8,
+  hasPreferenceData: false,
 };
 
 export default function Home() {
   return (
     <main className="page-content flex flex-1 flex-col bg-background py-8 pb-[max(2rem,env(safe-area-inset-bottom))] text-foreground">
-      <PersonalizedHome
-        userId={temporaryUser.id}
-        userName={temporaryUser.name}
-        birthdayDaysRemaining={temporaryUser.birthdayDaysRemaining}
-        products={temporaryRecommendedProducts}
-      />
+      {/* TODO: 사용자 API의 취향 데이터 존재 여부를 기준으로 메인 콘텐츠 분기 */}
+      {temporaryUser.hasPreferenceData ? (
+        <PersonalizedHome
+          userId={temporaryUser.id}
+          userName={temporaryUser.name}
+          birthdayDaysRemaining={temporaryUser.birthdayDaysRemaining}
+          products={temporaryRecommendedProducts}
+        />
+      ) : (
+        <EmptyPreferenceHome />
+      )}
     </main>
   );
 }
