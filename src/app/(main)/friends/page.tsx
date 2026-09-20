@@ -18,7 +18,7 @@ export default function FriendsPage() {
   const hasFriends = friends.length > 0;
 
   return (
-    <main aria-label="친구" className="page-content flex flex-1 flex-col bg-background pt-4">
+    <main aria-label="친구" className="page-content flex flex-1 flex-col bg-background">
       <PageIntro
         title="누구에게 선물할까요?"
         description={

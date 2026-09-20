@@ -17,10 +17,7 @@ export default function EmptyPreferenceHome() {
         description="AI와 잠깐 대화하면 나에게 맞는 선물이 보여요."
       />
 
-      <section
-        aria-label="취향 찾기 안내"
-        className="mt-5 rounded-sm bg-background-subtle p-4"
-      >
+      <section aria-label="취향 찾기 안내" className="mt-5 rounded-sm bg-background-subtle p-4">
         {/* TODO: 메인 페이지 일러스트 확정 후 회색 영역을 실제 이미지로 교체 */}
         <div
           role="img"

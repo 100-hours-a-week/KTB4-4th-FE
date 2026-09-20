@@ -14,7 +14,7 @@ const temporaryUser = {
 
 export default function Home() {
   return (
-    <main className="page-content flex flex-1 flex-col bg-background py-8 pb-[max(2rem,env(safe-area-inset-bottom))] text-foreground">
+    <main className="page-content flex flex-1 flex-col bg-background pb-[max(2rem,env(safe-area-inset-bottom))] text-foreground">
       {/* TODO: 사용자 API의 취향 데이터 존재 여부를 기준으로 메인 콘텐츠 분기 */}
       {temporaryUser.hasPreferenceData ? (
         <PersonalizedHome
