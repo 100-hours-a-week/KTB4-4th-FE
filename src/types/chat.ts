@@ -5,6 +5,8 @@ export interface PreferenceAnalysis {
   description: string;
 }
 
+export type PreferenceAnalysisStatus = "IDLE" | "LOADING" | "TIMEOUT" | "COMPLETED";
+
 export type ChatMessageRole = "ASSISTANT" | "USER";
 
 export interface ChatMessage {

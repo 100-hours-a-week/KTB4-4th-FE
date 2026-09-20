@@ -2,7 +2,11 @@
 
 import ChatRoom from "@/components/chat/ChatRoom";
 import PreferenceAnalysisBar from "@/components/chat/PreferenceAnalysisBar";
-import { temporaryChatMessages, temporaryPreferenceAnalysis } from "@/mocks/chat";
+import {
+  temporaryChatMessages,
+  temporaryPreferenceAnalysis,
+  temporaryPreferenceAnalysisStatus,
+} from "@/mocks/chat";
 
 export default function AiPage() {
   return (
@@ -14,7 +18,11 @@ export default function AiPage() {
       <PreferenceAnalysisBar {...temporaryPreferenceAnalysis} />
 
       {/* TODO: AI 대화 API 응답의 메시지 목록으로 교체 */}
-      <ChatRoom initialMessages={temporaryChatMessages} />
+      {/* TODO: AI 대화 API의 취향 분석 상태로 Mock 상태를 교체 */}
+      <ChatRoom
+        initialMessages={temporaryChatMessages}
+        analysisStatus={temporaryPreferenceAnalysisStatus}
+      />
     </main>
   );
 }

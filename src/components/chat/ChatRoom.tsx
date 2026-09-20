@@ -6,13 +6,15 @@ import { useEffect, useRef, useState } from "react";
 
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
-import type { ChatMessage } from "@/types/chat";
+import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
+import type { ChatMessage, PreferenceAnalysisStatus } from "@/types/chat";
 
 type ChatRoomProps = {
   initialMessages: ChatMessage[];
+  analysisStatus: PreferenceAnalysisStatus;
 };
 
-export default function ChatRoom({ initialMessages }: ChatRoomProps) {
+export default function ChatRoom({ initialMessages, analysisStatus }: ChatRoomProps) {
   const [messages, setMessages] = useState(initialMessages);
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
@@ -45,6 +47,7 @@ export default function ChatRoom({ initialMessages }: ChatRoomProps) {
     <div className="flex min-h-0 flex-1 flex-col">
       <ChatMessageList ref={messageListRef} messages={messages} />
       <ChatComposer onSend={handleSend} />
+      <PreferenceAnalysisLoadingModal open={analysisStatus === "LOADING"} />
     </div>
   );
 }
