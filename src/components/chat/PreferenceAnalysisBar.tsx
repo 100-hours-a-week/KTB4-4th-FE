@@ -15,7 +15,7 @@ export default function PreferenceAnalysisBar({
   return (
     <section
       aria-labelledby="preference-analysis-title"
-      className="rounded-md border border-border-strong bg-surface p-4"
+      className="shrink-0 rounded-md border border-border-strong bg-surface p-4"
     >
       <div className="flex items-baseline gap-1">
         <h1 id="preference-analysis-title" className="text-heading-3 font-bold text-foreground">
