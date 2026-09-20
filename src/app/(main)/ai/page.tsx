@@ -5,6 +5,7 @@ import PreferenceAnalysisBar from "@/components/chat/PreferenceAnalysisBar";
 import {
   temporaryChatMessages,
   temporaryPreferenceAnalysis,
+  temporaryPreferenceAnalysisResult,
   temporaryPreferenceAnalysisStatus,
 } from "@/mocks/chat";
 
@@ -22,6 +23,7 @@ export default function AiPage() {
       <ChatRoom
         initialMessages={temporaryChatMessages}
         initialAnalysisStatus={temporaryPreferenceAnalysisStatus}
+        analysisResult={temporaryPreferenceAnalysisResult}
       />
     </main>
   );

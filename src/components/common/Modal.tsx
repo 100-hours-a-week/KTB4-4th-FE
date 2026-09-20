@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, type ComponentProps, type ReactNode } from "react";
+import { useId, type ComponentProps, type ReactNode } from "react";
 
 import ChoiceButtons from "@/components/common/ChoiceButtons";
+import useDialogControl from "@/hooks/useDialogControl";
 
 type ModalProps = {
   open: boolean;
@@ -12,6 +13,7 @@ type ModalProps = {
   children?: ReactNode;
   firstAction: ComponentProps<typeof ChoiceButtons>["first"];
   secondAction: ComponentProps<typeof ChoiceButtons>["second"];
+  keepHeaderInteractive?: boolean;
 };
 
 export default function Modal({
@@ -22,25 +24,23 @@ export default function Modal({
   children,
   firstAction,
   secondAction,
+  keepHeaderInteractive = false,
 }: ModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useDialogControl({
+    open,
+    mode: keepHeaderInteractive ? "non-modal" : "modal",
+  });
   const titleId = useId();
   const descriptionId = useId();
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
 
   return (
     <>
       {open && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-y-0 left-1/2 z-50 w-full max-w-[var(--app-max-width)] -translate-x-1/2 bg-overlay"
+          className={`fixed bottom-0 left-1/2 z-50 w-full max-w-[var(--app-max-width)] -translate-x-1/2 bg-overlay ${
+            keepHeaderInteractive ? "top-[60px] pointer-events-auto" : "top-0 pointer-events-none"
+          }`}
         />
       )}
       <dialog
@@ -52,7 +52,9 @@ export default function Modal({
           event.preventDefault();
           onClose();
         }}
-        className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[360px] overflow-y-auto rounded-[4px] border border-border-strong bg-surface px-4 pt-8 pb-4 text-left text-foreground shadow-lg"
+        className={`fixed right-0 bottom-0 left-0 z-[60] m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[360px] overflow-y-auto rounded-[4px] border border-border-strong bg-surface px-4 pt-8 pb-4 text-left text-foreground shadow-lg ${
+          keepHeaderInteractive ? "top-[60px]" : "top-0"
+        }`}
       >
         <h2 id={titleId} className="text-xl font-bold">
           {title}

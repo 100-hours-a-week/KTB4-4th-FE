@@ -5,6 +5,10 @@ export interface PreferenceAnalysis {
   description: string;
 }
 
+export interface PreferenceAnalysisResult {
+  badges: string[];
+}
+
 export type PreferenceAnalysisStatus = "IDLE" | "LOADING" | "TIMEOUT" | "COMPLETED";
 
 export type ChatMessageRole = "ASSISTANT" | "USER";

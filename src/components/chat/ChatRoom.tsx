@@ -7,15 +7,21 @@ import { useEffect, useRef, useState } from "react";
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
+import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
-import type { ChatMessage, PreferenceAnalysisStatus } from "@/types/chat";
+import type { ChatMessage, PreferenceAnalysisResult, PreferenceAnalysisStatus } from "@/types/chat";
 
 type ChatRoomProps = {
   initialMessages: ChatMessage[];
   initialAnalysisStatus: PreferenceAnalysisStatus;
+  analysisResult: PreferenceAnalysisResult;
 };
 
-export default function ChatRoom({ initialMessages, initialAnalysisStatus }: ChatRoomProps) {
+export default function ChatRoom({
+  initialMessages,
+  initialAnalysisStatus,
+  analysisResult,
+}: ChatRoomProps) {
   const [messages, setMessages] = useState(initialMessages);
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
   const messageListRef = useRef<HTMLElement>(null);
@@ -53,6 +59,14 @@ export default function ChatRoom({ initialMessages, initialAnalysisStatus }: Cha
     // TODO: AI 취향 분석 재요청 API 연동 후 분석 상태 갱신 처리
   };
 
+  const handleRejectAnalysis = () => {
+    setAnalysisStatus("IDLE");
+  };
+
+  const handleConfirmAnalysis = () => {
+    // TODO: AI 취향 분석 결과 확인 API 및 다음 화면 이동 동작 연동
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ChatMessageList ref={messageListRef} messages={messages} />
@@ -62,6 +76,12 @@ export default function ChatRoom({ initialMessages, initialAnalysisStatus }: Cha
         open={analysisStatus === "TIMEOUT"}
         onReturnToChat={handleReturnToChat}
         onRetryAnalysis={handleRetryAnalysis}
+      />
+      <PreferenceAnalysisResultModal
+        open={analysisStatus === "COMPLETED"}
+        result={analysisResult}
+        onReject={handleRejectAnalysis}
+        onConfirm={handleConfirmAnalysis}
       />
     </div>
   );

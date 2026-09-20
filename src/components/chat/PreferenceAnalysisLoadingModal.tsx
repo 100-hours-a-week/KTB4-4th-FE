@@ -2,7 +2,9 @@
 
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId } from "react";
+
+import useDialogControl from "@/hooks/useDialogControl";
 
 import styles from "./PreferenceAnalysisLoadingModal.module.css";
 
@@ -13,17 +15,9 @@ type PreferenceAnalysisLoadingModalProps = {
 export default function PreferenceAnalysisLoadingModal({
   open,
 }: PreferenceAnalysisLoadingModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useDialogControl({ open, mode: "non-modal" });
   const titleId = useId();
   const descriptionId = useId();
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    if (open && !dialog.open) dialog.show();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
 
   return (
     <>

@@ -24,6 +24,7 @@ export default function PreferenceAnalysisTimeoutModal({
         onClose={onReturnToChat}
         title="분석이 예상보다 오래 걸리고 있어요"
         description="잠시 후 다시 확인하거나 분석 상태를 다시 조회해 주세요."
+        keepHeaderInteractive
         firstAction={{ label: "대화로 돌아가기", onClick: onReturnToChat }}
         secondAction={{ label: "다시 분석 요청", onClick: onRetryAnalysis }}
       />
