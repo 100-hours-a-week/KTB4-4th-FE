@@ -1,16 +1,12 @@
 // 선택한 친구의 상세 정보를 표시하는 페이지
 
-import ActionButton from "@/components/common/ActionButton";
+import Link from "next/link";
+
+import { temporaryFriends } from "@/mocks/recommendationTargets";
 
 type FriendDetailPageProps = {
   params: Promise<{ friendId: string }>;
 };
-
-// TODO: 친구 프로필 이미지, 이름, 생일 날짜와 D-day API 연동
-const temporaryFriends = {
-  "1": { name: "토쿠노 유우시", birthday: "4월 05일", dDay: 7 },
-  "2": { name: "츠키시마 케이", birthday: "생일 정보 없음", dDay: null },
-} as const;
 
 export default async function FriendDetailPage({ params }: FriendDetailPageProps) {
   const { friendId } = await params;
@@ -39,9 +35,12 @@ export default async function FriendDetailPage({ params }: FriendDetailPageProps
           {birthdayDetail}
         </p>
         <div className="mt-6 w-full max-w-[360px]">
-          <ActionButton>
+          <Link
+            href={`/products?targetType=FRIEND&targetUserId=${friend.userId}`}
+            className="flex h-12 w-full items-center justify-center rounded-[6px] bg-primary px-4 text-center text-[15px] leading-[26px] text-on-primary"
+          >
             <span className="font-semibold">{friend.name}에게 선물하기</span>
-          </ActionButton>
+          </Link>
         </div>
       </section>
     </main>
