@@ -38,9 +38,7 @@
   --color-info-subtle: #e0f0fe;
 
   /* 한글 중심 글꼴과 텍스트 크기 */
-  --font-sans:
-    "KakaoFont", "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
-    "Noto Sans KR", sans-serif;
+  --font-sans: var(--font-kakao-small-sans), "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   --text-display: 3.5rem;
   --text-display--line-height: 1.05;
   --text-display--letter-spacing: -0.025em;
