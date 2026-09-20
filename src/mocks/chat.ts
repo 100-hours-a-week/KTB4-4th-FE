@@ -8,7 +8,7 @@ export const temporaryPreferenceAnalysis: PreferenceAnalysis = {
   description: "추천에 필요한 정보를 거의 다 알게 되었어요.",
 };
 
-export const temporaryPreferenceAnalysisStatus: PreferenceAnalysisStatus = "LOADING";
+export const temporaryPreferenceAnalysisStatus: PreferenceAnalysisStatus = "TIMEOUT";
 
 export const temporaryChatMessages: ChatMessage[] = [
   {

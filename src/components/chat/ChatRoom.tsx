@@ -7,15 +7,17 @@ import { useEffect, useRef, useState } from "react";
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
+import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
 import type { ChatMessage, PreferenceAnalysisStatus } from "@/types/chat";
 
 type ChatRoomProps = {
   initialMessages: ChatMessage[];
-  analysisStatus: PreferenceAnalysisStatus;
+  initialAnalysisStatus: PreferenceAnalysisStatus;
 };
 
-export default function ChatRoom({ initialMessages, analysisStatus }: ChatRoomProps) {
+export default function ChatRoom({ initialMessages, initialAnalysisStatus }: ChatRoomProps) {
   const [messages, setMessages] = useState(initialMessages);
+  const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
   const nextMessageId = useRef(Math.max(0, ...initialMessages.map(({ id }) => id)) + 1);
@@ -43,11 +45,24 @@ export default function ChatRoom({ initialMessages, analysisStatus }: ChatRoomPr
     setMessages((currentMessages) => [...currentMessages, newMessage]);
   };
 
+  const handleReturnToChat = () => {
+    setAnalysisStatus("IDLE");
+  };
+
+  const handleRetryAnalysis = () => {
+    // TODO: AI 취향 분석 재요청 API 연동 후 분석 상태 갱신 처리
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ChatMessageList ref={messageListRef} messages={messages} />
       <ChatComposer onSend={handleSend} />
       <PreferenceAnalysisLoadingModal open={analysisStatus === "LOADING"} />
+      <PreferenceAnalysisTimeoutModal
+        open={analysisStatus === "TIMEOUT"}
+        onReturnToChat={handleReturnToChat}
+        onRetryAnalysis={handleRetryAnalysis}
+      />
     </div>
   );
 }

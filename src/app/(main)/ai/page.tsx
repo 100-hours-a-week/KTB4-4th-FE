@@ -21,7 +21,7 @@ export default function AiPage() {
       {/* TODO: AI 대화 API의 취향 분석 상태로 Mock 상태를 교체 */}
       <ChatRoom
         initialMessages={temporaryChatMessages}
-        analysisStatus={temporaryPreferenceAnalysisStatus}
+        initialAnalysisStatus={temporaryPreferenceAnalysisStatus}
       />
     </main>
   );
