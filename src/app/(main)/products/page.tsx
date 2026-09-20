@@ -1,5 +1,6 @@
 // 추천 대상의 문맥에 맞는 상품 추천 화면
 
+import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import { temporaryFriends, temporarySelfTarget } from "@/mocks/recommendationTargets";
@@ -39,9 +40,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       {/* TODO: 상품 추천 API 응답으로 추천 상품 목록 교체 */}
       {/* TODO: 예산 조절바에서 적용한 최소·최대 가격을 기준으로 추천 상품 목록 필터링 */}
       <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">
-        {temporaryRecommendedProducts.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
+        {temporaryRecommendedProducts.length === 0 ? (
+          <EmptyRecommendedProducts />
+        ) : (
+          temporaryRecommendedProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))
+        )}
       </section>
     </main>
   );
