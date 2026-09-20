@@ -7,7 +7,7 @@ type PageIntroProps = {
 
 export default function PageIntro({ title, description }: PageIntroProps) {
   return (
-    <div className="px-1">
+    <div className="px-1 pt-4">
       <h1 className="text-[24px] leading-[30px] font-bold text-foreground">{title}</h1>
       <p className="mt-3 text-body-sm text-muted">{description}</p>
     </div>
