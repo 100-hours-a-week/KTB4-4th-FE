@@ -18,6 +18,8 @@ const navigationItems = [
 export default function BottomNavigation() {
   const pathname = usePathname();
 
+  if (pathname === "/ai") return null;
+
   return (
     <nav
       aria-label="하단 메뉴"

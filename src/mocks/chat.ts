@@ -1,0 +1,90 @@
+// AI 대화 API 연동 전 취향 분석 상태를 제공하는 임시 데이터
+
+import type {
+  ChatMessage,
+  PreferenceAnalysis,
+  PreferenceAnalysisResult,
+  PreferenceAnalysisStatus,
+} from "@/types/chat";
+
+// TODO: AI 대화 API 연동 완료 후 아래 취향 분석 및 대화 Mock 데이터 제거
+export const temporaryPreferenceAnalysis: PreferenceAnalysis = {
+  progress: 72,
+  description: "추천에 필요한 정보를 거의 다 알게 되었어요.",
+};
+
+export const temporaryPreferenceAnalysisStatus: PreferenceAnalysisStatus = "COMPLETED";
+
+export const temporaryPreferenceAnalysisResult: PreferenceAnalysisResult = {
+  badges: ["최근 니즈: 편하게 쉬기", "관심사: 쉬어가는 삶", "추천 힌트: 편의성 아이템"],
+};
+
+export const temporaryChatMessages: ChatMessage[] = [
+  {
+    id: 1,
+    role: "ASSISTANT",
+    senderName: "니쥬",
+    content: "요즘 집에서 가장 자주 하는 취미가 있나요?",
+  },
+  {
+    id: 2,
+    role: "USER",
+    senderName: "나",
+    content: "최근에는 방에만 누워있어요.\n침대에서 자는게 최고",
+  },
+  {
+    id: 3,
+    role: "ASSISTANT",
+    senderName: "니쥬",
+    content:
+      "맞아요! 휴일에는 집에서 온전히 쉬는게 최고죠\n집에서는 수면외에 어떤 활동을 선호하시나요?",
+  },
+  {
+    id: 4,
+    role: "USER",
+    senderName: "나",
+    content: "모르겠어요. 하나 뽑자면 요리하기??",
+  },
+  {
+    id: 5,
+    role: "ASSISTANT",
+    senderName: "니쥬",
+    content: "필요한 정보가 모두 모였어요.\n분석을 시작합니다!",
+  },
+  {
+    id: 6,
+    role: "USER",
+    senderName: "나",
+    content: "좋아요. 어떤 결과가 나올지 궁금해요.",
+  },
+  {
+    id: 7,
+    role: "ASSISTANT",
+    senderName: "니쥬",
+    content: "평소 집에서 편안하게 쉴 수 있는 활동을 좋아하시는 것 같아요.",
+  },
+  {
+    id: 8,
+    role: "USER",
+    senderName: "나",
+    content: "맞아요. 복잡한 활동보다는 가볍게 할 수 있는 게 좋아요.",
+  },
+  {
+    id: 9,
+    role: "ASSISTANT",
+    senderName: "니쥬",
+    content: "요리할 때 자주 사용하는 도구나 관심 있는 메뉴가 있나요?",
+  },
+  {
+    id: 10,
+    role: "USER",
+    senderName: "나",
+    content: "간단한 디저트나 브런치를 만들어 보고 싶어요.",
+  },
+  {
+    id: 11,
+    role: "ASSISTANT",
+    senderName: "니쥬",
+    content: "알려주신 내용을 바탕으로 취향에 맞는 추천을 준비할게요!",
+  },
+];

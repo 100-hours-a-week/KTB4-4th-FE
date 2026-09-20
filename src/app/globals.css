@@ -138,13 +138,7 @@ button,
   touch-action: manipulation;
 }
 
-/* 키보드 탐색 등에 필요한 포커스 표시 */
-:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-/* 모달 내부에는 전역 포커스 테두리를 표시하지 않음 */
+/* 모달 내부 포커스 테두리 제거 */
 dialog[data-modal]:focus-visible,
 dialog[data-modal] :focus-visible {
   outline: none;
