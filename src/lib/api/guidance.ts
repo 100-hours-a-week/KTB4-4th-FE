@@ -10,6 +10,7 @@ export interface Guidance {
 }
 
 export interface GuidanceData {
+  tasteAnalysisCompleted: boolean;
   guidance: Guidance;
 }
 

@@ -7,15 +7,17 @@ import { useRouter } from "next/navigation";
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
 
-export default function EmptyPreferenceHome() {
+type EmptyPreferenceHomeProps = {
+  title: string;
+  description: string;
+};
+
+export default function EmptyPreferenceHome({ title, description }: EmptyPreferenceHomeProps) {
   const router = useRouter();
 
   return (
     <>
-      <PageIntro
-        title="아직 취향을 모르고 있어요."
-        description="AI와 잠깐 대화하면 나에게 맞는 선물이 보여요."
-      />
+      <PageIntro title={title} description={description} />
 
       <section aria-label="취향 찾기 안내" className="mt-5 rounded-sm bg-background-subtle p-4">
         {/* TODO: 메인 페이지 일러스트 확정 후 회색 영역을 실제 이미지로 교체 */}
