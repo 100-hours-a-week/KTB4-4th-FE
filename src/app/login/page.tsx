@@ -1,4 +1,5 @@
-import Image from "next/image";
+// 카카오 로그인을 시작하는 로그인 페이지
+import KakaoLoginButton from "@/components/auth/KakaoLoginButton";
 
 export default function LoginPage() {
   return (
@@ -19,20 +20,7 @@ export default function LoginPage() {
         이미지 영역
       </div>
 
-      <button
-        type="button"
-        aria-label="카카오로 로그인"
-        className="mt-3 block w-full max-w-[332px] self-center border-0 bg-transparent p-0"
-      >
-        <Image
-          src="/images/kakao_login_large_wide.png"
-          alt="카카오 로그인"
-          width={600}
-          height={90}
-          className="h-auto w-full"
-          priority
-        />
-      </button>
+      <KakaoLoginButton />
     </main>
   );
 }
