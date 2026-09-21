@@ -9,23 +9,21 @@ import type { RecommendedProduct } from "@/types/product";
 type PersonalizedHomeProps = {
   userId: number;
   userName: string;
-  birthdayDaysRemaining: number;
+  title: string;
+  description: string;
   products: RecommendedProduct[];
 };
 
 export default function PersonalizedHome({
   userId,
   userName,
-  birthdayDaysRemaining,
+  title,
+  description,
   products,
 }: PersonalizedHomeProps) {
   return (
     <>
-      {/* TODO: 사용자 API의 이름과 생일 정보를 기준으로 PageIntro 문구 교체 */}
-      <PageIntro
-        title={`${userName}님의 생일이 ${birthdayDaysRemaining}일 남았어요.`}
-        description="마음을 전할 선물을 미리 준비해 볼까요?"
-      />
+      <PageIntro title={title} description={description} />
 
       <section aria-labelledby="personalized-products-title" className="mt-8">
         <div className="flex items-center justify-between gap-3">

@@ -1,31 +1,62 @@
 // 사용자의 취향 데이터에 맞는 콘텐츠를 제공하는 메인 화면
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import EmptyPreferenceHome from "@/components/home/EmptyPreferenceHome";
 import PersonalizedHome from "@/components/home/PersonalizedHome";
+import { getGuidance, type GuidanceData } from "@/lib/api/guidance";
 import { temporaryRecommendedProducts } from "@/mocks/recommendedProducts";
 
-// TODO: 사용자 API 연동 후 로그인 사용자의 정보로 교체
+// TODO: 사용자 정보 API 연동 후 실제 데이터로 교체
 const temporaryUser = {
   id: 0,
   name: "수연",
-  birthdayDaysRemaining: 8,
-  hasPreferenceData: false,
 };
 
 export default function Home() {
+  const router = useRouter();
+  const [guidanceData, setGuidanceData] = useState<GuidanceData | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    getGuidance()
+      .then((data) => {
+        if (isActive) {
+          setGuidanceData(data);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          router.replace("/error");
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [router]);
+
   return (
     <main className="page-content flex flex-1 flex-col bg-background pb-[max(2rem,env(safe-area-inset-bottom))] text-foreground">
-      {/* TODO: 사용자 API의 취향 데이터 존재 여부를 기준으로 메인 콘텐츠 분기 */}
-      {temporaryUser.hasPreferenceData ? (
-        <PersonalizedHome
-          userId={temporaryUser.id}
-          userName={temporaryUser.name}
-          birthdayDaysRemaining={temporaryUser.birthdayDaysRemaining}
-          products={temporaryRecommendedProducts}
-        />
-      ) : (
-        <EmptyPreferenceHome />
-      )}
+      {guidanceData ? (
+        guidanceData.tasteAnalysisCompleted ? (
+          <PersonalizedHome
+            userId={temporaryUser.id}
+            userName={temporaryUser.name}
+            title={guidanceData.guidance.title}
+            description={guidanceData.guidance.description}
+            products={temporaryRecommendedProducts}
+          />
+        ) : (
+          <EmptyPreferenceHome
+            title={guidanceData.guidance.title}
+            description={guidanceData.guidance.description}
+          />
+        )
+      ) : null}
     </main>
   );
 }
