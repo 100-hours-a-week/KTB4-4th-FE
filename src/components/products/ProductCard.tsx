@@ -1,9 +1,12 @@
-// 추천 상품의 기본 정보를 표시하는 카드 컴포넌트
-
-import type { PersonalRecommendation } from "@/lib/api/personalRecommendations";
+// 추천 상품의 공통 정보와 선택적인 추천 이유를 표시하는 카드 컴포넌트
 
 type ProductCardProps = {
-  product: Pick<PersonalRecommendation, "name" | "price" | "imageUrl">;
+  product: {
+    name: string;
+    price: number;
+    imageUrl: string | null;
+    reason?: string;
+  };
 };
 
 const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
@@ -21,6 +24,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="min-w-0 flex-1">
         <h2 className="text-heading-3 font-semibold text-foreground">{product.name}</h2>
         <p className="mt-1 text-body-lg font-bold text-foreground">{formatPrice(product.price)}</p>
+        {product.reason && <p className="mt-1 text-body-sm text-muted">{product.reason}</p>}
       </div>
     </article>
   );
