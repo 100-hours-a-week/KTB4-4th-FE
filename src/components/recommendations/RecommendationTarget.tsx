@@ -3,6 +3,7 @@
 import Image from "next/image";
 
 import PriceRangeSlider from "@/components/recommendations/PriceRangeSlider";
+import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type RecommendationTargetProps = {
@@ -10,6 +11,7 @@ type RecommendationTargetProps = {
   availableMinPrice: number;
   availableMaxPrice: number;
   showBudget?: boolean;
+  onPriceRangeCommit?: (priceRange: PriceRange) => void;
 };
 
 export default function RecommendationTarget({
@@ -17,6 +19,7 @@ export default function RecommendationTarget({
   availableMinPrice,
   availableMaxPrice,
   showBudget = true,
+  onPriceRangeCommit,
 }: RecommendationTargetProps) {
   const recommendationTitle =
     target.type === "SELF" ? (
@@ -53,6 +56,11 @@ export default function RecommendationTarget({
             availableMaxPrice={availableMaxPrice}
           />
         )}
+        <PriceRangeSlider
+          availableMinPrice={availableMinPrice}
+          availableMaxPrice={availableMaxPrice}
+          onPriceRangeCommit={onPriceRangeCommit}
+        />
       </div>
     </div>
   );
