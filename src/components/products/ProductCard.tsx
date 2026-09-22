@@ -1,9 +1,9 @@
 // 추천 상품의 기본 정보를 표시하는 카드 컴포넌트
 
-import type { RecommendedProduct } from "@/types/product";
+import type { PersonalRecommendation } from "@/lib/api/personalRecommendations";
 
 type ProductCardProps = {
-  product: RecommendedProduct;
+  product: Pick<PersonalRecommendation, "name" | "price" | "imageUrl">;
 };
 
 const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
@@ -21,7 +21,6 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="min-w-0 flex-1">
         <h2 className="text-heading-3 font-semibold text-foreground">{product.name}</h2>
         <p className="mt-1 text-body-lg font-bold text-foreground">{formatPrice(product.price)}</p>
-        <p className="mt-1 text-body-sm text-muted">{product.recommendationReason}</p>
       </div>
     </article>
   );
