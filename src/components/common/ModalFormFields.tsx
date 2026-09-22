@@ -19,6 +19,7 @@ type ModalFormFieldsProps = {
   onTextareaChange: (value: string) => void;
   textareaPlaceholder?: string;
   maxLength?: number;
+  errorMessage?: string;
 };
 
 export default function ModalFormFields({
@@ -33,9 +34,11 @@ export default function ModalFormFields({
   onTextareaChange,
   textareaPlaceholder,
   maxLength = 500,
+  errorMessage,
 }: ModalFormFieldsProps) {
   const selectId = useId();
   const textareaId = useId();
+  const errorId = useId();
 
   return (
     <div className="space-y-4 text-left text-xs">
@@ -73,11 +76,18 @@ export default function ModalFormFields({
           onChange={(event) => onTextareaChange(event.target.value)}
           maxLength={maxLength}
           placeholder={textareaPlaceholder}
+          aria-invalid={Boolean(errorMessage)}
+          aria-describedby={errorMessage ? errorId : undefined}
           className="block h-[96px] w-full resize-none rounded-[2px] border border-border-strong bg-surface p-3 align-top text-foreground placeholder:text-muted"
         />
         <p className="mt-1 text-right text-[10px] text-muted">
           {textareaValue.length} / {maxLength}
         </p>
+        {errorMessage && (
+          <p id={errorId} role="alert" className="mt-2 text-danger">
+            {errorMessage}
+          </p>
+        )}
       </div>
     </div>
   );
