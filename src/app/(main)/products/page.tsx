@@ -9,8 +9,8 @@ import { temporarySelfTarget } from "@/mocks/recommendationTargets";
 
 // TODO: 추천 API 응답의 최소·최대 가격 메타데이터로 교체
 const temporaryAvailablePriceRange = {
-  minimum: 30_000,
-  maximum: 80_000,
+  minimum: 10_000,
+  maximum: 50_000,
 };
 
 type ProductsPageProps = {

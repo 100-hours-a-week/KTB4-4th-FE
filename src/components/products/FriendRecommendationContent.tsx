@@ -4,13 +4,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
+import FriendGiftRecommendationsContent from "@/components/products/FriendGiftRecommendationsContent";
 import FriendTasteAnalysisRequired from "@/components/products/FriendTasteAnalysisRequired";
-import ProductCard from "@/components/products/ProductCard";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import { ApiRequestError } from "@/lib/api/client";
 import { getFriendDetail, type FriendDetail } from "@/lib/api/friends";
-import { temporaryRecommendedProducts } from "@/mocks/recommendedProducts";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type FriendRecommendationContentProps = {
@@ -76,6 +74,16 @@ export default function FriendRecommendationContent({
     interestKeywords: [],
   } satisfies RecommendationTargetData;
 
+  if (friend.tasteAnalysisCompleted) {
+    return (
+      <FriendGiftRecommendationsContent
+        target={target}
+        availableMinPrice={availableMinPrice}
+        availableMaxPrice={availableMaxPrice}
+      />
+    );
+  }
+
   return (
     <>
       <section aria-label="추천 대상" className="w-full pt-8">
@@ -83,21 +91,12 @@ export default function FriendRecommendationContent({
           target={target}
           availableMinPrice={availableMinPrice}
           availableMaxPrice={availableMaxPrice}
-          showBudget={friend.tasteAnalysisCompleted}
+          showBudget={false}
         />
       </section>
 
-      {/* TODO: 친구 추천 상품 목록 조회 API 연동 후 Mock 데이터 교체 */}
       <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">
-        {!friend.tasteAnalysisCompleted ? (
-          <FriendTasteAnalysisRequired />
-        ) : temporaryRecommendedProducts.length === 0 ? (
-          <EmptyRecommendedProducts />
-        ) : (
-          temporaryRecommendedProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))
-        )}
+        <FriendTasteAnalysisRequired />
       </section>
     </>
   );

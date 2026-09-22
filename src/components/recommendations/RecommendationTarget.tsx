@@ -54,13 +54,9 @@ export default function RecommendationTarget({
           <PriceRangeSlider
             availableMinPrice={availableMinPrice}
             availableMaxPrice={availableMaxPrice}
+            onPriceRangeCommit={onPriceRangeCommit}
           />
         )}
-        <PriceRangeSlider
-          availableMinPrice={availableMinPrice}
-          availableMaxPrice={availableMaxPrice}
-          onPriceRangeCommit={onPriceRangeCommit}
-        />
       </div>
     </div>
   );
