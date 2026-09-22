@@ -108,4 +108,4 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker push \
-            "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"ㄴ
+            "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
