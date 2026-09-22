@@ -39,6 +39,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       </section>
 
       {/* TODO: 예산 조절바에서 적용한 최소·최대 가격을 기준으로 추천 상품 목록 필터링 */}
+      {/* TODO: 친구 추천 상품 목록 조회 API 연동 후 FRIEND 분기의 Mock 데이터 교체 */}
       <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">
         {target.type === "SELF" ? (
           <PersonalRecommendationsList />
