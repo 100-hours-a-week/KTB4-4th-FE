@@ -8,5 +8,6 @@ export const API_ENDPOINTS = {
     refresh: `${API_V1_PREFIX}/auth/refresh`,
     loginValidity: `${API_V1_PREFIX}/auth/session`,
   },
+  errorReports: `${API_V1_PREFIX}/error-reports`,
   guidance: `${API_V1_PREFIX}/guidance`,
 } as const;
