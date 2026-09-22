@@ -1,0 +1,9 @@
+/* AI 취향 분석 결과 모달 전용 간격 */
+
+.scope :global(dialog[data-modal]) > h2 + div {
+  margin-top: 0.5rem;
+}
+
+.scope :global(dialog[data-modal]) > div:last-child {
+  margin-top: 1.5rem;
+}

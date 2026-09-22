@@ -1,0 +1,137 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: need-u/frontend
+
+jobs:
+  check:
+    name: Type Check, Lint & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Next.js Types
+        run: npx next typegen
+
+      - name: Type Check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production Build
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:8080/
+        run: npm run build
+
+  docker-build-check:
+    name: Docker Build Check
+    needs: check
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker Build Check
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:8080/
+        run: |
+          docker build \
+            --build-arg BACKEND_API_BASE_URL="$BACKEND_API_BASE_URL" \
+            -t needu-frontend:ci-check \
+            .
+
+  e2e:
+    name: E2E Test
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Playwright E2E
+        run: npx playwright test
+
+  ecr-push:
+    name: Build & Push to ECR
+    needs: [check, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.NEEDU_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker Image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+          BACKEND_API_BASE_URL: http://127.0.0.1:8080/
+        run: |
+          docker build \
+            --build-arg BACKEND_API_BASE_URL="$BACKEND_API_BASE_URL" \
+            -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            .
+
+      - name: Push Docker Image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push \
+            "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"

@@ -1,0 +1,83 @@
+/* AI 취향 분석 로딩 모달 전용 스타일 */
+
+.dialog {
+  position: fixed;
+  top: 60px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  width: calc(100% - 4rem);
+  max-width: 15.5rem;
+  height: fit-content;
+  max-height: calc(100dvh - 5.75rem);
+  margin: auto;
+  padding: 1rem 1.25rem 1.25rem;
+  overflow: hidden;
+  color: var(--color-foreground);
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.dialog:focus,
+.dialog:focus-visible {
+  outline: none;
+}
+
+.overlay {
+  position: fixed;
+  top: 60px;
+  right: 0;
+  bottom: 0;
+  left: 50%;
+  z-index: 50;
+  width: 100%;
+  max-width: var(--app-max-width);
+  background: var(--color-overlay);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.spinnerArea {
+  display: flex;
+  justify-content: center;
+}
+
+.spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0.25rem solid var(--color-primary);
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: spin 800ms linear infinite;
+}
+
+.title {
+  margin-top: 0.75rem;
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.description {
+  margin-top: 0.5rem;
+  font-size: var(--text-caption);
+  line-height: 1.5;
+  color: var(--color-foreground-secondary);
+  white-space: pre-line;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1600ms;
+  }
+}

@@ -1,0 +1,19 @@
+/* AI 대화 목록의 세로 스크롤바 스타일 */
+
+.messageList {
+  scrollbar-color: var(--color-disabled) transparent;
+  scrollbar-width: thin;
+}
+
+.messageList::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.messageList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messageList::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--color-disabled);
+}

@@ -1,5 +1,7 @@
-import type { Metadata, Viewport } from "next";
+import { kakaoSmallSans } from "./fonts";
 import "./globals.css";
+
+import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
   title: "Need U",
@@ -13,10 +15,9 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
   colorScheme: "light",
 };
-
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko">
+    <html lang="ko" className={kakaoSmallSans.variable}>
       <body>
         <div className="mobile-layout">{children}</div>
       </body>

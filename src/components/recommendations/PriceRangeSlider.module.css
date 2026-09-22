@@ -1,0 +1,66 @@
+/* 예산 범위 슬라이더의 트랙과 핸들 스타일 */
+
+.sliderInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 2.75rem;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.sliderInput:focus {
+  z-index: 40;
+}
+
+.sliderInput::-webkit-slider-runnable-track {
+  height: 0.25rem;
+  background: transparent;
+}
+
+.sliderInput::-moz-range-track {
+  height: 0.25rem;
+  background: transparent;
+}
+
+.sliderInput::-webkit-slider-thumb {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: -0.4375rem;
+  appearance: none;
+  border: 2px solid var(--color-border-strong);
+  border-radius: 9999px;
+  background: var(--color-surface);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.sliderInput::-moz-range-thumb {
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 2px solid var(--color-border-strong);
+  border-radius: 9999px;
+  background: var(--color-surface);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.maximumInput::-webkit-slider-thumb {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.maximumInput::-moz-range-thumb {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.sliderInput:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.sliderInput:active::-moz-range-thumb {
+  cursor: grabbing;
+}
