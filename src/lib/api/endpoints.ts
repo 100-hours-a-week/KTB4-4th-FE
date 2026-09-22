@@ -10,4 +10,5 @@ export const API_ENDPOINTS = {
   },
   errorReports: `${API_V1_PREFIX}/error-reports`,
   guidance: `${API_V1_PREFIX}/guidance`,
+  personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
 } as const;
