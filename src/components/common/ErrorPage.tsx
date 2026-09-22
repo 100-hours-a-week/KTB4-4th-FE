@@ -4,37 +4,20 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import ErrorPageButton from "@/components/common/ErrorPageButton";
-import ErrorFeedbackModal, {
-  type ErrorFeedbackDetails,
-} from "@/components/error/ErrorFeedbackModal";
+import ErrorFeedbackModal from "@/components/error/ErrorFeedbackModal";
 import Header from "@/components/layout/Header";
 
 type ErrorPageProps = {
   title: string;
   description: string;
-  feedbackDetails: ErrorFeedbackDetails;
 };
 
-function formatOccurredAt(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-
-  return `${year}.${month}.${day} ${hours}:${minutes}`;
-}
-
-export default function ErrorPage({ title, description, feedbackDetails }: ErrorPageProps) {
+export default function ErrorPage({ title, description }: ErrorPageProps) {
   const router = useRouter();
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
-  const [occurredAt, setOccurredAt] = useState("");
 
   const closeFeedbackModal = () => setIsFeedbackModalOpen(false);
-  const openFeedbackModal = () => {
-    setOccurredAt(formatOccurredAt(new Date()));
-    setIsFeedbackModalOpen(true);
-  };
+  const openFeedbackModal = () => setIsFeedbackModalOpen(true);
 
   return (
     <>
@@ -60,12 +43,7 @@ export default function ErrorPage({ title, description, feedbackDetails }: Error
           </p>
         </div>
       </main>
-      <ErrorFeedbackModal
-        open={isFeedbackModalOpen}
-        onClose={closeFeedbackModal}
-        details={feedbackDetails}
-        occurredAt={occurredAt}
-      />
+      {isFeedbackModalOpen && <ErrorFeedbackModal onClose={closeFeedbackModal} />}
     </>
   );
 }
