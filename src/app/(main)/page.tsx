@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import EmptyPreferenceHome from "@/components/home/EmptyPreferenceHome";
 import PersonalizedHome from "@/components/home/PersonalizedHome";
 import { getGuidance, type GuidanceData } from "@/lib/api/guidance";
-import { temporaryRecommendedProducts } from "@/mocks/recommendedProducts";
 
 // TODO: 사용자 정보 API 연동 후 실제 데이터로 교체
 const temporaryUser = {
@@ -48,7 +47,6 @@ export default function Home() {
             userName={temporaryUser.name}
             title={guidanceData.guidance.title}
             description={guidanceData.guidance.description}
-            products={temporaryRecommendedProducts}
           />
         ) : (
           <EmptyPreferenceHome
