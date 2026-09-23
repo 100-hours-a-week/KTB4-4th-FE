@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
+import { ApiRequestError } from "@/lib/api/client";
 import { getGiftRecommendations, type GiftRecommendation } from "@/lib/api/giftRecommendations";
 
 const PAGE_SIZE = 20;
@@ -75,9 +76,11 @@ function FriendGiftRecommendationsListContent({
       hasNextRef.current = data.hasNext && Boolean(data.nextCursor);
       setNextCursor(data.nextCursor);
       setHasNext(hasNextRef.current);
-    } catch {
+    } catch (error) {
       if (isMountedRef.current && requestGeneration === requestGenerationRef.current) {
-        router.replace("/error");
+        router.replace(
+          error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
+        );
       }
     } finally {
       if (requestGeneration === requestGenerationRef.current) {
