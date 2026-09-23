@@ -1,5 +1,7 @@
 // 친구가 없을 때 안내 아이콘과 문구를 표시하는 컴포넌트
 
+import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectButton";
+
 export default function EmptyFriends() {
   return (
     <section className="mt-[clamp(120px,20vh,190px)] flex flex-col items-center text-center">
@@ -26,6 +28,9 @@ export default function EmptyFriends() {
       <p className="mt-1 text-body-sm text-muted">
         카카오톡 친구가 니쥬를 시작하면 이곳에 표시돼요.
       </p>
+      <div className="mt-5 w-full max-w-[332px]">
+        <KakaoFriendConnectButton />
+      </div>
     </section>
   );
 }
