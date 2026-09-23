@@ -13,6 +13,14 @@ export interface FriendListItem {
   isFavorite: boolean;
 }
 
+export interface FriendDetail {
+  id: number;
+  nickname: string;
+  profileImageUrl: string | null;
+  tasteAnalysisCompleted: boolean;
+  birthDate: string;
+}
+
 interface FriendsData {
   items: FriendListItem[];
   isKakaoFriendSynced: boolean;
@@ -28,6 +36,11 @@ interface FriendsResponse {
   data: FriendsData;
   nextCursor: string | null;
   hasNext: boolean;
+}
+
+interface FriendDetailResponse {
+  message: string;
+  data: FriendDetail;
 }
 
 interface GetFriendsParams {
@@ -61,4 +74,19 @@ export async function getFriends({ cursor, size = 20 }: GetFriendsParams = {}) {
     nextCursor,
     hasNext,
   } satisfies FriendsPage;
+}
+
+export async function getFriendDetail(userId: number) {
+  const response = await apiFetch(API_ENDPOINTS.friends.detail(userId), {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new ApiRequestError("친구 상세 정보를 불러오지 못했습니다.", response.status);
+  }
+
+  const { data } = (await response.json()) as FriendDetailResponse;
+
+  return data;
 }
