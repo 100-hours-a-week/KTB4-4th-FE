@@ -6,7 +6,10 @@ export interface PreferenceAnalysis {
 }
 
 export interface PreferenceAnalysisResult {
-  badges: string[];
+  interests: string[];
+  preferences: string[];
+  /*TODO: 추후 API 연동 시 재확인**/
+  summary: string | null;
 }
 
 export type PreferenceAnalysisStatus = "IDLE" | "LOADING" | "TIMEOUT" | "COMPLETED";

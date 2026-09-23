@@ -16,7 +16,9 @@ export const temporaryPreferenceAnalysis: PreferenceAnalysis = {
 export const temporaryPreferenceAnalysisStatus: PreferenceAnalysisStatus = "COMPLETED";
 
 export const temporaryPreferenceAnalysisResult: PreferenceAnalysisResult = {
-  badges: ["최근 니즈: 편하게 쉬기", "관심사: 쉬어가는 삶", "추천 힌트: 편의성 아이템"],
+  interests: ["홈 카페", "디저트", "브런치"],
+  preferences: ["편안한 휴식", "간단한 활동", "실용적인 물건"],
+  summary: "집에서 편안하게 쉬며 간단한 요리나 디저트 만들기를 즐기는 편이에요.",
 };
 
 export const temporaryChatMessages: ChatMessage[] = [
