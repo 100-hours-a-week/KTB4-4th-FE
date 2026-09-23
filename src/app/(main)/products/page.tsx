@@ -1,11 +1,11 @@
 // 추천 대상의 문맥에 맞는 상품 추천 화면
 
-import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
+import { redirect } from "next/navigation";
+
+import FriendRecommendationContent from "@/components/products/FriendRecommendationContent";
 import PersonalRecommendationsList from "@/components/products/PersonalRecommendationsList";
-import ProductCard from "@/components/products/ProductCard";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
-import { temporaryFriends, temporarySelfTarget } from "@/mocks/recommendationTargets";
-import { temporaryRecommendedProducts } from "@/mocks/recommendedProducts";
+import { temporarySelfTarget } from "@/mocks/recommendationTargets";
 
 // TODO: 추천 API 응답의 최소·최대 가격 메타데이터로 교체
 const temporaryAvailablePriceRange = {
@@ -22,34 +22,40 @@ type ProductsPageProps = {
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const { targetType, targetUserId } = await searchParams;
-  const target =
-    targetType === "FRIEND" && targetUserId
-      ? (temporaryFriends[targetUserId] ?? temporarySelfTarget)
-      : temporarySelfTarget;
+
+  if (targetType === "FRIEND") {
+    const userId = Number(targetUserId);
+
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+      redirect("/error");
+    }
+
+    return (
+      <main
+        aria-label="상품 추천"
+        className="page-content flex flex-1 flex-col bg-background-subtle"
+      >
+        <FriendRecommendationContent
+          userId={userId}
+          availableMinPrice={temporaryAvailablePriceRange.minimum}
+          availableMaxPrice={temporaryAvailablePriceRange.maximum}
+        />
+      </main>
+    );
+  }
 
   return (
     <main aria-label="상품 추천" className="page-content flex flex-1 flex-col bg-background-subtle">
-      {/* TODO: targetType과 targetUserId를 기준으로 추천 API의 대상 정보 조회 */}
       <section aria-label="추천 대상" className="w-full pt-8">
         <RecommendationTarget
-          target={target}
+          target={temporarySelfTarget}
           availableMinPrice={temporaryAvailablePriceRange.minimum}
           availableMaxPrice={temporaryAvailablePriceRange.maximum}
         />
       </section>
 
-      {/* TODO: 예산 조절바에서 적용한 최소·최대 가격을 기준으로 추천 상품 목록 필터링 */}
-      {/* TODO: 친구 추천 상품 목록 조회 API 연동 후 FRIEND 분기의 Mock 데이터 교체 */}
       <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">
-        {target.type === "SELF" ? (
-          <PersonalRecommendationsList />
-        ) : temporaryRecommendedProducts.length === 0 ? (
-          <EmptyRecommendedProducts />
-        ) : (
-          temporaryRecommendedProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))
-        )}
+        <PersonalRecommendationsList />
       </section>
     </main>
   );
