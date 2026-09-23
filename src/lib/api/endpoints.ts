@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
   },
   errorReports: `${API_V1_PREFIX}/error-reports`,
   friends: {
+    list: `${API_V1_PREFIX}/friends`,
     kakaoAuthorize: `${API_V1_PREFIX}/friends/kakao/authorize`,
   },
   guidance: `${API_V1_PREFIX}/guidance`,

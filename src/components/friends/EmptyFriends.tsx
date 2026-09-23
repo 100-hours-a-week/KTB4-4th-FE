@@ -2,7 +2,11 @@
 
 import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectButton";
 
-export default function EmptyFriends() {
+type EmptyFriendsProps = {
+  showKakaoConnectButton: boolean;
+};
+
+export default function EmptyFriends({ showKakaoConnectButton }: EmptyFriendsProps) {
   return (
     <section className="mt-[clamp(120px,20vh,190px)] flex flex-col items-center text-center">
       <svg
@@ -28,9 +32,11 @@ export default function EmptyFriends() {
       <p className="mt-1 text-body-sm text-muted">
         카카오톡 친구가 니쥬를 시작하면 이곳에 표시돼요.
       </p>
-      <div className="mt-5 w-full max-w-[332px]">
-        <KakaoFriendConnectButton />
-      </div>
+      {showKakaoConnectButton && (
+        <div className="mt-5 w-full max-w-[332px]">
+          <KakaoFriendConnectButton />
+        </div>
+      )}
     </section>
   );
 }
