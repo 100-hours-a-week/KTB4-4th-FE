@@ -15,6 +15,7 @@ export interface FriendListItem {
 
 interface FriendsData {
   items: FriendListItem[];
+  isKakaoFriendSynced: boolean;
 }
 
 export interface FriendsPage extends FriendsData {
@@ -36,7 +37,6 @@ interface GetFriendsParams {
 
 export async function getFriends({ cursor, size = 20 }: GetFriendsParams = {}) {
   const searchParams = new URLSearchParams({
-    sort: "name",
     size: String(size),
   });
 
@@ -44,7 +44,7 @@ export async function getFriends({ cursor, size = 20 }: GetFriendsParams = {}) {
     searchParams.set("cursor", cursor);
   }
 
-  const response = await apiFetch(`${API_ENDPOINTS.friends}?${searchParams.toString()}`, {
+  const response = await apiFetch(`${API_ENDPOINTS.friends.list}?${searchParams.toString()}`, {
     method: "GET",
     cache: "no-store",
   });
@@ -57,6 +57,7 @@ export async function getFriends({ cursor, size = 20 }: GetFriendsParams = {}) {
 
   return {
     items: data.items,
+    isKakaoFriendSynced: data.isKakaoFriendSynced,
     nextCursor,
     hasNext,
   } satisfies FriendsPage;

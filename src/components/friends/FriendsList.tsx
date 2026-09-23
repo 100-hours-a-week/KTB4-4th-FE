@@ -20,6 +20,7 @@ export default function FriendsList({ onHasFriendsChange }: FriendsListProps) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasNext, setHasNext] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
   const sentinelRef = useRef<HTMLLIElement>(null);
   const isMountedRef = useRef(false);
   const isLoadingRef = useRef(false);
@@ -47,6 +48,7 @@ export default function FriendsList({ onHasFriendsChange }: FriendsListProps) {
 
       if (isFirstPage) {
         onHasFriendsChange(data.items.length > 0);
+        setIsKakaoFriendSynced(data.isKakaoFriendSynced);
       }
 
       setFriends((currentFriends) => [...currentFriends, ...data.items]);
@@ -97,7 +99,7 @@ export default function FriendsList({ onHasFriendsChange }: FriendsListProps) {
   }, [hasNext, loadNextPage, nextCursor]);
 
   if (!isLoading && friends.length === 0 && !hasNext) {
-    return <EmptyFriends />;
+    return <EmptyFriends showKakaoConnectButton={isKakaoFriendSynced === false} />;
   }
 
   return (
@@ -108,7 +110,11 @@ export default function FriendsList({ onHasFriendsChange }: FriendsListProps) {
     >
       {friends.map((friend) => (
         <li key={friend.userId}>
-          <FriendCard userId={friend.userId} name={friend.name} />
+          <FriendCard
+            userId={friend.userId}
+            name={friend.name}
+            profileImageUrl={friend.profileImageUrl}
+          />
         </li>
       ))}
 
