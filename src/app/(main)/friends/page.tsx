@@ -5,9 +5,11 @@ import { useEffect, useState } from "react";
 
 import PageIntro from "@/components/common/PageIntro";
 import FriendsList from "@/components/friends/FriendsList";
+import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectButton";
 
 export default function FriendsPage() {
   const [hasFriends, setHasFriends] = useState<boolean | null>(null);
+  const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (hasFriends === null) {
@@ -40,7 +42,15 @@ export default function FriendsPage() {
               : "니쥬와 대화한 친구에게 바로 물어볼 수 있어요."
         }
       />
-      <FriendsList onHasFriendsChange={setHasFriends} />
+      {isKakaoFriendSynced === true && (
+        <div className="mt-2 flex justify-end px-1">
+          <KakaoFriendConnectButton variant="sync" />
+        </div>
+      )}
+      <FriendsList
+        onHasFriendsChange={setHasFriends}
+        onKakaoFriendSyncedChange={setIsKakaoFriendSynced}
+      />
     </main>
   );
 }

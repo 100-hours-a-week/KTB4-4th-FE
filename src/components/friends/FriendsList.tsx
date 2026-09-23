@@ -12,9 +12,13 @@ const PAGE_SIZE = 20;
 
 type FriendsListProps = {
   onHasFriendsChange: (hasFriends: boolean) => void;
+  onKakaoFriendSyncedChange: (isKakaoFriendSynced: boolean) => void;
 };
 
-export default function FriendsList({ onHasFriendsChange }: FriendsListProps) {
+export default function FriendsList({
+  onHasFriendsChange,
+  onKakaoFriendSyncedChange,
+}: FriendsListProps) {
   const router = useRouter();
   const [friends, setFriends] = useState<FriendListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -49,6 +53,7 @@ export default function FriendsList({ onHasFriendsChange }: FriendsListProps) {
       if (isFirstPage) {
         onHasFriendsChange(data.items.length > 0);
         setIsKakaoFriendSynced(data.isKakaoFriendSynced);
+        onKakaoFriendSyncedChange(data.isKakaoFriendSynced);
       }
 
       setFriends((currentFriends) => [...currentFriends, ...data.items]);
@@ -67,7 +72,7 @@ export default function FriendsList({ onHasFriendsChange }: FriendsListProps) {
         setIsLoading(false);
       }
     }
-  }, [onHasFriendsChange, router]);
+  }, [onHasFriendsChange, onKakaoFriendSyncedChange, router]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -106,7 +111,7 @@ export default function FriendsList({ onHasFriendsChange }: FriendsListProps) {
     <ul
       aria-label="선물할 친구"
       aria-busy={isLoading}
-      className="mt-12 flex list-none flex-col gap-5 p-0"
+      className={`${isKakaoFriendSynced === true ? "mt-6" : "mt-12"} flex list-none flex-col gap-5 p-0`}
     >
       {friends.map((friend) => (
         <li key={friend.userId}>
