@@ -97,6 +97,7 @@ export default function AiConversationContent({
 
     let isActive = true;
 
+    // TODO: nextCursor와 hasNext를 활용한 대화 메시지 추가 페이지 조회 연동
     getAiConversationMessages({ conversationId: activeConversationId, size: 20 })
       .then(({ items }) => {
         if (isActive) {
