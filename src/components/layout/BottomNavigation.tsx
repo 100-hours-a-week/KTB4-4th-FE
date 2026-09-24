@@ -45,7 +45,7 @@ export default function BottomNavigation() {
       {errorMessage && (
         <p
           role="alert"
-          className="absolute right-4 bottom-[calc(100%+0.5rem)] left-4 rounded-sm bg-danger-subtle px-3 py-2 text-center text-body-sm text-danger shadow-sm"
+          className="absolute right-4 bottom-[calc(100%+2.5rem)] left-4 rounded-sm bg-danger-subtle px-3 py-2 text-center text-body-sm text-danger shadow-sm"
         >
           {errorMessage}
           {retryAfterSeconds > 0 && ` (${retryAfterSeconds}초 후 다시 시도해 주세요.)`}
