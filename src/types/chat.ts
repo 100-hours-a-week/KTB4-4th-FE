@@ -5,11 +5,16 @@ export interface PreferenceAnalysis {
   description: string;
 }
 
+export interface PreferenceAnalysisKeyword {
+  value: string;
+  score: number;
+}
+
 export interface PreferenceAnalysisResult {
-  interests: string[];
-  preferences: string[];
-  /*TODO: 추후 API 연동 시 재확인**/
+  interests: PreferenceAnalysisKeyword[];
+  preferences: PreferenceAnalysisKeyword[];
   summary: string | null;
+  correctionAvailable: boolean;
 }
 
 export type PreferenceAnalysisStatus = "IDLE" | "LOADING" | "TIMEOUT" | "COMPLETED";

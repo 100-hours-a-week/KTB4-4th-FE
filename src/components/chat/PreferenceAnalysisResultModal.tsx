@@ -5,7 +5,7 @@
 import { useState } from "react";
 
 import Modal from "@/components/common/Modal";
-import type { PreferenceAnalysisResult } from "@/types/chat";
+import type { PreferenceAnalysisKeyword, PreferenceAnalysisResult } from "@/types/chat";
 
 import styles from "./PreferenceAnalysisResultModal.module.css";
 
@@ -16,67 +16,76 @@ type PreferenceAnalysisResultModalProps = {
   onConfirm: () => void;
 };
 
+const sortByScore = (keywords: PreferenceAnalysisKeyword[]) =>
+  [...keywords].sort((first, second) => second.score - first.score);
+
 export default function PreferenceAnalysisResultModal({
   open,
   result,
   onReject,
   onConfirm,
 }: PreferenceAnalysisResultModalProps) {
-  // TODO: API 응답의 유사도 내림차순에 따라 왼쪽에서 오른쪽으로 배지를 정렬
-  const [interests, setInterests] = useState(result.interests ?? []);
-  const [preferences, setPreferences] = useState(result.preferences ?? []);
+  const [interests, setInterests] = useState(() => sortByScore(result.interests));
+  const [preferences, setPreferences] = useState(() => sortByScore(result.preferences));
   const [summary, setSummary] = useState(result.summary ?? null);
   const [summaryDraft, setSummaryDraft] = useState(result.summary ?? "");
-  const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [hasCorrected, setHasCorrected] = useState(false);
 
-  const startEditingSummary = () => {
+  const startEditing = () => {
     setSummaryDraft(summary ?? "");
-    setIsEditingSummary(true);
+    setIsEditing(true);
   };
 
-  const updateSummary = () => {
+  const updateAnalysis = () => {
     const nextSummary = summaryDraft.trim();
 
-    // TODO: API 연동 시 취향 분석 요약 수정은 최초 1회만 허용
+    // TODO: 취향 분석 결과 수정 API 연동 후 요약·키워드 변경 사항 저장
     setSummary(nextSummary.length > 0 ? nextSummary : null);
-    setIsEditingSummary(false);
+    setHasCorrected(true);
+    setIsEditing(false);
   };
 
   const removeBadge = (
     badgeIndex: number,
-    setBadges: React.Dispatch<React.SetStateAction<string[]>>,
+    setBadges: React.Dispatch<React.SetStateAction<PreferenceAnalysisKeyword[]>>,
   ) => {
     setBadges((badges) => badges.filter((_, index) => index !== badgeIndex));
   };
 
   const renderBadges = (
-    badges: string[],
+    badges: PreferenceAnalysisKeyword[],
     category: "관심사" | "취향",
-    setBadges: React.Dispatch<React.SetStateAction<string[]>>,
+    setBadges: React.Dispatch<React.SetStateAction<PreferenceAnalysisKeyword[]>>,
   ) => (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className="mt-3 flex flex-nowrap gap-1 overflow-x-auto pb-1">
       {badges.map((badge, index) => (
         <span
-          key={`${badge}-${index}`}
-          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[4px] bg-background-subtle py-2 pr-2 pl-3 text-xs font-medium text-muted"
+          key={`${badge.value}-${index}`}
+          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[4px] bg-background-subtle px-2 py-1.5 text-[10px] font-bold text-muted"
         >
-          {badge}
-          <button
-            type="button"
-            aria-label={`${category} ${badge} 삭제`}
-            className={styles.badgeRemoveButton}
-            onClick={() => removeBadge(index, setBadges)}
-          >
-            <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5">
-              <path
-                d="m4 4 8 8m0-8-8 8"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="1.5"
-              />
-            </svg>
-          </button>
+          <span>{badge.value}</span>
+          <span className="rounded-full bg-info-subtle px-1 py-0.5 font-bold text-muted">
+            {Math.round(Math.min(Math.max(badge.score, 0), 1) * 100)}%
+          </span>
+          {isEditing && (
+            <button
+              type="button"
+              aria-label={`${category} ${badge.value} 삭제`}
+              className={styles.badgeRemoveButton}
+              onClick={() => removeBadge(index, setBadges)}
+            >
+              <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5">
+                <path
+                  d="m4 4 8 8m0-8-8 8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="1.5"
+                />
+              </svg>
+            </button>
+          )}
         </span>
       ))}
     </div>
@@ -89,12 +98,21 @@ export default function PreferenceAnalysisResultModal({
         onClose={onReject}
         title="이렇게 기억하려 해요"
         keepHeaderInteractive
-        firstAction={{
-          label: "틀려요",
-          onClick: startEditingSummary,
-          disabled: isEditingSummary,
-        }}
-        secondAction={{ label: "맞아요", onClick: onConfirm, disabled: isEditingSummary }}
+        firstAction={
+          result.correctionAvailable && !isEditing && !hasCorrected
+            ? { label: "틀려요", onClick: startEditing }
+            : undefined
+        }
+        secondAction={
+          isEditing
+            ? {
+                label: "수정하기",
+                type: "submit",
+                form: "preference-analysis-correction-form",
+                disabled: summaryDraft.trim().length === 0,
+              }
+            : { label: "맞아요", onClick: onConfirm }
+        }
       >
         <p className="mt-0 text-body-sm text-foreground">
           니쥬가 분석한 내용이 맞다고 생각하시나요?
@@ -112,17 +130,18 @@ export default function PreferenceAnalysisResultModal({
             </h3>
             {renderBadges(interests, "관심사", setInterests)}
           </section>
-          {(summary !== null || isEditingSummary) && (
+          {(summary !== null || isEditing) && (
             <section aria-labelledby="preference-analysis-summary">
               <h3 id="preference-analysis-summary" className="text-body font-bold">
                 요약
               </h3>
-              {isEditingSummary ? (
+              {isEditing ? (
                 <form
+                  id="preference-analysis-correction-form"
                   className="mt-3"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    updateSummary();
+                    updateAnalysis();
                   }}
                 >
                   <input
@@ -134,12 +153,6 @@ export default function PreferenceAnalysisResultModal({
                     placeholder="분석한 내용을 입력해주세요."
                     onChange={(event) => setSummaryDraft(event.target.value)}
                   />
-                  <button
-                    type="submit"
-                    className="mt-2 flex h-11 w-full cursor-pointer items-center justify-center rounded-[6px] border-0 bg-primary px-4 text-body font-normal text-on-primary"
-                  >
-                    수정하기
-                  </button>
                 </form>
               ) : (
                 <p className="mt-3 text-body-sm text-muted">{summary}</p>

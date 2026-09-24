@@ -16,9 +16,18 @@ export const temporaryPreferenceAnalysis: PreferenceAnalysis = {
 export const temporaryPreferenceAnalysisStatus: PreferenceAnalysisStatus = "COMPLETED";
 
 export const temporaryPreferenceAnalysisResult: PreferenceAnalysisResult = {
-  interests: ["홈 카페", "디저트", "브런치"],
-  preferences: ["편안한 휴식", "간단한 활동", "실용적인 물건"],
+  interests: [
+    { value: "홈 카페", score: 0.95 },
+    { value: "디저트", score: 0.88 },
+    { value: "브런치", score: 0.82 },
+  ],
+  preferences: [
+    { value: "편안한 휴식", score: 0.93 },
+    { value: "간단한 활동", score: 0.87 },
+    { value: "실용적인 물건", score: 0.8 },
+  ],
   summary: "집에서 편안하게 쉬며 간단한 요리나 디저트 만들기를 즐기는 편이에요.",
+  correctionAvailable: true,
 };
 
 // TODO: 비활성·미검증 대화의 메시지 표시 정책 확정 후 아래 대화 Mock 데이터 제거
