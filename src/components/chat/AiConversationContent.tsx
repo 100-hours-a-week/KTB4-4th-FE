@@ -12,6 +12,7 @@ import {
   getAiConversationMessages,
   type AiConversationMessage,
 } from "@/lib/api/aiConversationMessages";
+import type { SendAiConversationMessageData } from "@/lib/api/aiConversationMessageSend";
 import { ApiRequestError } from "@/lib/api/client";
 import {
   temporaryChatMessages,
@@ -58,25 +59,31 @@ export default function AiConversationContent({
   const [messagesState, setMessagesState] = useState<ConversationMessagesState | null>(null);
   const [messagesError, setMessagesError] = useState<ConversationMessagesError | null>(null);
   const [requestVersion, setRequestVersion] = useState(0);
+  const [analysisProgress, setAnalysisProgress] = useState<number | null>(null);
+  // TODO: 대화 상태 조회 API 연동 후 직접 URL 접근·새로고침 시 conversation Context 복원
   const isVerifiedConversation =
     conversation !== null &&
     String(conversation.conversationId) === conversationId &&
     conversation.status === status;
   const verifiedStatus = isVerifiedConversation ? conversation.status : undefined;
-  const activeConversationId =
-    verifiedStatus === "ACTIVE" ? conversation?.conversationId : undefined;
+  const availableConversationId =
+    verifiedStatus === "ACTIVE" || verifiedStatus === "ANALYZING"
+      ? conversation?.conversationId
+      : undefined;
   const messages =
-    activeConversationId !== undefined && messagesState?.conversationId === activeConversationId
+    availableConversationId !== undefined &&
+    messagesState?.conversationId === availableConversationId
       ? messagesState.messages
       : temporaryChatMessages;
   const currentError =
-    activeConversationId !== undefined && messagesError?.conversationId === activeConversationId
+    availableConversationId !== undefined &&
+    messagesError?.conversationId === availableConversationId
       ? messagesError
       : null;
   const isLoadingMessages =
-    activeConversationId !== undefined &&
-    messagesState?.conversationId !== activeConversationId &&
-    messagesError?.conversationId !== activeConversationId;
+    availableConversationId !== undefined &&
+    messagesState?.conversationId !== availableConversationId &&
+    messagesError?.conversationId !== availableConversationId;
 
   useEffect(() => {
     if (currentError?.status !== 429 || currentError.retryAfterSeconds <= 0) return;
@@ -93,16 +100,16 @@ export default function AiConversationContent({
   }, [currentError]);
 
   useEffect(() => {
-    if (activeConversationId === undefined) return;
+    if (availableConversationId === undefined) return;
 
     let isActive = true;
 
     // TODO: nextCursor와 hasNext를 활용한 대화 메시지 추가 페이지 조회 연동
-    getAiConversationMessages({ conversationId: activeConversationId, size: 20 })
+    getAiConversationMessages({ conversationId: availableConversationId, size: 20 })
       .then(({ items }) => {
         if (isActive) {
           setMessagesState({
-            conversationId: activeConversationId,
+            conversationId: availableConversationId,
             messages: items.map(toChatMessage),
           });
         }
@@ -116,7 +123,7 @@ export default function AiConversationContent({
         }
 
         setMessagesError({
-          conversationId: activeConversationId,
+          conversationId: availableConversationId,
           message:
             error instanceof ApiRequestError ? error.message : "대화 메시지를 불러오지 못했습니다.",
           status: error instanceof ApiRequestError ? error.status : 0,
@@ -130,11 +137,15 @@ export default function AiConversationContent({
     return () => {
       isActive = false;
     };
-  }, [activeConversationId, requestVersion, router]);
+  }, [availableConversationId, requestVersion, router]);
 
   const handleRetry = () => {
     setMessagesError(null);
     setRequestVersion((version) => version + 1);
+  };
+
+  const handleMessageSent = (response: SendAiConversationMessageData) => {
+    setAnalysisProgress(response.progress);
   };
 
   return (
@@ -142,8 +153,15 @@ export default function AiConversationContent({
       aria-label="AI 대화"
       className="page-content flex min-h-0 flex-1 flex-col bg-background-subtle pt-4"
     >
-      {/* TODO: AI 대화 API 응답의 취향 분석 상태로 교체 */}
-      <PreferenceAnalysisBar {...temporaryPreferenceAnalysis} />
+      {/* TODO: 취향 분석 진행률 설명 API 연동 후 Mock 설명 문구 교체 */}
+      <PreferenceAnalysisBar
+        progress={
+          availableConversationId === undefined
+            ? temporaryPreferenceAnalysis.progress
+            : (analysisProgress ?? 0)
+        }
+        description={temporaryPreferenceAnalysis.description}
+      />
 
       {isLoadingMessages ? (
         <p
@@ -177,12 +195,16 @@ export default function AiConversationContent({
             key={
               messages === temporaryChatMessages
                 ? "temporary-chat"
-                : `conversation-${activeConversationId}`
+                : `conversation-${availableConversationId}`
             }
             initialMessages={messages}
-            initialAnalysisStatus={temporaryPreferenceAnalysisStatus}
+            initialAnalysisStatus={
+              availableConversationId === undefined ? temporaryPreferenceAnalysisStatus : "IDLE"
+            }
             analysisResult={temporaryPreferenceAnalysisResult}
             isInputLocked={verifiedStatus === "ANALYZING"}
+            conversationId={availableConversationId}
+            onMessageSent={handleMessageSent}
           />
         </>
       )}

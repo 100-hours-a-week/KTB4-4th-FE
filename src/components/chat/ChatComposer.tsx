@@ -1,4 +1,4 @@
-// 사용자 메시지 입력과 Mock 전송을 담당하는 입력창 컴포넌트
+// 사용자 메시지 입력과 비동기 전송을 담당하는 입력창 컴포넌트
 
 "use client";
 
@@ -9,7 +9,7 @@ import styles from "./ChatComposer.module.css";
 import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 
 type ChatComposerProps = {
-  onSend: (content: string) => void;
+  onSend: (content: string) => Promise<void>;
   isDisabled?: boolean;
 };
 
@@ -18,8 +18,10 @@ const MAX_TEXTAREA_HEIGHT = 108;
 
 export default function ChatComposer({ onSend, isDisabled = false }: ChatComposerProps) {
   const [draftMessage, setDraftMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const normalizedMessage = draftMessage.trim();
+  const isInputDisabled = isDisabled || isSending;
 
   const resizeTextarea = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
@@ -42,22 +44,31 @@ export default function ChatComposer({ onSend, isDisabled = false }: ChatCompose
     event.currentTarget.form?.requestSubmit();
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isDisabled || !normalizedMessage) return;
+    if (isInputDisabled || !normalizedMessage) return;
 
-    onSend(normalizedMessage);
-    setDraftMessage("");
+    setIsSending(true);
 
-    if (textareaRef.current) {
-      textareaRef.current.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
-      textareaRef.current.style.overflowY = "hidden";
+    try {
+      await onSend(normalizedMessage);
+      setDraftMessage("");
+
+      if (textareaRef.current) {
+        textareaRef.current.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
+        textareaRef.current.style.overflowY = "hidden";
+      }
+    } catch {
+      return;
+    } finally {
+      setIsSending(false);
     }
   };
 
   return (
     <form
       aria-label="메시지 전송"
+      aria-busy={isSending || undefined}
       onSubmit={handleSubmit}
       className="mb-[max(0.75rem,env(safe-area-inset-bottom))] flex shrink-0 items-center gap-2 rounded-md border border-border-strong bg-surface p-1"
     >
@@ -69,7 +80,7 @@ export default function ChatComposer({ onSend, isDisabled = false }: ChatCompose
         id="chat-message"
         rows={1}
         value={draftMessage}
-        disabled={isDisabled}
+        disabled={isInputDisabled}
         maxLength={500}
         placeholder="메시지 입력"
         autoComplete="off"
@@ -80,7 +91,7 @@ export default function ChatComposer({ onSend, isDisabled = false }: ChatCompose
       <button
         type="submit"
         aria-label="메시지 보내기"
-        disabled={isDisabled || !normalizedMessage}
+        disabled={isInputDisabled || !normalizedMessage}
         className={`${styles.sendButton} flex shrink-0 cursor-pointer items-center justify-center self-end rounded-full border-0 bg-primary text-sm leading-none font-bold text-on-primary disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted`}
       >
         ↑
