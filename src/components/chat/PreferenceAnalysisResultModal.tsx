@@ -14,6 +14,7 @@ type PreferenceAnalysisResultModalProps = {
   result: PreferenceAnalysisResult;
   onReject: () => void;
   onConfirm: () => void;
+  onUpdateSummary: (summary: string) => Promise<PreferenceAnalysisResult>;
 };
 
 const sortByScore = (keywords: PreferenceAnalysisKeyword[]) =>
@@ -24,40 +25,51 @@ export default function PreferenceAnalysisResultModal({
   result,
   onReject,
   onConfirm,
+  onUpdateSummary,
 }: PreferenceAnalysisResultModalProps) {
   const [interests, setInterests] = useState(() => sortByScore(result.interests));
   const [preferences, setPreferences] = useState(() => sortByScore(result.preferences));
   const [summary, setSummary] = useState(result.summary ?? null);
   const [summaryDraft, setSummaryDraft] = useState(result.summary ?? "");
+  const [correctionAvailable, setCorrectionAvailable] = useState(result.correctionAvailable);
   const [isEditing, setIsEditing] = useState(false);
-  const [hasCorrected, setHasCorrected] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateErrorMessage, setUpdateErrorMessage] = useState("");
 
   const startEditing = () => {
     setSummaryDraft(summary ?? "");
+    setUpdateErrorMessage("");
     setIsEditing(true);
   };
 
-  const updateAnalysis = () => {
+  const updateAnalysis = async () => {
     const nextSummary = summaryDraft.trim();
 
-    // TODO: 취향 분석 결과 수정 API 연동 후 요약·키워드 변경 사항 저장
-    setSummary(nextSummary.length > 0 ? nextSummary : null);
-    setHasCorrected(true);
-    setIsEditing(false);
+    if (!nextSummary || isUpdating) return;
+
+    setIsUpdating(true);
+    setUpdateErrorMessage("");
+
+    try {
+      const updatedResult = await onUpdateSummary(nextSummary);
+
+      setInterests(sortByScore(updatedResult.interests));
+      setPreferences(sortByScore(updatedResult.preferences));
+      setSummary(updatedResult.summary);
+      setSummaryDraft(updatedResult.summary ?? "");
+      setCorrectionAvailable(updatedResult.correctionAvailable);
+      setIsEditing(false);
+    } catch (error) {
+      setUpdateErrorMessage(
+        error instanceof Error ? error.message : "취향 분석 결과를 수정하지 못했습니다.",
+      );
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
-  const removeBadge = (
-    badgeIndex: number,
-    setBadges: React.Dispatch<React.SetStateAction<PreferenceAnalysisKeyword[]>>,
-  ) => {
-    setBadges((badges) => badges.filter((_, index) => index !== badgeIndex));
-  };
-
-  const renderBadges = (
-    badges: PreferenceAnalysisKeyword[],
-    category: "관심사" | "취향",
-    setBadges: React.Dispatch<React.SetStateAction<PreferenceAnalysisKeyword[]>>,
-  ) => (
+  // TODO: 현재는 summary만 수정하며, 키워드 수정 범위 확정 후 배지 삭제 기능 활성화
+  const renderBadges = (badges: PreferenceAnalysisKeyword[]) => (
     <div className="mt-3 flex flex-nowrap gap-1 overflow-x-auto pb-1">
       {badges.map((badge, index) => (
         <span
@@ -68,24 +80,6 @@ export default function PreferenceAnalysisResultModal({
           <span className="rounded-full bg-info-subtle px-1 py-0.5 font-bold text-muted">
             {Math.round(Math.min(Math.max(badge.score, 0), 1) * 100)}%
           </span>
-          {isEditing && (
-            <button
-              type="button"
-              aria-label={`${category} ${badge.value} 삭제`}
-              className={styles.badgeRemoveButton}
-              onClick={() => removeBadge(index, setBadges)}
-            >
-              <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5">
-                <path
-                  d="m4 4 8 8m0-8-8 8"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeWidth="1.5"
-                />
-              </svg>
-            </button>
-          )}
         </span>
       ))}
     </div>
@@ -99,17 +93,16 @@ export default function PreferenceAnalysisResultModal({
         title="이렇게 기억하려 해요"
         keepHeaderInteractive
         firstAction={
-          result.correctionAvailable && !isEditing && !hasCorrected
-            ? { label: "틀려요", onClick: startEditing }
-            : undefined
+          correctionAvailable && !isEditing ? { label: "틀려요", onClick: startEditing } : undefined
         }
         secondAction={
           isEditing
             ? {
-                label: "수정하기",
+                label: isUpdating ? "수정 중..." : "수정하기",
                 type: "submit",
                 form: "preference-analysis-correction-form",
-                disabled: summaryDraft.trim().length === 0,
+                disabled: summaryDraft.trim().length === 0 || isUpdating,
+                "aria-busy": isUpdating || undefined,
               }
             : { label: "맞아요", onClick: onConfirm }
         }
@@ -122,13 +115,13 @@ export default function PreferenceAnalysisResultModal({
             <h3 id="preference-analysis-preferences" className="text-body font-bold">
               취향
             </h3>
-            {renderBadges(preferences, "취향", setPreferences)}
+            {renderBadges(preferences)}
           </section>
           <section aria-labelledby="preference-analysis-interests">
             <h3 id="preference-analysis-interests" className="text-body font-bold">
               관심사
             </h3>
-            {renderBadges(interests, "관심사", setInterests)}
+            {renderBadges(interests)}
           </section>
           {(summary !== null || isEditing) && (
             <section aria-labelledby="preference-analysis-summary">
@@ -141,7 +134,7 @@ export default function PreferenceAnalysisResultModal({
                   className="mt-3"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    updateAnalysis();
+                    void updateAnalysis();
                   }}
                 >
                   <input
@@ -149,10 +142,16 @@ export default function PreferenceAnalysisResultModal({
                     value={summaryDraft}
                     aria-label="요약 수정"
                     autoFocus
+                    disabled={isUpdating}
                     className={`${styles.summaryInput} w-full rounded-[4px] border-0 bg-background-subtle px-3 py-2 text-foreground placeholder:text-muted`}
                     placeholder="분석한 내용을 입력해주세요."
                     onChange={(event) => setSummaryDraft(event.target.value)}
                   />
+                  {updateErrorMessage && (
+                    <p role="alert" className="mt-2 text-body-sm text-danger">
+                      {updateErrorMessage}
+                    </p>
+                  )}
                 </form>
               ) : (
                 <p className="mt-3 text-body-sm text-muted">{summary}</p>
