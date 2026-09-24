@@ -1,4 +1,4 @@
-// AI 대화 취향 분석 결과 생성·재조회·수정 API 요청과 응답 타입
+// AI 대화 취향 분석 결과 생성·재조회·수정·확정 API 요청과 응답 타입
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -38,6 +38,15 @@ interface AiPreferenceAnalysisErrorResponse {
 
 interface UpdateAiPreferenceAnalysisParams extends UpdateAiPreferenceAnalysisRequest {
   conversationId: number;
+}
+
+export interface ConfirmAiPreferenceAnalysisData {
+  isRecommendationCompleted: boolean;
+}
+
+interface ConfirmAiPreferenceAnalysisResponse {
+  message: string;
+  data: ConfirmAiPreferenceAnalysisData;
 }
 
 const DEFAULT_ERROR_MESSAGES: Partial<Record<number, string>> = {
@@ -100,5 +109,27 @@ export async function updateAiPreferenceAnalysis({
   }
 
   const { data } = (await response.json()) as AiPreferenceAnalysisResponse;
+  return data;
+}
+
+export async function confirmAiPreferenceAnalysis(conversationId: number) {
+  const response = await apiFetch(API_ENDPOINTS.ai.conversationConfirmation(conversationId), {
+    method: "POST",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorResponse = (await response
+      .json()
+      .catch(() => null)) as AiPreferenceAnalysisErrorResponse | null;
+    const message =
+      errorResponse?.message ??
+      DEFAULT_ERROR_MESSAGES[response.status] ??
+      "취향 분석 결과를 확정하지 못했습니다.";
+
+    throw new ApiRequestError(message, response.status);
+  }
+
+  const { data } = (await response.json()) as ConfirmAiPreferenceAnalysisResponse;
   return data;
 }

@@ -11,6 +11,7 @@ import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysis
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
 import {
+  confirmAiPreferenceAnalysis,
   requestAiPreferenceAnalysis,
   updateAiPreferenceAnalysis,
   type AiPreferenceAnalysisData,
@@ -64,6 +65,7 @@ export default function ChatRoom({
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
   const [analysisResult, setAnalysisResult] = useState(initialAnalysisResult);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
+  const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
@@ -261,8 +263,46 @@ export default function ChatRoom({
     setAnalysisStatus("IDLE");
   };
 
-  const handleConfirmAnalysis = () => {
-    // TODO: AI 취향 분석 결과 확인 API 및 다음 화면 이동 동작 연동
+  const handleConfirmAnalysis = async () => {
+    if (conversationId === undefined || isConfirmingAnalysis) return;
+
+    setIsConfirmingAnalysis(true);
+
+    let response;
+
+    try {
+      response = await confirmAiPreferenceAnalysis(conversationId);
+    } catch (error) {
+      setIsConfirmingAnalysis(false);
+
+      if (error instanceof ApiRequestError) {
+        if (error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        if (error.status === 429 || error.status === 503) {
+          throw error;
+        }
+
+        router.replace("/error");
+        return;
+      }
+
+      if (error instanceof TypeError) {
+        throw new Error("네트워크 연결을 확인한 후 다시 시도해 주세요.");
+      }
+
+      router.replace("/error");
+      return;
+    }
+
+    if (!response.isRecommendationCompleted) {
+      setIsConfirmingAnalysis(false);
+      throw new Error("추천 생성이 완료되지 않았습니다. 다시 시도해 주세요.");
+    }
+
+    router.replace("/");
   };
 
   return (
@@ -285,7 +325,7 @@ export default function ChatRoom({
           (sendError?.status === 429 && sendError.retryAfterSeconds > 0)
         }
       />
-      <PreferenceAnalysisLoadingModal open={analysisStatus === "LOADING"} />
+      <PreferenceAnalysisLoadingModal open={analysisStatus === "LOADING" || isConfirmingAnalysis} />
       <PreferenceAnalysisTimeoutModal
         open={analysisStatus === "TIMEOUT"}
         onReturnToChat={handleReturnToChat}
@@ -293,11 +333,12 @@ export default function ChatRoom({
       />
       {analysisStatus === "COMPLETED" && (
         <PreferenceAnalysisResultModal
-          open
+          open={!isConfirmingAnalysis}
           result={analysisResult}
           onReject={handleRejectAnalysis}
           onConfirm={handleConfirmAnalysis}
           onUpdateSummary={handleUpdateAnalysisSummary}
+          isConfirming={isConfirmingAnalysis}
         />
       )}
     </div>
