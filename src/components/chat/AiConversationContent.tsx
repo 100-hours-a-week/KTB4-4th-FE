@@ -60,7 +60,7 @@ export default function AiConversationContent({
   const [messagesError, setMessagesError] = useState<ConversationMessagesError | null>(null);
   const [requestVersion, setRequestVersion] = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState<number | null>(null);
-  // TODO: 대화 상태 조회 API 연동 후 직접 URL 접근·새로고침 시 conversation Context 복원
+  // TODO: 백엔드 대화 상태 조회 API 구현 후 URL status 의존 제거 및 직접 접근·새로고침 시 Context 복원
   const isVerifiedConversation =
     conversation !== null &&
     String(conversation.conversationId) === conversationId &&

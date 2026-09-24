@@ -10,6 +10,7 @@ import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
+import { requestAiPreferenceAnalysis } from "@/lib/api/aiConversationAnalysis";
 import {
   sendAiConversationMessage,
   type SendAiConversationMessageData,
@@ -40,7 +41,7 @@ type MessageSendError = {
 export default function ChatRoom({
   initialMessages,
   initialAnalysisStatus,
-  analysisResult,
+  analysisResult: initialAnalysisResult,
   isInputLocked = false,
   conversationId,
   onMessageSent,
@@ -48,6 +49,7 @@ export default function ChatRoom({
   const router = useRouter();
   const [messages, setMessages] = useState(initialMessages);
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
+  const [analysisResult, setAnalysisResult] = useState(initialAnalysisResult);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const messageListRef = useRef<HTMLElement>(null);
@@ -77,6 +79,46 @@ export default function ChatRoom({
     const messageList = messageListRef.current;
     messageList?.scrollTo({ top: messageList.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  const handleAnalysisRequest = async () => {
+    if (conversationId === undefined) return;
+
+    setAnalysisStatus("LOADING");
+
+    try {
+      const response = await requestAiPreferenceAnalysis(conversationId);
+
+      setAnalysisResult({
+        interests: response.keywords.interest,
+        preferences: response.keywords.taste,
+        summary: response.summary,
+        correctionAvailable: response.correctionAvailable,
+      });
+      setAnalysisStatus("COMPLETED");
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        if (error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        if (error.status === 429 || error.status === 503) {
+          setAnalysisStatus("TIMEOUT");
+          return;
+        }
+
+        router.replace("/error");
+        return;
+      }
+
+      if (error instanceof TypeError) {
+        setAnalysisStatus("TIMEOUT");
+        return;
+      }
+
+      router.replace("/error");
+    }
+  };
 
   const handleSend = async (content: string) => {
     if (conversationId === undefined) return;
@@ -138,7 +180,7 @@ export default function ChatRoom({
 
     if (response.inputLocked) {
       setIsResponseInputLocked(true);
-      // TODO: 취향 분석 요청 API 명세 확정 후 별도 분석 요청 및 분석 상태 전환 연동
+      void handleAnalysisRequest();
     } else {
       setIsResponseInputLocked(false);
     }
@@ -151,7 +193,7 @@ export default function ChatRoom({
   };
 
   const handleRetryAnalysis = () => {
-    // TODO: AI 취향 분석 재요청 API 연동 후 분석 상태 갱신 처리
+    void handleAnalysisRequest();
   };
 
   const handleRejectAnalysis = () => {
@@ -188,12 +230,14 @@ export default function ChatRoom({
         onReturnToChat={handleReturnToChat}
         onRetryAnalysis={handleRetryAnalysis}
       />
-      <PreferenceAnalysisResultModal
-        open={analysisStatus === "COMPLETED"}
-        result={analysisResult}
-        onReject={handleRejectAnalysis}
-        onConfirm={handleConfirmAnalysis}
-      />
+      {analysisStatus === "COMPLETED" && (
+        <PreferenceAnalysisResultModal
+          open
+          result={analysisResult}
+          onReject={handleRejectAnalysis}
+          onConfirm={handleConfirmAnalysis}
+        />
+      )}
     </div>
   );
 }
