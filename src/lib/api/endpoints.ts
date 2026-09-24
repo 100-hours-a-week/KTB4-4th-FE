@@ -4,6 +4,8 @@ const API_V1_PREFIX = "/api/v1";
 export const API_ENDPOINTS = {
   ai: {
     conversations: `${API_V1_PREFIX}/ai/conversations`,
+    conversationMessages: (conversationId: number) =>
+      `${API_V1_PREFIX}/ai/conversations/${conversationId}/messages`,
   },
   auth: {
     kakaoAuthorize: `${API_V1_PREFIX}/auth/kakao/authorize`,
