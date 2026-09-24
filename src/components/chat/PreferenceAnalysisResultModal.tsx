@@ -13,8 +13,9 @@ type PreferenceAnalysisResultModalProps = {
   open: boolean;
   result: PreferenceAnalysisResult;
   onReject: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
   onUpdateSummary: (summary: string) => Promise<PreferenceAnalysisResult>;
+  isConfirming: boolean;
 };
 
 const sortByScore = (keywords: PreferenceAnalysisKeyword[]) =>
@@ -26,6 +27,7 @@ export default function PreferenceAnalysisResultModal({
   onReject,
   onConfirm,
   onUpdateSummary,
+  isConfirming,
 }: PreferenceAnalysisResultModalProps) {
   const [interests, setInterests] = useState(() => sortByScore(result.interests));
   const [preferences, setPreferences] = useState(() => sortByScore(result.preferences));
@@ -35,6 +37,7 @@ export default function PreferenceAnalysisResultModal({
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateErrorMessage, setUpdateErrorMessage] = useState("");
+  const [confirmErrorMessage, setConfirmErrorMessage] = useState("");
 
   const startEditing = () => {
     setSummaryDraft(summary ?? "");
@@ -68,6 +71,20 @@ export default function PreferenceAnalysisResultModal({
     }
   };
 
+  const confirmAnalysis = async () => {
+    if (isConfirming) return;
+
+    setConfirmErrorMessage("");
+
+    try {
+      await onConfirm();
+    } catch (error) {
+      setConfirmErrorMessage(
+        error instanceof Error ? error.message : "취향 분석 결과를 확정하지 못했습니다.",
+      );
+    }
+  };
+
   // TODO: 현재는 summary만 수정하며, 키워드 수정 범위 확정 후 배지 삭제 기능 활성화
   const renderBadges = (badges: PreferenceAnalysisKeyword[]) => (
     <div className="mt-3 flex flex-nowrap gap-1 overflow-x-auto pb-1">
@@ -93,7 +110,9 @@ export default function PreferenceAnalysisResultModal({
         title="이렇게 기억하려 해요"
         keepHeaderInteractive
         firstAction={
-          correctionAvailable && !isEditing ? { label: "틀려요", onClick: startEditing } : undefined
+          correctionAvailable && !isEditing
+            ? { label: "틀려요", onClick: startEditing, disabled: isConfirming }
+            : undefined
         }
         secondAction={
           isEditing
@@ -104,7 +123,12 @@ export default function PreferenceAnalysisResultModal({
                 disabled: summaryDraft.trim().length === 0 || isUpdating,
                 "aria-busy": isUpdating || undefined,
               }
-            : { label: "맞아요", onClick: onConfirm }
+            : {
+                label: isConfirming ? "확정 중..." : "맞아요",
+                onClick: () => void confirmAnalysis(),
+                disabled: isConfirming,
+                "aria-busy": isConfirming || undefined,
+              }
         }
       >
         <p className="mt-0 text-body-sm text-foreground">
@@ -157,6 +181,11 @@ export default function PreferenceAnalysisResultModal({
                 <p className="mt-3 text-body-sm text-muted">{summary}</p>
               )}
             </section>
+          )}
+          {confirmErrorMessage && (
+            <p role="alert" className="text-body-sm text-danger">
+              {confirmErrorMessage}
+            </p>
           )}
         </div>
       </Modal>
