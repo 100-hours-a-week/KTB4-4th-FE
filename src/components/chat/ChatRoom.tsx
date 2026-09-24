@@ -10,7 +10,11 @@ import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
-import { requestAiPreferenceAnalysis } from "@/lib/api/aiConversationAnalysis";
+import {
+  requestAiPreferenceAnalysis,
+  updateAiPreferenceAnalysis,
+  type AiPreferenceAnalysisData,
+} from "@/lib/api/aiConversationAnalysis";
 import {
   sendAiConversationMessage,
   type SendAiConversationMessageData,
@@ -37,6 +41,15 @@ type MessageSendError = {
   status: number;
   retryAfterSeconds: number;
 };
+
+function toPreferenceAnalysisResult(response: AiPreferenceAnalysisData): PreferenceAnalysisResult {
+  return {
+    interests: response.keywords.interest,
+    preferences: response.keywords.taste,
+    summary: response.summary,
+    correctionAvailable: response.correctionAvailable,
+  };
+}
 
 export default function ChatRoom({
   initialMessages,
@@ -88,12 +101,7 @@ export default function ChatRoom({
     try {
       const response = await requestAiPreferenceAnalysis(conversationId);
 
-      setAnalysisResult({
-        interests: response.keywords.interest,
-        preferences: response.keywords.taste,
-        summary: response.summary,
-        correctionAvailable: response.correctionAvailable,
-      });
+      setAnalysisResult(toPreferenceAnalysisResult(response));
       setAnalysisStatus("COMPLETED");
     } catch (error) {
       if (error instanceof ApiRequestError) {
@@ -196,6 +204,59 @@ export default function ChatRoom({
     void handleAnalysisRequest();
   };
 
+  const handleUpdateAnalysisSummary = async (summary: string) => {
+    if (conversationId === undefined) {
+      throw new Error("AI 대화 ID를 확인할 수 없습니다.");
+    }
+
+    try {
+      const response = await updateAiPreferenceAnalysis({
+        conversationId,
+        summary,
+        keywords: {
+          // TODO: 취향 분석 키워드 수정 API 연동 범위 확정 후 변경된 키워드 전송
+          taste: analysisResult.preferences.map(({ value }) => value),
+          interest: analysisResult.interests.map(({ value }) => value),
+        },
+      });
+      const updatedResult = toPreferenceAnalysisResult(response);
+
+      setAnalysisResult(updatedResult);
+      return updatedResult;
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        if (error.status === 401) {
+          router.replace("/login");
+          throw error;
+        }
+
+        if (error.status === 403 || error.status === 404 || error.status === 500) {
+          router.replace("/error");
+          throw error;
+        }
+
+        if (
+          error.status === 400 ||
+          error.status === 422 ||
+          error.status === 429 ||
+          error.status === 503
+        ) {
+          throw error;
+        }
+
+        router.replace("/error");
+        throw error;
+      }
+
+      if (error instanceof TypeError) {
+        throw new Error("네트워크 연결을 확인한 후 다시 시도해 주세요.");
+      }
+
+      router.replace("/error");
+      throw error;
+    }
+  };
+
   const handleRejectAnalysis = () => {
     setAnalysisStatus("IDLE");
   };
@@ -236,6 +297,7 @@ export default function ChatRoom({
           result={analysisResult}
           onReject={handleRejectAnalysis}
           onConfirm={handleConfirmAnalysis}
+          onUpdateSummary={handleUpdateAnalysisSummary}
         />
       )}
     </div>
