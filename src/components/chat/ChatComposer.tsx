@@ -10,12 +10,13 @@ import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 
 type ChatComposerProps = {
   onSend: (content: string) => void;
+  isDisabled?: boolean;
 };
 
 const MIN_TEXTAREA_HEIGHT = 28;
 const MAX_TEXTAREA_HEIGHT = 108;
 
-export default function ChatComposer({ onSend }: ChatComposerProps) {
+export default function ChatComposer({ onSend, isDisabled = false }: ChatComposerProps) {
   const [draftMessage, setDraftMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const normalizedMessage = draftMessage.trim();
@@ -43,7 +44,7 @@ export default function ChatComposer({ onSend }: ChatComposerProps) {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!normalizedMessage) return;
+    if (isDisabled || !normalizedMessage) return;
 
     onSend(normalizedMessage);
     setDraftMessage("");
@@ -68,6 +69,7 @@ export default function ChatComposer({ onSend }: ChatComposerProps) {
         id="chat-message"
         rows={1}
         value={draftMessage}
+        disabled={isDisabled}
         maxLength={500}
         placeholder="메시지 입력"
         autoComplete="off"
@@ -78,7 +80,7 @@ export default function ChatComposer({ onSend }: ChatComposerProps) {
       <button
         type="submit"
         aria-label="메시지 보내기"
-        disabled={!normalizedMessage}
+        disabled={isDisabled || !normalizedMessage}
         className={`${styles.sendButton} flex shrink-0 cursor-pointer items-center justify-center self-end rounded-full border-0 bg-primary text-sm leading-none font-bold text-on-primary disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted`}
       >
         ↑

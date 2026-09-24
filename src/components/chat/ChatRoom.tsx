@@ -15,12 +15,14 @@ type ChatRoomProps = {
   initialMessages: ChatMessage[];
   initialAnalysisStatus: PreferenceAnalysisStatus;
   analysisResult: PreferenceAnalysisResult;
+  isInputLocked?: boolean;
 };
 
 export default function ChatRoom({
   initialMessages,
   initialAnalysisStatus,
   analysisResult,
+  isInputLocked = false,
 }: ChatRoomProps) {
   const [messages, setMessages] = useState(initialMessages);
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
@@ -70,7 +72,7 @@ export default function ChatRoom({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ChatMessageList ref={messageListRef} messages={messages} />
-      <ChatComposer onSend={handleSend} />
+      <ChatComposer onSend={handleSend} isDisabled={isInputLocked} />
       <PreferenceAnalysisLoadingModal open={analysisStatus === "LOADING"} />
       <PreferenceAnalysisTimeoutModal
         open={analysisStatus === "TIMEOUT"}
