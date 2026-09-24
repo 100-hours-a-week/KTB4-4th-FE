@@ -2,6 +2,7 @@
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import ChatComposer from "@/components/chat/ChatComposer";
@@ -9,6 +10,11 @@ import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
+import {
+  sendAiConversationMessage,
+  type SendAiConversationMessageData,
+} from "@/lib/api/aiConversationMessageSend";
+import { ApiRequestError } from "@/lib/api/client";
 import type { ChatMessage, PreferenceAnalysisResult, PreferenceAnalysisStatus } from "@/types/chat";
 
 type ChatRoomProps = {
@@ -16,6 +22,19 @@ type ChatRoomProps = {
   initialAnalysisStatus: PreferenceAnalysisStatus;
   analysisResult: PreferenceAnalysisResult;
   isInputLocked?: boolean;
+  conversationId?: number;
+  onMessageSent?: (response: SendAiConversationMessageData) => void;
+};
+
+type PendingMessage = {
+  clientMessageId: string;
+  content: string;
+};
+
+type MessageSendError = {
+  message: string;
+  status: number;
+  retryAfterSeconds: number;
 };
 
 export default function ChatRoom({
@@ -23,12 +42,31 @@ export default function ChatRoom({
   initialAnalysisStatus,
   analysisResult,
   isInputLocked = false,
+  conversationId,
+  onMessageSent,
 }: ChatRoomProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState(initialMessages);
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
+  const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
+  const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
-  const nextMessageId = useRef(Math.max(0, ...initialMessages.map(({ id }) => id)) + 1);
+  const pendingMessageRef = useRef<PendingMessage | null>(null);
+
+  useEffect(() => {
+    if (sendError?.status !== 429 || sendError.retryAfterSeconds <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setSendError((error) =>
+        error?.status === 429
+          ? { ...error, retryAfterSeconds: Math.max(0, error.retryAfterSeconds - 1) }
+          : error,
+      );
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [sendError]);
 
   useEffect(() => {
     if (isInitialRender.current) {
@@ -40,17 +78,66 @@ export default function ChatRoom({
     messageList?.scrollTo({ top: messageList.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = (content: string) => {
-    // TODO: AI 대화 API 연동 후 사용자 메시지 전송 및 응답 처리로 교체
-    const newMessage: ChatMessage = {
-      id: nextMessageId.current,
+  const handleSend = async (content: string) => {
+    if (conversationId === undefined) return;
+
+    const pendingMessage =
+      pendingMessageRef.current?.content === content
+        ? pendingMessageRef.current
+        : { clientMessageId: crypto.randomUUID(), content };
+    pendingMessageRef.current = pendingMessage;
+
+    let response: SendAiConversationMessageData;
+
+    try {
+      response = await sendAiConversationMessage({
+        conversationId,
+        clientMessageId: pendingMessage.clientMessageId,
+        content: pendingMessage.content,
+      });
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        throw error;
+      }
+
+      setSendError({
+        message: error instanceof ApiRequestError ? error.message : "메시지를 전송하지 못했습니다.",
+        status: error instanceof ApiRequestError ? error.status : 0,
+        retryAfterSeconds:
+          error instanceof ApiRequestError && error.status === 429
+            ? (error.retryAfterSeconds ?? 0)
+            : 0,
+      });
+
+      throw error;
+    }
+
+    const userMessage: ChatMessage = {
+      id: response.userMessageId,
       role: "USER",
       senderName: "나",
       content,
     };
+    const assistantMessage: ChatMessage = {
+      id: response.messageId,
+      role: "ASSISTANT",
+      senderName: "니쥬",
+      content: response.content,
+    };
 
-    nextMessageId.current += 1;
-    setMessages((currentMessages) => [...currentMessages, newMessage]);
+    setMessages((currentMessages) => [...currentMessages, userMessage, assistantMessage]);
+    pendingMessageRef.current = null;
+    setSendError(null);
+
+    if (response.inputLocked) {
+      setIsResponseInputLocked(true);
+      // TODO: 취향 분석 요청 API 명세 확정 후 별도 분석 요청 및 분석 상태 전환 연동
+    } else {
+      setIsResponseInputLocked(false);
+    }
+
+    onMessageSent?.(response);
   };
 
   const handleReturnToChat = () => {
@@ -72,7 +159,23 @@ export default function ChatRoom({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ChatMessageList ref={messageListRef} messages={messages} />
-      <ChatComposer onSend={handleSend} isDisabled={isInputLocked} />
+      {sendError && (
+        <p role="alert" className="mb-2 text-center text-body-sm text-danger">
+          {sendError.message}
+          {sendError.status === 429 && sendError.retryAfterSeconds > 0
+            ? ` (${sendError.retryAfterSeconds}초 후 다시 전송할 수 있어요.)`
+            : ""}
+        </p>
+      )}
+      <ChatComposer
+        onSend={handleSend}
+        isDisabled={
+          isInputLocked ||
+          isResponseInputLocked ||
+          conversationId === undefined ||
+          (sendError?.status === 429 && sendError.retryAfterSeconds > 0)
+        }
+      />
       <PreferenceAnalysisLoadingModal open={analysisStatus === "LOADING"} />
       <PreferenceAnalysisTimeoutModal
         open={analysisStatus === "TIMEOUT"}
