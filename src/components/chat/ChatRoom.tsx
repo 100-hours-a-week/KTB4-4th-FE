@@ -96,6 +96,12 @@ export default function ChatRoom({
         content: pendingMessage.content,
       });
     } catch (error) {
+      const isNetworkError = error instanceof TypeError;
+
+      if (!isNetworkError) {
+        pendingMessageRef.current = null;
+      }
+
       if (error instanceof ApiRequestError && error.status === 401) {
         router.replace("/login");
         throw error;
