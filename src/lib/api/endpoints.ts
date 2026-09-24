@@ -6,6 +6,8 @@ export const API_ENDPOINTS = {
     conversations: `${API_V1_PREFIX}/ai/conversations`,
     conversationMessages: (conversationId: number) =>
       `${API_V1_PREFIX}/ai/conversations/${conversationId}/messages`,
+    conversationAnalysis: (conversationId: number) =>
+      `${API_V1_PREFIX}/ai/conversations/${conversationId}/analysis`,
   },
   auth: {
     kakaoAuthorize: `${API_V1_PREFIX}/auth/kakao/authorize`,
