@@ -37,6 +37,7 @@ export default function useAiConversationStart() {
     try {
       const conversation = await startAiConversation();
       const { conversationId, status } = conversation;
+      // TODO: 백엔드 대화 상태 조회 API 구현 후 URL의 status 쿼리를 제거하고 conversationId만 전달
       const searchParams = new URLSearchParams({
         conversationId: String(conversationId),
         status,
