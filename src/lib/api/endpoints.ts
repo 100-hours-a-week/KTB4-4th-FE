@@ -2,6 +2,15 @@
 const API_V1_PREFIX = "/api/v1";
 
 export const API_ENDPOINTS = {
+  ai: {
+    conversations: `${API_V1_PREFIX}/ai/conversations`,
+    conversationMessages: (conversationId: number) =>
+      `${API_V1_PREFIX}/ai/conversations/${conversationId}/messages`,
+    conversationAnalysis: (conversationId: number) =>
+      `${API_V1_PREFIX}/ai/conversations/${conversationId}/analysis`,
+    conversationConfirmation: (conversationId: number) =>
+      `${API_V1_PREFIX}/ai/conversations/${conversationId}/confirm`,
+  },
   auth: {
     kakaoAuthorize: `${API_V1_PREFIX}/auth/kakao/authorize`,
     csrf: `${API_V1_PREFIX}/auth/csrf`,
@@ -9,5 +18,12 @@ export const API_ENDPOINTS = {
     loginValidity: `${API_V1_PREFIX}/auth/session`,
   },
   errorReports: `${API_V1_PREFIX}/error-reports`,
+  friends: {
+    list: `${API_V1_PREFIX}/friends`,
+    detail: (userId: number) => `${API_V1_PREFIX}/friends/${userId}`,
+    kakaoAuthorize: `${API_V1_PREFIX}/friends/kakao/authorize`,
+  },
   guidance: `${API_V1_PREFIX}/guidance`,
+  personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
+  giftRecommendations: (userId: number) => `${API_V1_PREFIX}/users/${userId}/gift-recommendations`,
 } as const;

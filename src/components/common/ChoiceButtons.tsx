@@ -6,22 +6,30 @@ type Choice = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
 };
 
 type ChoiceButtonsProps = {
-  first: Choice;
+  first?: Choice;
   second: Choice;
   className?: string;
 };
 
 export default function ChoiceButtons({ first, second, className = "" }: ChoiceButtonsProps) {
+  const choices = [
+    first ? { choice: first, isPrimary: false } : null,
+    { choice: second, isPrimary: true },
+  ].filter((item): item is { choice: Choice; isPrimary: boolean } => item !== null);
+
   return (
     <div className={`flex w-full gap-2 ${className}`}>
-      {[first, second].map(
-        ({ label, className: buttonClassName = "", type = "button", ...props }, index) => (
+      {choices.map(
+        ({
+          choice: { label, className: buttonClassName = "", type = "button", ...props },
+          isPrimary,
+        }) => (
           <button
-            key={index}
+            key={isPrimary ? "primary" : "secondary"}
             {...props}
             type={type}
             className={`flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] border-0 px-2 text-center text-[15px] leading-[48px] font-normal disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted ${
-              index === 0 ? "bg-foreground text-background" : "bg-primary text-on-primary"
+              isPrimary ? "bg-primary text-on-primary" : "bg-foreground text-background"
             } ${buttonClassName}`}
           >
             {label}

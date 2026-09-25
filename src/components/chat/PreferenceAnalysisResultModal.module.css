@@ -7,3 +7,7 @@
 .scope :global(dialog[data-modal]) > div:last-child {
   margin-top: 1.5rem;
 }
+
+.summaryInput {
+  font-size: 13px;
+}

@@ -1,8 +1,8 @@
-// 추천 상품의 예산 범위를 임시로 조절하는 슬라이더 컴포넌트
+// 추천 상품의 예산 범위를 조절하고 확정값을 전달하는 슬라이더 컴포넌트
 
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import styles from "./PriceRangeSlider.module.css";
 
@@ -14,7 +14,13 @@ type PriceRangeSliderProps = {
   initialMinPrice?: number;
   initialMaxPrice?: number;
   step?: number;
+  onPriceRangeCommit?: (priceRange: PriceRange) => void;
 };
+
+export interface PriceRange {
+  minPrice: number;
+  maxPrice: number;
+}
 
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.min(Math.max(value, minimum), maximum);
@@ -33,14 +39,16 @@ export default function PriceRangeSlider({
   initialMinPrice = availableMinPrice,
   initialMaxPrice = availableMaxPrice,
   step = 10_000,
+  onPriceRangeCommit,
 }: PriceRangeSliderProps) {
-  // TODO: Search Params의 적용 가격을 초기 Draft 값으로 전달
-  const [draftMinPrice, setDraftMinPrice] = useState(() =>
-    clamp(initialMinPrice, availableMinPrice, availableMaxPrice),
-  );
-  const [draftMaxPrice, setDraftMaxPrice] = useState(() =>
-    clamp(initialMaxPrice, availableMinPrice, availableMaxPrice),
-  );
+  const clampedInitialMinPrice = clamp(initialMinPrice, availableMinPrice, availableMaxPrice);
+  const clampedInitialMaxPrice = clamp(initialMaxPrice, availableMinPrice, availableMaxPrice);
+  const [draftMinPrice, setDraftMinPrice] = useState(clampedInitialMinPrice);
+  const [draftMaxPrice, setDraftMaxPrice] = useState(clampedInitialMaxPrice);
+  const lastCommittedRangeRef = useRef<PriceRange>({
+    minPrice: clampedInitialMinPrice,
+    maxPrice: clampedInitialMaxPrice,
+  });
 
   const isRangeValid = draftMinPrice <= draftMaxPrice;
   const availableRange = Math.max(availableMaxPrice - availableMinPrice, 1);
@@ -55,6 +63,25 @@ export default function PriceRangeSlider({
 
   const handleMaxPriceChange = (event: ChangeEvent<HTMLInputElement>) => {
     setDraftMaxPrice(Math.max(Number(event.target.value), draftMinPrice));
+  };
+
+  const commitPriceRange = () => {
+    const lastCommittedRange = lastCommittedRangeRef.current;
+
+    if (
+      lastCommittedRange.minPrice === draftMinPrice &&
+      lastCommittedRange.maxPrice === draftMaxPrice
+    ) {
+      return;
+    }
+
+    const nextPriceRange = {
+      minPrice: draftMinPrice,
+      maxPrice: draftMaxPrice,
+    };
+
+    lastCommittedRangeRef.current = nextPriceRange;
+    onPriceRangeCommit?.(nextPriceRange);
   };
 
   return (
@@ -88,6 +115,8 @@ export default function PriceRangeSlider({
           step={step}
           value={draftMinPrice}
           onChange={handleMinPriceChange}
+          onPointerUp={commitPriceRange}
+          onKeyUp={commitPriceRange}
           className={`${styles.sliderInput} z-20`}
         />
         <input
@@ -100,6 +129,8 @@ export default function PriceRangeSlider({
           step={step}
           value={draftMaxPrice}
           onChange={handleMaxPriceChange}
+          onPointerUp={commitPriceRange}
+          onKeyUp={commitPriceRange}
           className={`${styles.sliderInput} ${styles.maximumInput} z-30`}
         />
       </div>

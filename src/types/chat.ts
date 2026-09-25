@@ -5,8 +5,16 @@ export interface PreferenceAnalysis {
   description: string;
 }
 
+export interface PreferenceAnalysisKeyword {
+  value: string;
+  score: number;
+}
+
 export interface PreferenceAnalysisResult {
-  badges: string[];
+  interests: PreferenceAnalysisKeyword[];
+  preferences: PreferenceAnalysisKeyword[];
+  summary: string | null;
+  correctionAvailable: boolean;
 }
 
 export type PreferenceAnalysisStatus = "IDLE" | "LOADING" | "TIMEOUT" | "COMPLETED";

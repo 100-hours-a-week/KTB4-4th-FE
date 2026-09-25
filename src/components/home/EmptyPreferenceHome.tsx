@@ -2,10 +2,9 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
-
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
+import useAiConversationStart from "@/hooks/useAiConversationStart";
 
 type EmptyPreferenceHomeProps = {
   title: string;
@@ -13,7 +12,13 @@ type EmptyPreferenceHomeProps = {
 };
 
 export default function EmptyPreferenceHome({ title, description }: EmptyPreferenceHomeProps) {
-  const router = useRouter();
+  const {
+    errorMessage,
+    isStartingConversation,
+    isUnavailable,
+    retryAfterSeconds,
+    startConversation,
+  } = useAiConversationStart();
 
   return (
     <>
@@ -27,9 +32,22 @@ export default function EmptyPreferenceHome({ title, description }: EmptyPrefere
           className="aspect-[16/9] w-full rounded-sm bg-disabled"
         />
 
-        <ActionButton onClick={() => router.push("/ai")} className="mt-5 font-bold">
+        <ActionButton
+          onClick={() => void startConversation()}
+          disabled={isUnavailable}
+          isLoading={isStartingConversation}
+          loadingText="대화를 준비하고 있어요..."
+          className="mt-5 font-bold"
+        >
           니쥬와 대화하고 취향 찾기
         </ActionButton>
+
+        {errorMessage && (
+          <p role="alert" className="mt-2 text-center text-body-sm text-danger">
+            {errorMessage}
+            {retryAfterSeconds > 0 && ` (${retryAfterSeconds}초 후 다시 시도해 주세요.)`}
+          </p>
+        )}
       </section>
     </>
   );

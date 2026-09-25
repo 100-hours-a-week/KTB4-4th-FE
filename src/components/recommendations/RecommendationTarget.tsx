@@ -1,18 +1,25 @@
 // 상품 추천 대상의 프로필과 추천 맥락을 표시하는 컴포넌트
 
+import Image from "next/image";
+
 import PriceRangeSlider from "@/components/recommendations/PriceRangeSlider";
+import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type RecommendationTargetProps = {
   target: RecommendationTargetData;
   availableMinPrice: number;
   availableMaxPrice: number;
+  showBudget?: boolean;
+  onPriceRangeCommit?: (priceRange: PriceRange) => void;
 };
 
 export default function RecommendationTarget({
   target,
   availableMinPrice,
   availableMaxPrice,
+  showBudget = true,
+  onPriceRangeCommit,
 }: RecommendationTargetProps) {
   const recommendationTitle =
     target.type === "SELF" ? (
@@ -26,20 +33,30 @@ export default function RecommendationTarget({
 
   return (
     <div className="flex w-full items-center gap-3 rounded-lg border border-border-strong bg-surface p-4">
-      {/* TODO: 추천 API의 profileImageUrl이 있으면 추천 대상의 프로필 이미지로 교체 */}
-      <div
-        role="img"
-        aria-label={`${target.name} 프로필 이미지`}
-        className="h-14 w-14 shrink-0 rounded-full bg-background-subtle"
-      />
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-background-subtle">
+        {target.profileImageUrl ? (
+          <Image
+            src={target.profileImageUrl}
+            alt={`${target.name} 프로필 이미지`}
+            fill
+            sizes="56px"
+            className="object-cover"
+          />
+        ) : (
+          <span role="img" aria-label={`${target.name} 프로필 이미지`} />
+        )}
+      </div>
 
       <div className="min-w-0 flex-1">
         {/* TODO: 추천 API의 취향·관심사 키워드를 상품 추천 요청에 활용 */}
         <h1 className="min-w-0 text-heading-3 font-bold text-foreground">{recommendationTitle}</h1>
-        <PriceRangeSlider
-          availableMinPrice={availableMinPrice}
-          availableMaxPrice={availableMaxPrice}
-        />
+        {showBudget && (
+          <PriceRangeSlider
+            availableMinPrice={availableMinPrice}
+            availableMaxPrice={availableMaxPrice}
+            onPriceRangeCommit={onPriceRangeCommit}
+          />
+        )}
       </div>
     </div>
   );

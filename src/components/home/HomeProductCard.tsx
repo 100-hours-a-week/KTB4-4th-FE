@@ -1,9 +1,9 @@
 // 메인 페이지 맞춤 상품의 요약 정보를 표시하는 카드
 
-import type { RecommendedProduct } from "@/types/product";
+import type { PersonalRecommendation } from "@/lib/api/personalRecommendations";
 
 type HomeProductCardProps = {
-  product: RecommendedProduct;
+  product: PersonalRecommendation;
 };
 
 const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;

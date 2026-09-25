@@ -11,7 +11,7 @@ type ModalProps = {
   title: string;
   description?: string;
   children?: ReactNode;
-  firstAction: ComponentProps<typeof ChoiceButtons>["first"];
+  firstAction?: ComponentProps<typeof ChoiceButtons>["first"];
   secondAction: ComponentProps<typeof ChoiceButtons>["second"];
   keepHeaderInteractive?: boolean;
 };

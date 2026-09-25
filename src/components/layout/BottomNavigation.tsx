@@ -1,8 +1,13 @@
+// 주요 화면 이동과 AI 대화 시작을 제공하는 하단 내비게이션
 "use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+import useAiConversationStart from "@/hooks/useAiConversationStart";
+
+import type { MouseEvent } from "react";
 
 const navigationItems = [
   {
@@ -17,6 +22,18 @@ const navigationItems = [
 
 export default function BottomNavigation() {
   const pathname = usePathname();
+  const {
+    errorMessage,
+    isStartingConversation,
+    isUnavailable,
+    retryAfterSeconds,
+    startConversation,
+  } = useAiConversationStart();
+
+  const handleAiClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    void startConversation();
+  };
 
   if (pathname === "/ai") return null;
 
@@ -25,6 +42,15 @@ export default function BottomNavigation() {
       aria-label="하단 메뉴"
       className="relative z-10 shrink-0 border-t border-border-strong bg-surface"
     >
+      {errorMessage && (
+        <p
+          role="alert"
+          className="absolute right-4 bottom-[calc(100%+2.5rem)] left-4 rounded-sm bg-danger-subtle px-3 py-2 text-center text-body-sm text-danger shadow-sm"
+        >
+          {errorMessage}
+          {retryAfterSeconds > 0 && ` (${retryAfterSeconds}초 후 다시 시도해 주세요.)`}
+        </p>
+      )}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-9 left-1/2 h-9 w-[120px] -translate-x-1/2 rounded-t-[60px] border-x border-t border-border-strong bg-surface"
@@ -46,6 +72,9 @@ export default function BottomNavigation() {
               <Link
                 href={href}
                 aria-current={isActive ? "page" : undefined}
+                aria-disabled={isFeatured && isUnavailable ? true : undefined}
+                aria-busy={isFeatured && isStartingConversation ? true : undefined}
+                onClick={isFeatured ? handleAiClick : undefined}
                 className={
                   isFeatured
                     ? `-mt-8 flex h-[68px] w-[104px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-full border-2 border-border-strong bg-surface text-caption font-bold text-foreground shadow-md transition-shadow ${

@@ -4,6 +4,18 @@ import type { NextConfig } from "next";
 const backendApiBaseUrl = process.env.BACKEND_API_BASE_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "http",
+        hostname: "**.kakaocdn.net",
+      },
+      {
+        protocol: "https",
+        hostname: "**.kakaocdn.net",
+      },
+    ],
+  },
   turbopack: {
     root: process.cwd(),
   },
