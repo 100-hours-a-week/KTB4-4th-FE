@@ -7,24 +7,24 @@ import { useEffect, useState } from "react";
 import EmptyPreferenceHome from "@/components/home/EmptyPreferenceHome";
 import PersonalizedHome from "@/components/home/PersonalizedHome";
 import { getGuidance, type GuidanceData } from "@/lib/api/guidance";
+import { checkLoginValidity, type LoginValidityData } from "@/lib/api/loginValidity";
 
-// TODO: 사용자 정보 API 연동 후 실제 데이터로 교체
-const temporaryUser = {
-  id: 0,
-  name: "수연",
-};
+interface HomeData {
+  guidance: GuidanceData;
+  loginValidity: LoginValidityData;
+}
 
 export default function Home() {
   const router = useRouter();
-  const [guidanceData, setGuidanceData] = useState<GuidanceData | null>(null);
+  const [homeData, setHomeData] = useState<HomeData | null>(null);
 
   useEffect(() => {
     let isActive = true;
 
-    getGuidance()
-      .then((data) => {
+    Promise.all([getGuidance(), checkLoginValidity()])
+      .then(([guidance, loginValidity]) => {
         if (isActive) {
-          setGuidanceData(data);
+          setHomeData({ guidance, loginValidity });
         }
       })
       .catch(() => {
@@ -40,18 +40,18 @@ export default function Home() {
 
   return (
     <main className="page-content flex flex-1 flex-col bg-background pb-[max(2rem,env(safe-area-inset-bottom))] text-foreground">
-      {guidanceData ? (
-        guidanceData.tasteAnalysisCompleted ? (
+      {homeData ? (
+        homeData.guidance.tasteAnalysisCompleted ? (
           <PersonalizedHome
-            userId={temporaryUser.id}
-            userName={temporaryUser.name}
-            title={guidanceData.guidance.title}
-            description={guidanceData.guidance.description}
+            userId={homeData.loginValidity.user.id}
+            userName={homeData.loginValidity.user.nickname}
+            title={homeData.guidance.guidance.title}
+            description={homeData.guidance.guidance.description}
           />
         ) : (
           <EmptyPreferenceHome
-            title={guidanceData.guidance.title}
-            description={guidanceData.guidance.description}
+            title={homeData.guidance.guidance.title}
+            description={homeData.guidance.guidance.description}
           />
         )
       ) : null}
