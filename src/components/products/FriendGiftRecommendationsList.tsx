@@ -131,7 +131,6 @@ function FriendGiftRecommendationsListContent({
   }
 
   // TODO: 추천 이유·카테고리·매칭 키워드 UI 확정 후 상품 카드에 연동
-  // TODO: productId 기반 상품 상세 이동 경로 확정 후 상품 카드 선택 동작 연결
   return (
     <>
       {products.map((product) => (
@@ -141,6 +140,7 @@ function FriendGiftRecommendationsListContent({
             name: product.name,
             price: product.price,
             productImageUrl: product.productImageUrl,
+            purchaseUrl: product.purchaseUrl,
           }}
         />
       ))}

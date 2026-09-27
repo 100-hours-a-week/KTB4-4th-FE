@@ -10,7 +10,12 @@ const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
 
 export default function HomeProductCard({ product }: HomeProductCardProps) {
   return (
-    <article className="min-w-0 rounded-sm border border-border-strong bg-surface p-2">
+    <a
+      href={product.purchaseUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="min-w-0 rounded-sm border border-border-strong bg-surface p-2"
+    >
       <div
         role="img"
         aria-label={`${product.name} 상품 이미지`}
@@ -26,6 +31,6 @@ export default function HomeProductCard({ product }: HomeProductCardProps) {
       <p className="mt-1 text-body font-bold whitespace-nowrap text-foreground">
         {formatPrice(product.price)}
       </p>
-    </article>
+    </a>
   );
 }
