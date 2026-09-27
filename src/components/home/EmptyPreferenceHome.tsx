@@ -2,6 +2,8 @@
 
 "use client";
 
+import Image from "next/image";
+
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
 import useAiConversationStart from "@/hooks/useAiConversationStart";
@@ -25,11 +27,14 @@ export default function EmptyPreferenceHome({ title, description }: EmptyPrefere
       <PageIntro title={title} description={description} />
 
       <section aria-label="취향 찾기 안내" className="mt-5 rounded-sm bg-background-subtle p-4">
-        {/* TODO: 메인 페이지 일러스트 확정 후 회색 영역을 실제 이미지로 교체 */}
-        <div
-          role="img"
-          aria-label="취향 찾기 안내 일러스트"
-          className="aspect-[16/9] w-full rounded-sm bg-disabled"
+        <Image
+          src="/images/NeedU_logo.png"
+          alt="NeedU 서비스 로고"
+          width={1005}
+          height={261}
+          sizes="(max-width: 430px) 100vw, 430px"
+          className="mx-auto h-auto w-[80%] rounded-sm object-contain"
+          priority
         />
 
         <ActionButton
