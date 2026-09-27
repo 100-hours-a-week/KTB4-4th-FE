@@ -24,8 +24,9 @@ export default function Header() {
         </button>
       )}
 
-      <strong className="text-heading-3 font-bold" aria-label="Need U">
-        Need U
+      <strong className="text-heading-3 font-bold" aria-label="NeedU">
+        <span>Need</span>
+        <span className="text-brand-500">U</span>
       </strong>
     </header>
   );
