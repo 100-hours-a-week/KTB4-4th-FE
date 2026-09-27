@@ -3,6 +3,8 @@ import Image from "next/image";
 
 import KakaoLoginButton from "@/components/auth/KakaoLoginButton";
 
+import styles from "./LoginPage.module.css";
+
 export default function LoginPage() {
   return (
     <main className="page-content flex min-h-0 flex-1 flex-col overflow-y-auto bg-background pt-[88px] pb-[max(16px,env(safe-area-inset-bottom))] text-foreground">
@@ -13,7 +15,7 @@ export default function LoginPage() {
           width={1005}
           height={261}
           sizes="(max-width: 430px) 100vw, 430px"
-          className="h-auto w-[80%] object-contain"
+          className={`${styles.logoReveal} h-auto w-[80%] object-contain`}
           priority
         />
         <p className="mt-8 text-center text-body-sm leading-normal font-medium">
