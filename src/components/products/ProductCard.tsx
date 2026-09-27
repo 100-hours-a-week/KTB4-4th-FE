@@ -4,7 +4,7 @@ type ProductCardProps = {
   product: {
     name: string;
     price: number;
-    imageUrl: string | null;
+    productImageUrl: string | null;
   };
 };
 
@@ -18,8 +18,8 @@ export default function ProductCard({ product }: ProductCardProps) {
         aria-label={`${product.name} 상품 이미지`}
         className="h-20 w-20 shrink-0 rounded-md bg-disabled bg-cover bg-center bg-no-repeat"
         style={
-          product.imageUrl
-            ? { backgroundImage: `url(${JSON.stringify(product.imageUrl)})` }
+          product.productImageUrl
+            ? { backgroundImage: `url(${JSON.stringify(product.productImageUrl)})` }
             : undefined
         }
       />

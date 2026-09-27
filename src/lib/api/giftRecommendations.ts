@@ -8,6 +8,7 @@ export interface GiftRecommendation {
   recommendationId: number;
   productId: number;
   productImageUrl: string | null;
+  purchaseUrl: string;
   category: string;
   name: string;
   price: number;

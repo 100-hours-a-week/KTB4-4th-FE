@@ -140,7 +140,7 @@ function FriendGiftRecommendationsListContent({
           product={{
             name: product.name,
             price: product.price,
-            imageUrl: product.productImageUrl,
+            productImageUrl: product.productImageUrl,
           }}
         />
       ))}
