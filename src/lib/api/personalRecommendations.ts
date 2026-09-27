@@ -8,8 +8,11 @@ export interface PersonalRecommendation {
   recommendationId: number;
   productId: number;
   name: string;
-  imageUrl: string | null;
+  productImageUrl: string | null;
+  purchaseUrl: string;
+  category: string;
   price: number;
+  reason: string;
 }
 
 export interface PersonalRecommendationsData {
