@@ -73,6 +73,7 @@ export default function ChatRoom({
   const [messages, setMessages] = useState(initialMessages);
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
   const [analysisResult, setAnalysisResult] = useState(initialAnalysisResult);
+  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
   const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
@@ -168,6 +169,7 @@ export default function ChatRoom({
     };
 
     setMessages((currentMessages) => [...currentMessages, optimisticUserMessage]);
+    setIsAwaitingResponse(true);
 
     let response: SendAiConversationMessageData;
 
@@ -206,6 +208,8 @@ export default function ChatRoom({
       });
 
       throw error;
+    } finally {
+      setIsAwaitingResponse(false);
     }
 
     const assistantMessage: ChatMessage = {
@@ -345,7 +349,11 @@ export default function ChatRoom({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col pb-[max(calc(var(--spacing-page)*1.5),env(safe-area-inset-bottom))]">
-      <ChatMessageList ref={messageListRef} messages={messages} />
+      <ChatMessageList
+        ref={messageListRef}
+        messages={messages}
+        isAwaitingResponse={isAwaitingResponse}
+      />
       {sendError && (
         <p role="alert" className="mb-2 text-center text-body-sm text-danger">
           {sendError.message}
