@@ -76,7 +76,7 @@ export default function ChatComposer({ onSend, isDisabled = false }: ChatCompose
       aria-label="메시지 전송"
       aria-busy={isSending || undefined}
       onSubmit={handleSubmit}
-      className="mb-[max(0.75rem,env(safe-area-inset-bottom))] flex shrink-0 items-center gap-2 rounded-md border border-border-strong bg-surface p-1"
+      className="flex shrink-0 items-center gap-2 rounded-md border border-border-strong bg-surface p-1"
     >
       <label htmlFor="chat-message" className="sr-only">
         메시지 입력
