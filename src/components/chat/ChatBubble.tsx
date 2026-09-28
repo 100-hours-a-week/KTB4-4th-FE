@@ -1,5 +1,7 @@
 // 발신자에 따라 정렬과 색상을 구분하는 AI 대화 말풍선 컴포넌트
 
+import Image from "next/image";
+
 import type { ChatMessage } from "@/types/chat";
 
 type ChatBubbleProps = {
@@ -16,14 +18,13 @@ export default function ChatBubble({ message }: ChatBubbleProps) {
       className={`flex w-full items-center gap-3 ${isAssistant ? "pr-6" : "justify-end pl-12"}`}
     >
       {isAssistant && (
-        <>
-          {/* TODO: AI 로고 이미지 확정 후 회색 원형 영역을 실제 로고로 교체 */}
-          <div
-            role="img"
-            aria-label="AI 로고"
-            className="h-12 w-12 shrink-0 rounded-full bg-disabled"
-          />
-        </>
+        <Image
+          src="/images/Needu_profile.png"
+          alt="니쥬 프로필"
+          width={48}
+          height={48}
+          className="h-12 w-12 shrink-0 object-contain"
+        />
       )}
 
       <div
