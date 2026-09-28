@@ -8,8 +8,10 @@ import type { RecommendationTarget as RecommendationTargetData } from "@/types/r
 
 type RecommendationTargetProps = {
   target: RecommendationTargetData;
-  availableMinPrice: number;
-  availableMaxPrice: number;
+  availableMinPrice?: number;
+  availableMaxPrice?: number;
+  initialMinPrice?: number;
+  initialMaxPrice?: number;
   showBudget?: boolean;
   onPriceRangeCommit?: (priceRange: PriceRange) => void;
 };
@@ -18,9 +20,17 @@ export default function RecommendationTarget({
   target,
   availableMinPrice,
   availableMaxPrice,
+  initialMinPrice,
+  initialMaxPrice,
   showBudget = true,
   onPriceRangeCommit,
 }: RecommendationTargetProps) {
+  const hasValidPriceRange =
+    typeof availableMinPrice === "number" &&
+    typeof availableMaxPrice === "number" &&
+    Number.isFinite(availableMinPrice) &&
+    Number.isFinite(availableMaxPrice) &&
+    availableMinPrice <= availableMaxPrice;
   const recommendationTitle =
     target.type === "SELF" ? (
       "나를 위한 추천"
@@ -50,10 +60,12 @@ export default function RecommendationTarget({
       <div className="min-w-0 flex-1">
         {/* TODO: 추천 API의 취향·관심사 키워드를 상품 추천 요청에 활용 */}
         <h1 className="min-w-0 text-heading-3 font-bold text-foreground">{recommendationTitle}</h1>
-        {showBudget && (
+        {showBudget && hasValidPriceRange && (
           <PriceRangeSlider
             availableMinPrice={availableMinPrice}
             availableMaxPrice={availableMaxPrice}
+            initialMinPrice={initialMinPrice}
+            initialMaxPrice={initialMaxPrice}
             onPriceRangeCommit={onPriceRangeCommit}
           />
         )}

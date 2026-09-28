@@ -1,102 +1,26 @@
-// AI 대화 화면의 취향 분석 및 메시지 표시를 위한 임시 데이터
+// AI 대화 화면의 취향 분석 설명 임시 데이터
 
-import type {
-  ChatMessage,
-  PreferenceAnalysis,
-  PreferenceAnalysisResult,
-  PreferenceAnalysisStatus,
-} from "@/types/chat";
+type PreferenceAnalysisProgressStep = 0 | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | 100;
 
-// TODO: AI 취향 분석 상태·결과 API 연동 후 아래 취향 분석 Mock 데이터 제거
-export const temporaryPreferenceAnalysis: PreferenceAnalysis = {
-  progress: 72,
-  description: "추천에 필요한 정보를 거의 다 알게 되었어요.",
+// TODO: 취향 분석 진행률 설명 API 연동 후 Mock 설명 문구 교체
+const preferenceAnalysisDescriptions: Record<PreferenceAnalysisProgressStep, string> = {
+  0: "아직 취향을 알아가는 중이에요.",
+  10: "취향을 하나씩 알아가고 있어요.",
+  20: "좋아하는 것들의 힌트를 찾고 있어요.",
+  30: "취향의 윤곽이 조금씩 보이고 있어요.",
+  40: "관심 있는 분야를 정리하고 있어요.",
+  50: "취향의 절반 정도를 알아냈어요.",
+  60: "좋아하는 요소들을 구체화하고 있어요.",
+  70: "취향에 어울리는 기준을 정리하고 있어요.",
+  80: "추천에 필요한 정보를 거의 다 알게 되었어요.",
+  90: "취향 분석을 마무리하고 있어요.",
+  100: "취향 분석이 완료되었어요.",
 };
 
-export const temporaryPreferenceAnalysisStatus: PreferenceAnalysisStatus = "COMPLETED";
+export const getPreferenceAnalysisDescription = (progress: number) => {
+  const finiteProgress = Number.isFinite(progress) ? progress : 0;
+  const clampedProgress = Math.min(Math.max(finiteProgress, 0), 100);
+  const progressStep = (Math.floor(clampedProgress / 10) * 10) as PreferenceAnalysisProgressStep;
 
-export const temporaryPreferenceAnalysisResult: PreferenceAnalysisResult = {
-  interests: [
-    { value: "홈 카페", score: 0.95 },
-    { value: "디저트", score: 0.88 },
-    { value: "브런치", score: 0.82 },
-  ],
-  preferences: [
-    { value: "편안한 휴식", score: 0.93 },
-    { value: "간단한 활동", score: 0.87 },
-    { value: "실용적인 물건", score: 0.8 },
-  ],
-  summary: "집에서 편안하게 쉬며 간단한 요리나 디저트 만들기를 즐기는 편이에요.",
-  correctionAvailable: true,
+  return preferenceAnalysisDescriptions[progressStep];
 };
-
-// TODO: 비활성·미검증 대화의 메시지 표시 정책 확정 후 아래 대화 Mock 데이터 제거
-export const temporaryChatMessages: ChatMessage[] = [
-  {
-    id: 1,
-    role: "ASSISTANT",
-    senderName: "니쥬",
-    content: "요즘 집에서 가장 자주 하는 취미가 있나요?",
-  },
-  {
-    id: 2,
-    role: "USER",
-    senderName: "나",
-    content: "최근에는 방에만 누워있어요.\n침대에서 자는게 최고",
-  },
-  {
-    id: 3,
-    role: "ASSISTANT",
-    senderName: "니쥬",
-    content:
-      "맞아요! 휴일에는 집에서 온전히 쉬는게 최고죠\n집에서는 수면외에 어떤 활동을 선호하시나요?",
-  },
-  {
-    id: 4,
-    role: "USER",
-    senderName: "나",
-    content: "모르겠어요. 하나 뽑자면 요리하기??",
-  },
-  {
-    id: 5,
-    role: "ASSISTANT",
-    senderName: "니쥬",
-    content: "필요한 정보가 모두 모였어요.\n분석을 시작합니다!",
-  },
-  {
-    id: 6,
-    role: "USER",
-    senderName: "나",
-    content: "좋아요. 어떤 결과가 나올지 궁금해요.",
-  },
-  {
-    id: 7,
-    role: "ASSISTANT",
-    senderName: "니쥬",
-    content: "평소 집에서 편안하게 쉴 수 있는 활동을 좋아하시는 것 같아요.",
-  },
-  {
-    id: 8,
-    role: "USER",
-    senderName: "나",
-    content: "맞아요. 복잡한 활동보다는 가볍게 할 수 있는 게 좋아요.",
-  },
-  {
-    id: 9,
-    role: "ASSISTANT",
-    senderName: "니쥬",
-    content: "요리할 때 자주 사용하는 도구나 관심 있는 메뉴가 있나요?",
-  },
-  {
-    id: 10,
-    role: "USER",
-    senderName: "나",
-    content: "간단한 디저트나 브런치를 만들어 보고 싶어요.",
-  },
-  {
-    id: 11,
-    role: "ASSISTANT",
-    senderName: "니쥬",
-    content: "알려주신 내용을 바탕으로 취향에 맞는 추천을 준비할게요!",
-  },
-];

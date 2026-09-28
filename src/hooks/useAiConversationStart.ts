@@ -8,6 +8,8 @@ import { useAiConversationContext } from "@/contexts/AiConversationContext";
 import { startAiConversation } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
 
+const ERROR_MESSAGE_DURATION_MS = 3000;
+
 export default function useAiConversationStart() {
   const router = useRouter();
   const { setConversation } = useAiConversationContext();
@@ -16,6 +18,16 @@ export default function useAiConversationStart() {
   const [errorMessage, setErrorMessage] = useState("");
   const [retryAfterSeconds, setRetryAfterSeconds] = useState(0);
   const isUnavailable = isStartingConversation || retryAfterSeconds > 0;
+
+  useEffect(() => {
+    if (!errorMessage) return;
+
+    const timer = window.setTimeout(() => {
+      setErrorMessage("");
+    }, ERROR_MESSAGE_DURATION_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [errorMessage]);
 
   useEffect(() => {
     if (retryAfterSeconds <= 0) return;
@@ -36,12 +48,8 @@ export default function useAiConversationStart() {
 
     try {
       const conversation = await startAiConversation();
-      const { conversationId, status } = conversation;
-      // TODO: 백엔드 대화 상태 조회 API 구현 후 URL의 status 쿼리를 제거하고 conversationId만 전달
-      const searchParams = new URLSearchParams({
-        conversationId: String(conversationId),
-        status,
-      });
+      const { conversationId } = conversation;
+      const searchParams = new URLSearchParams({ conversationId: String(conversationId) });
 
       setConversation(conversation);
       router.push(`/ai?${searchParams.toString()}`);

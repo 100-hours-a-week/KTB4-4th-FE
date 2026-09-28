@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import styles from "./ChatComposer.module.css";
 
@@ -16,6 +16,15 @@ type ChatComposerProps = {
 const MIN_TEXTAREA_HEIGHT = 28;
 const MAX_TEXTAREA_HEIGHT = 108;
 
+function resizeTextarea(textarea: HTMLTextAreaElement) {
+  textarea.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
+  textarea.style.height = `${Math.max(
+    MIN_TEXTAREA_HEIGHT,
+    Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT),
+  )}px`;
+  textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? "auto" : "hidden";
+}
+
 export default function ChatComposer({ onSend, isDisabled = false }: ChatComposerProps) {
   const [draftMessage, setDraftMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -23,18 +32,14 @@ export default function ChatComposer({ onSend, isDisabled = false }: ChatCompose
   const normalizedMessage = draftMessage.trim();
   const isInputDisabled = isDisabled || isSending;
 
-  const resizeTextarea = (textarea: HTMLTextAreaElement) => {
-    textarea.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
-    textarea.style.height = `${Math.max(
-      MIN_TEXTAREA_HEIGHT,
-      Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT),
-    )}px`;
-    textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? "auto" : "hidden";
-  };
+  useEffect(() => {
+    if (textareaRef.current) {
+      resizeTextarea(textareaRef.current);
+    }
+  }, [draftMessage]);
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     setDraftMessage(event.target.value);
-    resizeTextarea(event.target);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -49,16 +54,17 @@ export default function ChatComposer({ onSend, isDisabled = false }: ChatCompose
     if (isInputDisabled || !normalizedMessage) return;
 
     setIsSending(true);
+    setDraftMessage("");
+
+    if (textareaRef.current) {
+      textareaRef.current.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
+      textareaRef.current.style.overflowY = "hidden";
+    }
 
     try {
       await onSend(normalizedMessage);
-      setDraftMessage("");
-
-      if (textareaRef.current) {
-        textareaRef.current.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
-        textareaRef.current.style.overflowY = "hidden";
-      }
     } catch {
+      setDraftMessage(normalizedMessage);
       return;
     } finally {
       setIsSending(false);

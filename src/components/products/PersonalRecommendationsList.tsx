@@ -9,11 +9,37 @@ import ProductCard from "@/components/products/ProductCard";
 import {
   getPersonalRecommendations,
   type PersonalRecommendation,
+  type PersonalRecommendationsPriceRange,
 } from "@/lib/api/personalRecommendations";
 
 const PAGE_SIZE = 20;
 
-export default function PersonalRecommendationsList() {
+type PersonalRecommendationsListProps = {
+  minPrice?: number;
+  maxPrice?: number;
+  onPriceRangeLoad?: (priceRange: PersonalRecommendationsPriceRange | null) => void;
+};
+
+export default function PersonalRecommendationsList({
+  minPrice,
+  maxPrice,
+  onPriceRangeLoad,
+}: PersonalRecommendationsListProps) {
+  return (
+    <PersonalRecommendationsListContent
+      key={`${minPrice ?? "initial"}:${maxPrice ?? "initial"}`}
+      minPrice={minPrice}
+      maxPrice={maxPrice}
+      onPriceRangeLoad={onPriceRangeLoad}
+    />
+  );
+}
+
+function PersonalRecommendationsListContent({
+  minPrice,
+  maxPrice,
+  onPriceRangeLoad,
+}: PersonalRecommendationsListProps) {
   const router = useRouter();
   const [products, setProducts] = useState<PersonalRecommendation[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -34,13 +60,20 @@ export default function PersonalRecommendationsList() {
     setIsLoading(true);
 
     try {
+      const priceParams =
+        minPrice !== undefined && maxPrice !== undefined ? { minPrice, maxPrice } : {};
       const data = await getPersonalRecommendations({
+        ...priceParams,
         cursor: nextCursorRef.current ?? undefined,
         size: PAGE_SIZE,
       });
 
       if (!isMountedRef.current) {
         return;
+      }
+
+      if (nextCursorRef.current === null) {
+        onPriceRangeLoad?.(data.priceRange);
       }
 
       setProducts((currentProducts) => [...currentProducts, ...data.items]);
@@ -59,7 +92,7 @@ export default function PersonalRecommendationsList() {
         setIsLoading(false);
       }
     }
-  }, [router]);
+  }, [maxPrice, minPrice, onPriceRangeLoad, router]);
 
   useEffect(() => {
     isMountedRef.current = true;

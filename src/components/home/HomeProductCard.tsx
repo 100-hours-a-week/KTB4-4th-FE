@@ -10,18 +10,27 @@ const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
 
 export default function HomeProductCard({ product }: HomeProductCardProps) {
   return (
-    <article className="min-w-0 rounded-sm border border-border-strong bg-surface p-2">
-      {/* TODO: 상품 추천 API의 imageUrl이 있으면 실제 상품 이미지로 교체 */}
+    <a
+      href={product.purchaseUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="min-w-0 rounded-sm border border-border-strong bg-surface p-2"
+    >
       <div
         role="img"
         aria-label={`${product.name} 상품 이미지`}
-        className="aspect-square w-full bg-disabled"
+        className="aspect-square w-full bg-disabled bg-cover bg-center bg-no-repeat"
+        style={
+          product.productImageUrl
+            ? { backgroundImage: `url(${JSON.stringify(product.productImageUrl)})` }
+            : undefined
+        }
       />
 
       <h3 className="mt-3 truncate text-body-sm font-medium text-foreground">{product.name}</h3>
       <p className="mt-1 text-body font-bold whitespace-nowrap text-foreground">
         {formatPrice(product.price)}
       </p>
-    </article>
+    </a>
   );
 }

@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import ChatRoom from "@/components/chat/ChatRoom";
 import PreferenceAnalysisBar from "@/components/chat/PreferenceAnalysisBar";
@@ -13,18 +13,13 @@ import {
   type AiConversationMessage,
 } from "@/lib/api/aiConversationMessages";
 import type { SendAiConversationMessageData } from "@/lib/api/aiConversationMessageSend";
+import { startAiConversation } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
-import {
-  temporaryChatMessages,
-  temporaryPreferenceAnalysis,
-  temporaryPreferenceAnalysisResult,
-  temporaryPreferenceAnalysisStatus,
-} from "@/mocks/chat";
-import type { ChatMessage } from "@/types/chat";
+import { getPreferenceAnalysisDescription } from "@/mocks/chat";
+import type { ChatMessage, PreferenceAnalysisResult } from "@/types/chat";
 
 type AiConversationContentProps = {
   conversationId?: string;
-  status?: string;
 };
 
 type ConversationMessagesState = {
@@ -39,6 +34,13 @@ type ConversationMessagesError = {
   retryAfterSeconds: number;
 };
 
+const EMPTY_PREFERENCE_ANALYSIS_RESULT: PreferenceAnalysisResult = {
+  interests: [],
+  preferences: [],
+  summary: null,
+  correctionAvailable: false,
+};
+
 function toChatMessage(message: AiConversationMessage): ChatMessage {
   const isAiMessage = message.role === "AI";
 
@@ -50,21 +52,17 @@ function toChatMessage(message: AiConversationMessage): ChatMessage {
   };
 }
 
-export default function AiConversationContent({
-  conversationId,
-  status,
-}: AiConversationContentProps) {
+export default function AiConversationContent({ conversationId }: AiConversationContentProps) {
   const router = useRouter();
-  const { conversation } = useAiConversationContext();
+  const { conversation, setConversation } = useAiConversationContext();
   const [messagesState, setMessagesState] = useState<ConversationMessagesState | null>(null);
   const [messagesError, setMessagesError] = useState<ConversationMessagesError | null>(null);
+  const [conversationRestoreError, setConversationRestoreError] = useState("");
   const [requestVersion, setRequestVersion] = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState<number | null>(null);
-  // TODO: 백엔드 대화 상태 조회 API 구현 후 URL status 의존 제거 및 직접 접근·새로고침 시 Context 복원
+  const restoreRequestKeyRef = useRef<string | null>(null);
   const isVerifiedConversation =
-    conversation !== null &&
-    String(conversation.conversationId) === conversationId &&
-    conversation.status === status;
+    conversation !== null && String(conversation.conversationId) === conversationId;
   const verifiedStatus = isVerifiedConversation ? conversation.status : undefined;
   const availableConversationId =
     verifiedStatus === "ACTIVE" || verifiedStatus === "ANALYZING"
@@ -74,7 +72,7 @@ export default function AiConversationContent({
     availableConversationId !== undefined &&
     messagesState?.conversationId === availableConversationId
       ? messagesState.messages
-      : temporaryChatMessages;
+      : [];
   const currentError =
     availableConversationId !== undefined &&
     messagesError?.conversationId === availableConversationId
@@ -84,6 +82,55 @@ export default function AiConversationContent({
     availableConversationId !== undefined &&
     messagesState?.conversationId !== availableConversationId &&
     messagesError?.conversationId !== availableConversationId;
+  const currentAnalysisProgress =
+    analysisProgress ?? (isVerifiedConversation ? conversation.progress : 0);
+
+  useEffect(() => {
+    if (isVerifiedConversation) {
+      if (conversation.status !== "ACTIVE" && conversation.status !== "ANALYZING") {
+        router.replace("/error");
+      }
+      return;
+    }
+
+    const requestKey = conversationId ?? "missing-conversation-id";
+
+    if (restoreRequestKeyRef.current === requestKey) return;
+
+    restoreRequestKeyRef.current = requestKey;
+    setConversationRestoreError("");
+
+    void startAiConversation()
+      .then((restoredConversation) => {
+        if (restoreRequestKeyRef.current !== requestKey) return;
+
+        setConversation(restoredConversation);
+
+        if (
+          restoredConversation.status !== "ACTIVE" &&
+          restoredConversation.status !== "ANALYZING"
+        ) {
+          router.replace("/error");
+          return;
+        }
+
+        if (String(restoredConversation.conversationId) !== conversationId) {
+          router.replace(`/ai?conversationId=${restoredConversation.conversationId}`);
+        }
+      })
+      .catch((error: unknown) => {
+        if (restoreRequestKeyRef.current !== requestKey) return;
+
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        setConversationRestoreError(
+          error instanceof ApiRequestError ? error.message : "AI 대화를 불러오지 못했습니다.",
+        );
+      });
+  }, [conversation, conversationId, isVerifiedConversation, router, setConversation]);
 
   useEffect(() => {
     if (currentError?.status !== 429 || currentError.retryAfterSeconds <= 0) return;
@@ -146,6 +193,10 @@ export default function AiConversationContent({
 
   const handleMessageSent = (response: SendAiConversationMessageData) => {
     setAnalysisProgress(response.progress);
+
+    if (response.inputLocked && conversation !== null) {
+      setConversation({ ...conversation, status: "ANALYZING" });
+    }
   };
 
   return (
@@ -155,15 +206,32 @@ export default function AiConversationContent({
     >
       {/* TODO: 취향 분석 진행률 설명 API 연동 후 Mock 설명 문구 교체 */}
       <PreferenceAnalysisBar
-        progress={
-          availableConversationId === undefined
-            ? temporaryPreferenceAnalysis.progress
-            : (analysisProgress ?? 0)
-        }
-        description={temporaryPreferenceAnalysis.description}
+        progress={currentAnalysisProgress}
+        description={getPreferenceAnalysisDescription(currentAnalysisProgress)}
       />
 
-      {isLoadingMessages ? (
+      {!isVerifiedConversation && !conversationRestoreError ? (
+        <p
+          role="status"
+          className="flex min-h-0 flex-1 items-center justify-center text-body-sm text-muted"
+        >
+          대화를 불러오는 중이에요.
+        </p>
+      ) : conversationRestoreError ? (
+        <p
+          role="alert"
+          className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-body-sm text-danger"
+        >
+          {conversationRestoreError}
+        </p>
+      ) : availableConversationId === undefined ? (
+        <p
+          role="status"
+          className="flex min-h-0 flex-1 items-center justify-center text-body-sm text-muted"
+        >
+          대화 정보를 확인하는 중이에요.
+        </p>
+      ) : isLoadingMessages ? (
         <p
           role="status"
           className="flex min-h-0 flex-1 items-center justify-center text-body-sm text-muted"
@@ -189,24 +257,15 @@ export default function AiConversationContent({
           )}
         </div>
       ) : (
-        <>
-          {/* TODO: AI 대화 API의 취향 분석 상태로 Mock 상태를 교체 */}
-          <ChatRoom
-            key={
-              messages === temporaryChatMessages
-                ? "temporary-chat"
-                : `conversation-${availableConversationId}`
-            }
-            initialMessages={messages}
-            initialAnalysisStatus={
-              availableConversationId === undefined ? temporaryPreferenceAnalysisStatus : "IDLE"
-            }
-            analysisResult={temporaryPreferenceAnalysisResult}
-            isInputLocked={verifiedStatus === "ANALYZING"}
-            conversationId={availableConversationId}
-            onMessageSent={handleMessageSent}
-          />
-        </>
+        <ChatRoom
+          key={`conversation-${availableConversationId}`}
+          initialMessages={messages}
+          initialAnalysisStatus="IDLE"
+          analysisResult={EMPTY_PREFERENCE_ANALYSIS_RESULT}
+          isInputLocked={verifiedStatus === "ANALYZING"}
+          conversationId={availableConversationId}
+          onMessageSent={handleMessageSent}
+        />
       )}
     </main>
   );

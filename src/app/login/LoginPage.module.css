@@ -1,0 +1,14 @@
+/* 로그인 페이지 서비스 로고 등장 애니메이션 */
+.logoReveal {
+  animation: logo-reveal 2000ms var(--ease-emphasized) both;
+}
+
+@keyframes logo-reveal {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

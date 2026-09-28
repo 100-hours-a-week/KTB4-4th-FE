@@ -3,13 +3,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
+import ActionButton from "@/components/common/ActionButton";
 import {
   confirmAiPreferenceAnalysis,
   requestAiPreferenceAnalysis,
@@ -43,6 +44,14 @@ type MessageSendError = {
   retryAfterSeconds: number;
 };
 
+const MIN_AI_RESPONSE_DELAY_MS = 600;
+
+function delay(milliseconds: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
+
 function toPreferenceAnalysisResult(response: AiPreferenceAnalysisData): PreferenceAnalysisResult {
   return {
     interests: response.keywords.interest,
@@ -69,6 +78,7 @@ export default function ChatRoom({
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
+  const isAnalysisRequestingRef = useRef(false);
   const pendingMessageRef = useRef<PendingMessage | null>(null);
 
   useEffect(() => {
@@ -95,9 +105,10 @@ export default function ChatRoom({
     messageList?.scrollTo({ top: messageList.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const handleAnalysisRequest = async () => {
-    if (conversationId === undefined) return;
+  const handleAnalysisRequest = useCallback(async () => {
+    if (conversationId === undefined || isAnalysisRequestingRef.current) return;
 
+    isAnalysisRequestingRef.current = true;
     setAnalysisStatus("LOADING");
 
     try {
@@ -127,8 +138,18 @@ export default function ChatRoom({
       }
 
       router.replace("/error");
+    } finally {
+      isAnalysisRequestingRef.current = false;
     }
-  };
+  }, [conversationId, router]);
+
+  useEffect(() => {
+    if (isInputLocked && conversationId !== undefined) {
+      queueMicrotask(() => {
+        void handleAnalysisRequest();
+      });
+    }
+  }, [conversationId, handleAnalysisRequest, isInputLocked]);
 
   const handleSend = async (content: string) => {
     if (conversationId === undefined) return;
@@ -139,15 +160,31 @@ export default function ChatRoom({
         : { clientMessageId: crypto.randomUUID(), content };
     pendingMessageRef.current = pendingMessage;
 
+    const optimisticUserMessage: ChatMessage = {
+      id: pendingMessage.clientMessageId,
+      role: "USER",
+      senderName: "나",
+      content: pendingMessage.content,
+    };
+
+    setMessages((currentMessages) => [...currentMessages, optimisticUserMessage]);
+
     let response: SendAiConversationMessageData;
 
     try {
-      response = await sendAiConversationMessage({
-        conversationId,
-        clientMessageId: pendingMessage.clientMessageId,
-        content: pendingMessage.content,
-      });
+      [response] = await Promise.all([
+        sendAiConversationMessage({
+          conversationId,
+          clientMessageId: pendingMessage.clientMessageId,
+          content: pendingMessage.content,
+        }),
+        delay(MIN_AI_RESPONSE_DELAY_MS),
+      ]);
     } catch (error) {
+      setMessages((currentMessages) =>
+        currentMessages.filter((message) => message.id !== pendingMessage.clientMessageId),
+      );
+
       const isNetworkError = error instanceof TypeError;
 
       if (!isNetworkError) {
@@ -171,12 +208,6 @@ export default function ChatRoom({
       throw error;
     }
 
-    const userMessage: ChatMessage = {
-      id: response.userMessageId,
-      role: "USER",
-      senderName: "나",
-      content,
-    };
     const assistantMessage: ChatMessage = {
       id: response.messageId,
       role: "ASSISTANT",
@@ -184,7 +215,14 @@ export default function ChatRoom({
       content: response.content,
     };
 
-    setMessages((currentMessages) => [...currentMessages, userMessage, assistantMessage]);
+    setMessages((currentMessages) => [
+      ...currentMessages.map((message) =>
+        message.id === pendingMessage.clientMessageId
+          ? { ...message, id: response.userMessageId }
+          : message,
+      ),
+      assistantMessage,
+    ]);
     pendingMessageRef.current = null;
     setSendError(null);
 
@@ -315,6 +353,11 @@ export default function ChatRoom({
             ? ` (${sendError.retryAfterSeconds}초 후 다시 전송할 수 있어요.)`
             : ""}
         </p>
+      )}
+      {analysisStatus === "IDLE" && (isInputLocked || isResponseInputLocked) && (
+        <ActionButton onClick={handleRetryAnalysis} className="mb-3 font-bold">
+          분석 결과 다시 보기
+        </ActionButton>
       )}
       <ChatComposer
         onSend={handleSend}
