@@ -22,6 +22,8 @@ export interface PriceRange {
   maxPrice: number;
 }
 
+type RangeThumb = "minimum" | "maximum";
+
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.min(Math.max(value, minimum), maximum);
 
@@ -49,10 +51,10 @@ export default function PriceRangeSlider({
     minPrice: clampedInitialMinPrice,
     maxPrice: clampedInitialMaxPrice,
   });
+  const activeThumbRef = useRef<RangeThumb | null>(null);
 
   const isFixedRange = availableMinPrice === availableMaxPrice;
   const isRangeValid = draftMinPrice <= draftMaxPrice;
-  const availableRange = Math.max(availableMaxPrice - availableMinPrice, 1);
   const normalizedStep = Math.max(step, 1);
   const maximumStepIndex = isFixedRange
     ? 1
@@ -70,19 +72,40 @@ export default function PriceRangeSlider({
 
     return Math.round((price - availableMinPrice) / normalizedStep);
   };
+  const draftMinStepIndex = getStepIndexFromPrice(draftMinPrice);
+  const draftMaxStepIndex = getStepIndexFromPrice(draftMaxPrice);
   const selectedRangeStyle = {
-    left: `${((draftMinPrice - availableMinPrice) / availableRange) * 100}%`,
-    right: `${100 - ((draftMaxPrice - availableMinPrice) / availableRange) * 100}%`,
+    left: `${(draftMinStepIndex / maximumStepIndex) * 100}%`,
+    right: `${100 - (draftMaxStepIndex / maximumStepIndex) * 100}%`,
   } satisfies CSSProperties;
 
+  const updateDraftPrice = (sourceThumb: RangeThumb, nextPrice: number) => {
+    let activeThumb = activeThumbRef.current ?? sourceThumb;
+
+    if (draftMinPrice === draftMaxPrice && activeThumbRef.current === null) {
+      if (nextPrice < draftMinPrice) {
+        activeThumb = "minimum";
+      } else if (nextPrice > draftMaxPrice) {
+        activeThumb = "maximum";
+      }
+    }
+
+    activeThumbRef.current = activeThumb;
+
+    if (activeThumb === "minimum") {
+      setDraftMinPrice(Math.min(nextPrice, draftMaxPrice));
+      return;
+    }
+
+    setDraftMaxPrice(Math.max(nextPrice, draftMinPrice));
+  };
+
   const handleMinPriceChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const nextMinPrice = getPriceFromStepIndex(Number(event.target.value));
-    setDraftMinPrice(Math.min(nextMinPrice, draftMaxPrice));
+    updateDraftPrice("minimum", getPriceFromStepIndex(Number(event.target.value)));
   };
 
   const handleMaxPriceChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const nextMaxPrice = getPriceFromStepIndex(Number(event.target.value));
-    setDraftMaxPrice(Math.max(nextMaxPrice, draftMinPrice));
+    updateDraftPrice("maximum", getPriceFromStepIndex(Number(event.target.value)));
   };
 
   const commitPriceRange = () => {
@@ -102,6 +125,11 @@ export default function PriceRangeSlider({
 
     lastCommittedRangeRef.current = nextPriceRange;
     onPriceRangeCommit?.(nextPriceRange);
+  };
+
+  const handleInteractionEnd = () => {
+    activeThumbRef.current = null;
+    commitPriceRange();
   };
 
   return (
@@ -133,11 +161,11 @@ export default function PriceRangeSlider({
           min={0}
           max={maximumStepIndex}
           step={1}
-          value={getStepIndexFromPrice(draftMinPrice)}
+          value={draftMinStepIndex}
           disabled={isFixedRange}
           onChange={handleMinPriceChange}
-          onPointerUp={commitPriceRange}
-          onKeyUp={commitPriceRange}
+          onPointerUp={handleInteractionEnd}
+          onKeyUp={handleInteractionEnd}
           className={`${styles.sliderInput} z-20`}
         />
         <input
@@ -148,11 +176,11 @@ export default function PriceRangeSlider({
           min={0}
           max={maximumStepIndex}
           step={1}
-          value={getStepIndexFromPrice(draftMaxPrice)}
+          value={draftMaxStepIndex}
           disabled={isFixedRange}
           onChange={handleMaxPriceChange}
-          onPointerUp={commitPriceRange}
-          onKeyUp={commitPriceRange}
+          onPointerUp={handleInteractionEnd}
+          onKeyUp={handleInteractionEnd}
           className={`${styles.sliderInput} ${styles.maximumInput} z-30`}
         />
       </div>
