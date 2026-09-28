@@ -50,19 +50,39 @@ export default function PriceRangeSlider({
     maxPrice: clampedInitialMaxPrice,
   });
 
+  const isFixedRange = availableMinPrice === availableMaxPrice;
   const isRangeValid = draftMinPrice <= draftMaxPrice;
   const availableRange = Math.max(availableMaxPrice - availableMinPrice, 1);
+  const normalizedStep = Math.max(step, 1);
+  const maximumStepIndex = isFixedRange
+    ? 1
+    : Math.ceil((availableMaxPrice - availableMinPrice) / normalizedStep);
+  const getPriceFromStepIndex = (stepIndex: number) =>
+    Math.min(availableMinPrice + stepIndex * normalizedStep, availableMaxPrice);
+  const getStepIndexFromPrice = (price: number) => {
+    if (isFixedRange) {
+      return 0;
+    }
+
+    if (price >= availableMaxPrice) {
+      return maximumStepIndex;
+    }
+
+    return Math.round((price - availableMinPrice) / normalizedStep);
+  };
   const selectedRangeStyle = {
     left: `${((draftMinPrice - availableMinPrice) / availableRange) * 100}%`,
     right: `${100 - ((draftMaxPrice - availableMinPrice) / availableRange) * 100}%`,
   } satisfies CSSProperties;
 
   const handleMinPriceChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setDraftMinPrice(Math.min(Number(event.target.value), draftMaxPrice));
+    const nextMinPrice = getPriceFromStepIndex(Number(event.target.value));
+    setDraftMinPrice(Math.min(nextMinPrice, draftMaxPrice));
   };
 
   const handleMaxPriceChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setDraftMaxPrice(Math.max(Number(event.target.value), draftMinPrice));
+    const nextMaxPrice = getPriceFromStepIndex(Number(event.target.value));
+    setDraftMaxPrice(Math.max(nextMaxPrice, draftMinPrice));
   };
 
   const commitPriceRange = () => {
@@ -110,10 +130,11 @@ export default function PriceRangeSlider({
           aria-label="최소 예산"
           aria-invalid={!isRangeValid}
           aria-valuetext={formatPrice(draftMinPrice)}
-          min={availableMinPrice}
-          max={availableMaxPrice}
-          step={step}
-          value={draftMinPrice}
+          min={0}
+          max={maximumStepIndex}
+          step={1}
+          value={getStepIndexFromPrice(draftMinPrice)}
+          disabled={isFixedRange}
           onChange={handleMinPriceChange}
           onPointerUp={commitPriceRange}
           onKeyUp={commitPriceRange}
@@ -124,10 +145,11 @@ export default function PriceRangeSlider({
           aria-label="최대 예산"
           aria-invalid={!isRangeValid}
           aria-valuetext={formatPrice(draftMaxPrice)}
-          min={availableMinPrice}
-          max={availableMaxPrice}
-          step={step}
-          value={draftMaxPrice}
+          min={0}
+          max={maximumStepIndex}
+          step={1}
+          value={getStepIndexFromPrice(draftMaxPrice)}
+          disabled={isFixedRange}
           onChange={handleMaxPriceChange}
           onPointerUp={commitPriceRange}
           onKeyUp={commitPriceRange}

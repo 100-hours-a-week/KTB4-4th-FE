@@ -64,3 +64,11 @@
 .sliderInput:active::-moz-range-thumb {
   cursor: grabbing;
 }
+
+.sliderInput:disabled::-webkit-slider-thumb {
+  cursor: default;
+}
+
+.sliderInput:disabled::-moz-range-thumb {
+  cursor: default;
+}
