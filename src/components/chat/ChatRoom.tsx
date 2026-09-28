@@ -43,6 +43,14 @@ type MessageSendError = {
   retryAfterSeconds: number;
 };
 
+const MIN_AI_RESPONSE_DELAY_MS = 1000;
+
+function delay(milliseconds: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
+
 function toPreferenceAnalysisResult(response: AiPreferenceAnalysisData): PreferenceAnalysisResult {
   return {
     interests: response.keywords.interest,
@@ -151,11 +159,14 @@ export default function ChatRoom({
     let response: SendAiConversationMessageData;
 
     try {
-      response = await sendAiConversationMessage({
-        conversationId,
-        clientMessageId: pendingMessage.clientMessageId,
-        content: pendingMessage.content,
-      });
+      [response] = await Promise.all([
+        sendAiConversationMessage({
+          conversationId,
+          clientMessageId: pendingMessage.clientMessageId,
+          content: pendingMessage.content,
+        }),
+        delay(MIN_AI_RESPONSE_DELAY_MS),
+      ]);
     } catch (error) {
       setMessages((currentMessages) =>
         currentMessages.filter((message) => message.id !== pendingMessage.clientMessageId),
