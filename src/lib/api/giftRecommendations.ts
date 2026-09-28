@@ -16,8 +16,19 @@ export interface GiftRecommendation {
   reason: string;
 }
 
+export interface GiftRecommendationsPriceRange {
+  minPrice: number;
+  maxPrice: number;
+}
+
 interface GiftRecommendationsData {
   items: GiftRecommendation[];
+  priceRange: GiftRecommendationsPriceRange | null;
+}
+
+interface GiftRecommendationsPriceRangeResponse {
+  minPrice: number | null;
+  maxPrice: number | null;
 }
 
 export interface GiftRecommendationsPage extends GiftRecommendationsData {
@@ -27,18 +38,52 @@ export interface GiftRecommendationsPage extends GiftRecommendationsData {
 
 interface GiftRecommendationsResponse {
   message: string;
-  data: GiftRecommendationsData;
+  data: {
+    items: GiftRecommendation[];
+    priceRange: GiftRecommendationsPriceRangeResponse | null;
+  };
   nextCursor: string | null;
   hasNext: boolean;
 }
 
-interface GetGiftRecommendationsParams {
+type GiftRecommendationsPaginationParams = {
   userId: number;
-  minPrice: number;
-  maxPrice: number;
   cursor?: string;
   size?: number;
-}
+};
+
+type GiftRecommendationsPriceParams =
+  | {
+      minPrice: number;
+      maxPrice: number;
+    }
+  | {
+      minPrice?: undefined;
+      maxPrice?: undefined;
+    };
+
+type GetGiftRecommendationsParams = GiftRecommendationsPaginationParams &
+  GiftRecommendationsPriceParams;
+
+const normalizePriceRange = (
+  priceRange: GiftRecommendationsPriceRangeResponse | null,
+): GiftRecommendationsPriceRange | null => {
+  if (
+    !priceRange ||
+    typeof priceRange.minPrice !== "number" ||
+    typeof priceRange.maxPrice !== "number" ||
+    !Number.isFinite(priceRange.minPrice) ||
+    !Number.isFinite(priceRange.maxPrice) ||
+    priceRange.minPrice > priceRange.maxPrice
+  ) {
+    return null;
+  }
+
+  return {
+    minPrice: priceRange.minPrice,
+    maxPrice: priceRange.maxPrice,
+  };
+};
 
 export async function getGiftRecommendations({
   userId,
@@ -47,11 +92,12 @@ export async function getGiftRecommendations({
   cursor,
   size = 20,
 }: GetGiftRecommendationsParams) {
-  const searchParams = new URLSearchParams({
-    minPrice: String(minPrice),
-    maxPrice: String(maxPrice),
-    size: String(size),
-  });
+  const searchParams = new URLSearchParams({ size: String(size) });
+
+  if (minPrice !== undefined && maxPrice !== undefined) {
+    searchParams.set("minPrice", String(minPrice));
+    searchParams.set("maxPrice", String(maxPrice));
+  }
 
   if (cursor) {
     searchParams.set("cursor", cursor);
@@ -73,6 +119,7 @@ export async function getGiftRecommendations({
 
   return {
     items: data.items,
+    priceRange: normalizePriceRange(data.priceRange),
     nextCursor,
     hasNext,
   } satisfies GiftRecommendationsPage;
