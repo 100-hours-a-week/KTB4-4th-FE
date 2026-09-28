@@ -24,10 +24,13 @@ export default function Header() {
         </button>
       )}
 
-      <strong className="text-heading-3 font-bold" aria-label="NeedU">
-        <span>Need</span>
-        <span className="text-brand-500">U</span>
-      </strong>
+      <Image
+        src="/images/NeedU_logo.png"
+        alt="NeedU"
+        width={80}
+        height={21}
+        priority
+      />
     </header>
   );
 }
