@@ -2,11 +2,11 @@
 
 .messageInput {
   display: block;
-  height: 1.75rem;
+  height: 2.25rem;
   max-height: 6.75rem;
-  min-height: 1.75rem;
+  min-height: 2.25rem;
   margin: 0;
-  padding: 0.25rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   appearance: none;
   line-height: 1.25rem;
   overflow-y: hidden;
@@ -19,6 +19,10 @@
 .messageInput:focus-visible {
   outline: none;
   box-shadow: none;
+}
+
+.messageInput::placeholder {
+  font-size: var(--text-body-lg);
 }
 
 .messageInput::-webkit-scrollbar {
@@ -35,7 +39,7 @@
 }
 
 .sendButton {
-  width: 1.75rem;
-  height: 1.75rem;
-  min-height: 1.75rem;
+  width: 2rem;
+  height: 2rem;
+  min-height: 2rem;
 }

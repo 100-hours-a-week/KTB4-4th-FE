@@ -13,7 +13,7 @@ type ChatComposerProps = {
   isDisabled?: boolean;
 };
 
-const MIN_TEXTAREA_HEIGHT = 28;
+const MIN_TEXTAREA_HEIGHT = 36;
 const MAX_TEXTAREA_HEIGHT = 108;
 
 function resizeTextarea(textarea: HTMLTextAreaElement) {
@@ -98,7 +98,7 @@ export default function ChatComposer({ onSend, isDisabled = false }: ChatCompose
         type="submit"
         aria-label="메시지 보내기"
         disabled={isInputDisabled || !normalizedMessage}
-        className={`${styles.sendButton} flex shrink-0 cursor-pointer items-center justify-center self-end rounded-full border-0 bg-primary text-sm leading-none font-bold text-on-primary disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted`}
+        className={`${styles.sendButton} flex shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-primary text-sm leading-none font-bold text-on-primary disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted`}
       >
         ↑
       </button>

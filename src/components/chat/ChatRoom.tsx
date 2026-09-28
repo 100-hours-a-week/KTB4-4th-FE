@@ -344,7 +344,7 @@ export default function ChatRoom({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col pb-[max(var(--spacing-page),env(safe-area-inset-bottom))]">
+    <div className="flex min-h-0 flex-1 flex-col pb-[max(calc(var(--spacing-page)*1.5),env(safe-area-inset-bottom))]">
       <ChatMessageList ref={messageListRef} messages={messages} />
       {sendError && (
         <p role="alert" className="mb-2 text-center text-body-sm text-danger">
