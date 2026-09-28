@@ -139,6 +139,15 @@ export default function ChatRoom({
         : { clientMessageId: crypto.randomUUID(), content };
     pendingMessageRef.current = pendingMessage;
 
+    const optimisticUserMessage: ChatMessage = {
+      id: pendingMessage.clientMessageId,
+      role: "USER",
+      senderName: "나",
+      content: pendingMessage.content,
+    };
+
+    setMessages((currentMessages) => [...currentMessages, optimisticUserMessage]);
+
     let response: SendAiConversationMessageData;
 
     try {
@@ -148,6 +157,10 @@ export default function ChatRoom({
         content: pendingMessage.content,
       });
     } catch (error) {
+      setMessages((currentMessages) =>
+        currentMessages.filter((message) => message.id !== pendingMessage.clientMessageId),
+      );
+
       const isNetworkError = error instanceof TypeError;
 
       if (!isNetworkError) {
@@ -171,12 +184,6 @@ export default function ChatRoom({
       throw error;
     }
 
-    const userMessage: ChatMessage = {
-      id: response.userMessageId,
-      role: "USER",
-      senderName: "나",
-      content,
-    };
     const assistantMessage: ChatMessage = {
       id: response.messageId,
       role: "ASSISTANT",
@@ -184,7 +191,14 @@ export default function ChatRoom({
       content: response.content,
     };
 
-    setMessages((currentMessages) => [...currentMessages, userMessage, assistantMessage]);
+    setMessages((currentMessages) => [
+      ...currentMessages.map((message) =>
+        message.id === pendingMessage.clientMessageId
+          ? { ...message, id: response.userMessageId }
+          : message,
+      ),
+      assistantMessage,
+    ]);
     pendingMessageRef.current = null;
     setSendError(null);
 

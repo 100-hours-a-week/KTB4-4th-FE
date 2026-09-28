@@ -20,9 +20,10 @@ export interface PreferenceAnalysisResult {
 export type PreferenceAnalysisStatus = "IDLE" | "LOADING" | "TIMEOUT" | "COMPLETED";
 
 export type ChatMessageRole = "ASSISTANT" | "USER";
+export type ChatMessageId = number | string;
 
 export interface ChatMessage {
-  id: number;
+  id: ChatMessageId;
   role: ChatMessageRole;
   senderName: string;
   content: string;
