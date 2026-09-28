@@ -15,8 +15,14 @@ export interface PersonalRecommendation {
   reason: string;
 }
 
+export interface PersonalRecommendationsPriceRange {
+  minPrice: number;
+  maxPrice: number;
+}
+
 export interface PersonalRecommendationsData {
   items: PersonalRecommendation[];
+  priceRange: PersonalRecommendationsPriceRange | null;
 }
 
 export interface PersonalRecommendationsPage extends PersonalRecommendationsData {
@@ -31,16 +37,36 @@ interface PersonalRecommendationsResponse {
   hasNext: boolean;
 }
 
-interface GetPersonalRecommendationsParams {
+type PersonalRecommendationsPaginationParams = {
   cursor?: string;
   size?: number;
-}
+};
+
+type PersonalRecommendationsPriceParams =
+  | {
+      minPrice: number;
+      maxPrice: number;
+    }
+  | {
+      minPrice?: undefined;
+      maxPrice?: undefined;
+    };
+
+type GetPersonalRecommendationsParams = PersonalRecommendationsPaginationParams &
+  PersonalRecommendationsPriceParams;
 
 export async function getPersonalRecommendations({
+  minPrice,
+  maxPrice,
   cursor,
   size = 20,
 }: GetPersonalRecommendationsParams = {}) {
   const searchParams = new URLSearchParams({ size: String(size) });
+
+  if (minPrice !== undefined && maxPrice !== undefined) {
+    searchParams.set("minPrice", String(minPrice));
+    searchParams.set("maxPrice", String(maxPrice));
+  }
 
   if (cursor) {
     searchParams.set("cursor", cursor);
@@ -62,6 +88,7 @@ export async function getPersonalRecommendations({
 
   return {
     items: data.items,
+    priceRange: data.priceRange,
     nextCursor,
     hasNext,
   } satisfies PersonalRecommendationsPage;

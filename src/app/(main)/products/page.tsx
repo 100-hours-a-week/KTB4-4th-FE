@@ -3,12 +3,10 @@
 import { redirect } from "next/navigation";
 
 import FriendRecommendationContent from "@/components/products/FriendRecommendationContent";
-import PersonalRecommendationsList from "@/components/products/PersonalRecommendationsList";
-import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
-import { temporarySelfTarget } from "@/mocks/recommendationTargets";
+import PersonalRecommendationsContent from "@/components/products/PersonalRecommendationsContent";
 
-// TODO: 추천 API 응답의 최소·최대 가격 메타데이터로 교체
-const temporaryAvailablePriceRange = {
+// TODO: 친구 추천 API 응답의 최소·최대 가격 메타데이터로 교체
+const temporaryFriendAvailablePriceRange = {
   minimum: 10_000,
   maximum: 50_000,
 };
@@ -37,8 +35,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       >
         <FriendRecommendationContent
           userId={userId}
-          availableMinPrice={temporaryAvailablePriceRange.minimum}
-          availableMaxPrice={temporaryAvailablePriceRange.maximum}
+          availableMinPrice={temporaryFriendAvailablePriceRange.minimum}
+          availableMaxPrice={temporaryFriendAvailablePriceRange.maximum}
         />
       </main>
     );
@@ -46,17 +44,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
   return (
     <main aria-label="상품 추천" className="page-content flex flex-1 flex-col bg-background-subtle">
-      <section aria-label="추천 대상" className="w-full pt-8">
-        <RecommendationTarget
-          target={temporarySelfTarget}
-          availableMinPrice={temporaryAvailablePriceRange.minimum}
-          availableMaxPrice={temporaryAvailablePriceRange.maximum}
-        />
-      </section>
-
-      <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">
-        <PersonalRecommendationsList />
-      </section>
+      <PersonalRecommendationsContent />
     </main>
   );
 }
