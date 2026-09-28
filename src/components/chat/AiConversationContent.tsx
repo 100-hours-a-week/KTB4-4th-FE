@@ -15,7 +15,7 @@ import {
 import type { SendAiConversationMessageData } from "@/lib/api/aiConversationMessageSend";
 import { startAiConversation } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
-import { temporaryPreferenceAnalysis } from "@/mocks/chat";
+import { getPreferenceAnalysisDescription } from "@/mocks/chat";
 import type { ChatMessage, PreferenceAnalysisResult } from "@/types/chat";
 
 type AiConversationContentProps = {
@@ -82,6 +82,8 @@ export default function AiConversationContent({ conversationId }: AiConversation
     availableConversationId !== undefined &&
     messagesState?.conversationId !== availableConversationId &&
     messagesError?.conversationId !== availableConversationId;
+  const currentAnalysisProgress =
+    analysisProgress ?? (isVerifiedConversation ? conversation.progress : 0);
 
   useEffect(() => {
     if (isVerifiedConversation) {
@@ -204,8 +206,8 @@ export default function AiConversationContent({ conversationId }: AiConversation
     >
       {/* TODO: 취향 분석 진행률 설명 API 연동 후 Mock 설명 문구 교체 */}
       <PreferenceAnalysisBar
-        progress={analysisProgress ?? (isVerifiedConversation ? conversation.progress : 0)}
-        description={temporaryPreferenceAnalysis.description}
+        progress={currentAnalysisProgress}
+        description={getPreferenceAnalysisDescription(currentAnalysisProgress)}
       />
 
       {!isVerifiedConversation && !conversationRestoreError ? (
