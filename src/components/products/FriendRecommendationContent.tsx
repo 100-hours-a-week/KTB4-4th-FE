@@ -13,15 +13,9 @@ import type { RecommendationTarget as RecommendationTargetData } from "@/types/r
 
 type FriendRecommendationContentProps = {
   userId: number;
-  availableMinPrice: number;
-  availableMaxPrice: number;
 };
 
-export default function FriendRecommendationContent({
-  userId,
-  availableMinPrice,
-  availableMaxPrice,
-}: FriendRecommendationContentProps) {
+export default function FriendRecommendationContent({ userId }: FriendRecommendationContentProps) {
   const router = useRouter();
   const [friend, setFriend] = useState<FriendDetail | null>(null);
   const isMountedRef = useRef(false);
@@ -75,24 +69,13 @@ export default function FriendRecommendationContent({
   } satisfies RecommendationTargetData;
 
   if (friend.tasteAnalysisCompleted) {
-    return (
-      <FriendGiftRecommendationsContent
-        target={target}
-        availableMinPrice={availableMinPrice}
-        availableMaxPrice={availableMaxPrice}
-      />
-    );
+    return <FriendGiftRecommendationsContent key={target.userId} target={target} />;
   }
 
   return (
     <>
       <section aria-label="추천 대상" className="w-full pt-8">
-        <RecommendationTarget
-          target={target}
-          availableMinPrice={availableMinPrice}
-          availableMaxPrice={availableMaxPrice}
-          showBudget={false}
-        />
+        <RecommendationTarget target={target} showBudget={false} />
       </section>
 
       <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">

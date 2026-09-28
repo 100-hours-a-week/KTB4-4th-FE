@@ -7,27 +7,34 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
 import { ApiRequestError } from "@/lib/api/client";
-import { getGiftRecommendations, type GiftRecommendation } from "@/lib/api/giftRecommendations";
+import {
+  getGiftRecommendations,
+  type GiftRecommendation,
+  type GiftRecommendationsPriceRange,
+} from "@/lib/api/giftRecommendations";
 
 const PAGE_SIZE = 20;
 
 type FriendGiftRecommendationsListProps = {
   userId: number;
-  minPrice: number;
-  maxPrice: number;
+  minPrice?: number;
+  maxPrice?: number;
+  onPriceRangeLoad?: (priceRange: GiftRecommendationsPriceRange | null) => void;
 };
 
 export default function FriendGiftRecommendationsList({
   userId,
   minPrice,
   maxPrice,
+  onPriceRangeLoad,
 }: FriendGiftRecommendationsListProps) {
   return (
     <FriendGiftRecommendationsListContent
-      key={`${userId}:${minPrice}:${maxPrice}`}
+      key={`${userId}:${minPrice ?? "initial"}:${maxPrice ?? "initial"}`}
       userId={userId}
       minPrice={minPrice}
       maxPrice={maxPrice}
+      onPriceRangeLoad={onPriceRangeLoad}
     />
   );
 }
@@ -36,6 +43,7 @@ function FriendGiftRecommendationsListContent({
   userId,
   minPrice,
   maxPrice,
+  onPriceRangeLoad,
 }: FriendGiftRecommendationsListProps) {
   const router = useRouter();
   const [products, setProducts] = useState<GiftRecommendation[]>([]);
@@ -59,16 +67,21 @@ function FriendGiftRecommendationsListContent({
     setIsLoading(true);
 
     try {
+      const priceParams =
+        minPrice !== undefined && maxPrice !== undefined ? { minPrice, maxPrice } : {};
       const data = await getGiftRecommendations({
         userId,
-        minPrice,
-        maxPrice,
+        ...priceParams,
         cursor: nextCursorRef.current ?? undefined,
         size: PAGE_SIZE,
       });
 
       if (!isMountedRef.current || requestGeneration !== requestGenerationRef.current) {
         return;
+      }
+
+      if (nextCursorRef.current === null) {
+        onPriceRangeLoad?.(data.priceRange);
       }
 
       setProducts((currentProducts) => [...currentProducts, ...data.items]);
@@ -92,7 +105,7 @@ function FriendGiftRecommendationsListContent({
         }
       }
     }
-  }, [maxPrice, minPrice, router, userId]);
+  }, [maxPrice, minPrice, onPriceRangeLoad, router, userId]);
 
   useEffect(() => {
     isMountedRef.current = true;
