@@ -3,13 +3,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
+import ActionButton from "@/components/common/ActionButton";
 import {
   confirmAiPreferenceAnalysis,
   requestAiPreferenceAnalysis,
@@ -77,6 +78,7 @@ export default function ChatRoom({
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
+  const isAnalysisRequestingRef = useRef(false);
   const pendingMessageRef = useRef<PendingMessage | null>(null);
 
   useEffect(() => {
@@ -103,9 +105,10 @@ export default function ChatRoom({
     messageList?.scrollTo({ top: messageList.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const handleAnalysisRequest = async () => {
-    if (conversationId === undefined) return;
+  const handleAnalysisRequest = useCallback(async () => {
+    if (conversationId === undefined || isAnalysisRequestingRef.current) return;
 
+    isAnalysisRequestingRef.current = true;
     setAnalysisStatus("LOADING");
 
     try {
@@ -135,8 +138,18 @@ export default function ChatRoom({
       }
 
       router.replace("/error");
+    } finally {
+      isAnalysisRequestingRef.current = false;
     }
-  };
+  }, [conversationId, router]);
+
+  useEffect(() => {
+    if (isInputLocked && conversationId !== undefined) {
+      queueMicrotask(() => {
+        void handleAnalysisRequest();
+      });
+    }
+  }, [conversationId, handleAnalysisRequest, isInputLocked]);
 
   const handleSend = async (content: string) => {
     if (conversationId === undefined) return;
@@ -340,6 +353,11 @@ export default function ChatRoom({
             ? ` (${sendError.retryAfterSeconds}초 후 다시 전송할 수 있어요.)`
             : ""}
         </p>
+      )}
+      {analysisStatus === "IDLE" && (isInputLocked || isResponseInputLocked) && (
+        <ActionButton onClick={handleRetryAnalysis} className="mb-3 font-bold">
+          분석 결과 다시 보기
+        </ActionButton>
       )}
       <ChatComposer
         onSend={handleSend}
