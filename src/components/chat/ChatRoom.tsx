@@ -43,7 +43,7 @@ type MessageSendError = {
   retryAfterSeconds: number;
 };
 
-const MIN_AI_RESPONSE_DELAY_MS = 1000;
+const MIN_AI_RESPONSE_DELAY_MS = 600;
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => {
