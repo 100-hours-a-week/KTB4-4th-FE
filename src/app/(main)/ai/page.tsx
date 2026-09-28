@@ -5,12 +5,11 @@ import AiConversationContent from "@/components/chat/AiConversationContent";
 type AiPageProps = {
   searchParams: Promise<{
     conversationId?: string;
-    status?: string;
   }>;
 };
 
 export default async function AiPage({ searchParams }: AiPageProps) {
-  const { conversationId, status } = await searchParams;
+  const { conversationId } = await searchParams;
 
-  return <AiConversationContent conversationId={conversationId} status={status} />;
+  return <AiConversationContent conversationId={conversationId} />;
 }

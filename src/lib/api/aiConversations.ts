@@ -9,6 +9,7 @@ export type AiConversationStatus = "PENDING" | "ACTIVE" | "ANALYZING" | "COMPLET
 export interface AiConversation {
   conversationId: number;
   status: AiConversationStatus;
+  progress: number;
 }
 
 interface StartAiConversationResponse {
