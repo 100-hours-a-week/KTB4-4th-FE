@@ -65,9 +65,10 @@ export default function PersonalizedHome({
             <div className="flex items-center justify-between gap-3">
               <h2
                 id="personalized-products-title"
-                className="min-w-0 text-heading-3 font-bold text-foreground"
+                className="flex min-w-0 items-center text-heading-3 font-bold whitespace-nowrap text-foreground"
               >
-                <span className="text-[#4684e9]">{userName}</span>님을 위한 맞춤 상품
+                <span className="min-w-0 truncate text-[#4684e9]">{userName}</span>
+                <span className="shrink-0">님을 위한 맞춤 상품</span>
               </h2>
               <Link
                 href={`/products?targetType=SELF&targetUserId=${userId}`}
