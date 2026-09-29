@@ -32,6 +32,8 @@ type ChatRoomProps = {
   initialAnalysisStatus: PreferenceAnalysisStatus;
   analysisResult: PreferenceAnalysisResult;
   isInputLocked?: boolean;
+  isReadOnly?: boolean;
+  nextConversationAvailableAt?: string;
   conversationId?: number;
   onMessageSent?: (response: SendAiConversationMessageData) => void;
 };
@@ -64,11 +66,21 @@ function toPreferenceAnalysisResult(response: AiPreferenceAnalysisData): Prefere
   };
 }
 
+function formatRemainingConversationTime(totalSeconds: number) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${hours}시 ${minutes}분 ${seconds}초`;
+}
+
 export default function ChatRoom({
   initialMessages,
   initialAnalysisStatus,
   analysisResult: initialAnalysisResult,
   isInputLocked = false,
+  isReadOnly = false,
+  nextConversationAvailableAt,
   conversationId,
   onMessageSent,
 }: ChatRoomProps) {
@@ -81,6 +93,9 @@ export default function ChatRoom({
   const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const [isRestartRequired, setIsRestartRequired] = useState(false);
+  const [remainingConversationSeconds, setRemainingConversationSeconds] = useState<number | null>(
+    null,
+  );
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
   const isAnalysisRequestingRef = useRef(false);
@@ -92,6 +107,22 @@ export default function ChatRoom({
     retryAfterSeconds: conversationStartRetryAfterSeconds,
     startConversation,
   } = useAiConversationStart();
+
+  useEffect(() => {
+    if (!isReadOnly || !nextConversationAvailableAt) return;
+
+    const availableAt = Date.parse(nextConversationAvailableAt);
+    const updateRemainingSeconds = () => {
+      setRemainingConversationSeconds(Math.max(0, Math.ceil((availableAt - Date.now()) / 1000)));
+    };
+    const initialTimer = window.setTimeout(updateRemainingSeconds, 0);
+    const intervalTimer = window.setInterval(updateRemainingSeconds, 1000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(intervalTimer);
+    };
+  }, [isReadOnly, nextConversationAvailableAt]);
 
   useEffect(() => {
     if (sendError?.status !== 429 || sendError.retryAfterSeconds <= 0) return;
@@ -156,15 +187,15 @@ export default function ChatRoom({
   }, [conversationId, router]);
 
   useEffect(() => {
-    if (isInputLocked && conversationId !== undefined) {
+    if (isInputLocked && !isReadOnly && conversationId !== undefined) {
       queueMicrotask(() => {
         void handleAnalysisRequest();
       });
     }
-  }, [conversationId, handleAnalysisRequest, isInputLocked]);
+  }, [conversationId, handleAnalysisRequest, isInputLocked, isReadOnly]);
 
   const handleSend = async (content: string) => {
-    if (conversationId === undefined) return;
+    if (conversationId === undefined || isReadOnly) return;
 
     const pendingMessage =
       pendingMessageRef.current?.content === content
@@ -388,11 +419,18 @@ export default function ChatRoom({
           분석 결과 다시 보기
         </ActionButton>
       )}
+      {isReadOnly && remainingConversationSeconds !== null && (
+        <p role="status" className="mb-2 text-center text-body-sm text-danger">
+          {formatRemainingConversationTime(remainingConversationSeconds)} 이후 채팅이 가능합니다.
+        </p>
+      )}
       <ChatComposer
         onSend={handleSend}
+        placeholder={isReadOnly ? "취향분석이 완료된 대화예요" : "메시지 입력"}
         isDisabled={
           isInputLocked ||
           isResponseInputLocked ||
+          isReadOnly ||
           conversationId === undefined ||
           (sendError?.status === 429 && sendError.retryAfterSeconds > 0)
         }
