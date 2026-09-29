@@ -14,6 +14,9 @@ env:
   ECR_REPOSITORY: need-u/frontend
 
 jobs:
+  # =========================================================
+  # PR / Push 공통 기본 검증
+  # =========================================================
   check:
     name: Type Check, Lint & Build
     runs-on: ubuntu-latest
@@ -43,9 +46,13 @@ jobs:
 
       - name: Production Build
         env:
+          # PR 검증에서는 실제 운영 Parameter를 사용하지 않는다.
           BACKEND_API_BASE_URL: http://127.0.0.1:8080/
         run: npm run build
 
+  # =========================================================
+  # dev -> main PR Docker Build 검증
+  # =========================================================
   docker-build-check:
     name: Docker Build Check
     needs: check
@@ -66,6 +73,9 @@ jobs:
             -t needu-frontend:ci-check \
             .
 
+  # =========================================================
+  # main Push -> Production Image Build & ECR Push
+  # =========================================================
   ecr-push:
     name: Build & Push to ECR
     needs: check
@@ -81,11 +91,49 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # GitHub Actions -> AWS OIDC 인증
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.NEEDU_CI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      # Parameter Store의 Frontend 설정값을 GitHub Actions 환경변수로 등록
+      - name: Load Frontend Parameters
+        shell: bash
+        run: |
+          while IFS=$'\t' read -r name value; do
+            if [ -n "$name" ]; then
+              key="$(basename "$name")"
+
+              # GitHub Actions Log에 값이 노출되지 않도록 Masking
+              echo "::add-mask::$value"
+
+              # 이후 Step에서 환경변수로 사용할 수 있도록 등록
+              echo "$key=$value" >> "$GITHUB_ENV"
+            fi
+          done < <(
+            aws ssm get-parameters-by-path \
+              --region "$AWS_REGION" \
+              --path "/needu/prod/frontend" \
+              --recursive \
+              --with-decryption \
+              --query 'Parameters[*].[Name,Value]' \
+              --output text
+          )
+
+      # 필수 Parameter가 제대로 들어왔는지만 확인
+      # 실제 값은 출력하지 않는다.
+      - name: Validate Frontend Parameters
+        shell: bash
+        run: |
+          : "${BACKEND_API_BASE_URL:?BACKEND_API_BASE_URL is required}"
+          : "${NEXT_PUBLIC_SENTRY_DSN:?NEXT_PUBLIC_SENTRY_DSN is required}"
+          : "${SENTRY_ORG:?SENTRY_ORG is required}"
+          : "${SENTRY_PROJECT:?SENTRY_PROJECT is required}"
+          : "${SENTRY_AUTH_TOKEN:?SENTRY_AUTH_TOKEN is required}"
+
+          echo "Frontend parameters loaded successfully."
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -95,11 +143,7 @@ jobs:
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
-          BACKEND_API_BASE_URL: http://127.0.0.1:8080/
-          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          DOCKER_BUILDKIT: 1
         run: |
           docker build \
             --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
