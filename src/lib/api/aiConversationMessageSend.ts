@@ -26,20 +26,7 @@ interface SendAiConversationMessageErrorResponse {
   message?: string;
   data?: {
     retryAfterSeconds?: number;
-    restartRequired?: boolean;
   } | null;
-}
-
-export class SendAiConversationMessageError extends ApiRequestError {
-  constructor(
-    message: string,
-    status: number,
-    retryAfterSeconds: number | undefined,
-    public readonly restartRequired: boolean,
-  ) {
-    super(message, status, retryAfterSeconds);
-    this.name = "SendAiConversationMessageError";
-  }
 }
 
 interface SendAiConversationMessageParams extends SendAiConversationMessageRequest {
@@ -106,11 +93,10 @@ export async function sendAiConversationMessage({
       DEFAULT_ERROR_MESSAGES[response.status] ??
       "메시지를 전송하지 못했습니다.";
 
-    throw new SendAiConversationMessageError(
+    throw new ApiRequestError(
       message,
       response.status,
       getRetryAfterSeconds(response, errorResponse),
-      errorResponse?.data?.restartRequired === true,
     );
   }
 

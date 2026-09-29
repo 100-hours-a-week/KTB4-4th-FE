@@ -17,12 +17,23 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 ARG BACKEND_API_BASE_URL
-ENV BACKEND_API_BASE_URL=${BACKEND_API_BASE_URL}
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG SENTRY_ORG
+ARG SENTRY_PROJECT
+ARG SENTRY_RELEASE
+
+ENV BACKEND_API_BASE_URL=${BACKEND_API_BASE_URL} \
+    NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN} \
+    SENTRY_ORG=${SENTRY_ORG} \
+    SENTRY_PROJECT=${SENTRY_PROJECT} \
+    SENTRY_RELEASE=${SENTRY_RELEASE}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN npm run build
+RUN --mount=type=secret,id=sentry_auth_token,required=false \
+    SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" \
+    npm run build
 
 
 FROM node:24.19.0-alpine AS runtime
