@@ -300,7 +300,15 @@ export default function ChatRoom({
     void handleAnalysisRequest();
   };
 
-  const handleUpdateAnalysisSummary = async (summary: string) => {
+  const handleUpdateAnalysis = async ({
+    summary,
+    preferences,
+    interests,
+  }: {
+    summary: string;
+    preferences: PreferenceAnalysisResult["preferences"];
+    interests: PreferenceAnalysisResult["interests"];
+  }) => {
     if (conversationId === undefined) {
       throw new Error("AI 대화 ID를 확인할 수 없습니다.");
     }
@@ -310,9 +318,8 @@ export default function ChatRoom({
         conversationId,
         summary,
         keywords: {
-          // TODO: 취향 분석 키워드 수정 API 연동 범위 확정 후 변경된 키워드 전송
-          taste: analysisResult.preferences.map(({ value }) => value),
-          interest: analysisResult.interests.map(({ value }) => value),
+          taste: preferences.map(({ value }) => value),
+          interest: interests.map(({ value }) => value),
         },
       });
       const updatedResult = toPreferenceAnalysisResult(response);
@@ -455,7 +462,7 @@ export default function ChatRoom({
           result={analysisResult}
           onReject={handleRejectAnalysis}
           onConfirm={handleConfirmAnalysis}
-          onUpdateSummary={handleUpdateAnalysisSummary}
+          onUpdateAnalysis={handleUpdateAnalysis}
           isConfirming={isConfirmingAnalysis}
         />
       )}
