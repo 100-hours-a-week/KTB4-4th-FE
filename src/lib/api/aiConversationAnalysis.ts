@@ -33,7 +33,20 @@ interface AiPreferenceAnalysisResponse {
 
 interface AiPreferenceAnalysisErrorResponse {
   message?: string;
-  data?: null;
+  data?: {
+    restartRequired?: boolean;
+  } | null;
+}
+
+export class RequestAiPreferenceAnalysisError extends ApiRequestError {
+  constructor(
+    message: string,
+    status: number,
+    public readonly restartRequired: boolean,
+  ) {
+    super(message, status);
+    this.name = "RequestAiPreferenceAnalysisError";
+  }
 }
 
 interface UpdateAiPreferenceAnalysisParams extends UpdateAiPreferenceAnalysisRequest {
@@ -76,7 +89,11 @@ export async function requestAiPreferenceAnalysis(conversationId: number) {
       DEFAULT_ERROR_MESSAGES[response.status] ??
       "취향 분석 결과를 불러오지 못했습니다.";
 
-    throw new ApiRequestError(message, response.status);
+    throw new RequestAiPreferenceAnalysisError(
+      message,
+      response.status,
+      errorResponse?.data?.restartRequired === true,
+    );
   }
 
   const { data } = (await response.json()) as AiPreferenceAnalysisResponse;
