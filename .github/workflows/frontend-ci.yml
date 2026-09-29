@@ -96,9 +96,18 @@ jobs:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
           BACKEND_API_BASE_URL: http://127.0.0.1:8080/
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
         run: |
           docker build \
+            --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
             --build-arg BACKEND_API_BASE_URL="$BACKEND_API_BASE_URL" \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN="$NEXT_PUBLIC_SENTRY_DSN" \
+            --build-arg SENTRY_ORG="$SENTRY_ORG" \
+            --build-arg SENTRY_PROJECT="$SENTRY_PROJECT" \
+            --build-arg SENTRY_RELEASE="$IMAGE_TAG" \
             -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
             .
 
