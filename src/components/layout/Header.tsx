@@ -24,13 +24,7 @@ export default function Header() {
         </button>
       )}
 
-      <Image
-        src="/images/NeedU_logo.png"
-        alt="NeedU"
-        width={80}
-        height={21}
-        priority
-      />
+      <Image src="/images/NeedU_logo.png" alt="NeedU" width={80} height={21} priority />
     </header>
   );
 }
