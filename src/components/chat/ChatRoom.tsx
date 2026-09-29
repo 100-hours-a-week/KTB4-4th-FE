@@ -18,11 +18,11 @@ import {
   requestAiPreferenceAnalysis,
   updateAiPreferenceAnalysis,
   type AiPreferenceAnalysisData,
+  RequestAiPreferenceAnalysisError,
 } from "@/lib/api/aiConversationAnalysis";
 import {
   sendAiConversationMessage,
   type SendAiConversationMessageData,
-  SendAiConversationMessageError,
 } from "@/lib/api/aiConversationMessageSend";
 import { ApiRequestError } from "@/lib/api/client";
 import type { ChatMessage, PreferenceAnalysisResult, PreferenceAnalysisStatus } from "@/types/chat";
@@ -92,6 +92,7 @@ export default function ChatRoom({
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
   const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
+  const [analysisRequestError, setAnalysisRequestError] = useState("");
   const [isRestartRequired, setIsRestartRequired] = useState(false);
   const [remainingConversationSeconds, setRemainingConversationSeconds] = useState<number | null>(
     null,
@@ -152,6 +153,7 @@ export default function ChatRoom({
     if (conversationId === undefined || isAnalysisRequestingRef.current) return;
 
     isAnalysisRequestingRef.current = true;
+    setAnalysisRequestError("");
     setAnalysisStatus("LOADING");
 
     try {
@@ -163,6 +165,18 @@ export default function ChatRoom({
       if (error instanceof ApiRequestError) {
         if (error.status === 401) {
           router.replace("/login");
+          return;
+        }
+
+        if (error instanceof RequestAiPreferenceAnalysisError && error.status === 409) {
+          setAnalysisStatus("IDLE");
+
+          if (error.restartRequired) {
+            setIsRestartRequired(true);
+            return;
+          }
+
+          setAnalysisRequestError(error.message);
           return;
         }
 
@@ -238,16 +252,6 @@ export default function ChatRoom({
       if (error instanceof ApiRequestError && error.status === 401) {
         router.replace("/login");
         throw error;
-      }
-
-      if (
-        error instanceof SendAiConversationMessageError &&
-        error.status === 409 &&
-        error.restartRequired
-      ) {
-        setSendError(null);
-        setIsRestartRequired(true);
-        return;
       }
 
       setSendError({
@@ -429,6 +433,11 @@ export default function ChatRoom({
       {isReadOnly && remainingConversationSeconds !== null && (
         <p role="status" className="mb-2 text-center text-body-sm text-danger">
           {formatRemainingConversationTime(remainingConversationSeconds)} 이후 채팅이 가능합니다.
+        </p>
+      )}
+      {analysisRequestError && (
+        <p role="alert" className="mb-2 text-center text-body-sm text-danger">
+          {analysisRequestError}
         </p>
       )}
       <ChatComposer
