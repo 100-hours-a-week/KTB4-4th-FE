@@ -31,7 +31,9 @@ export default function ProductCard({ product }: ProductCardProps) {
       />
 
       <div className="min-w-0 flex-1">
-        <h2 className="text-heading-3 font-semibold text-foreground">{product.name}</h2>
+        <h2 className="line-clamp-2 text-heading-3 font-semibold text-foreground">
+          {product.name}
+        </h2>
         <p className="mt-1 text-body-lg font-bold text-foreground">{formatPrice(product.price)}</p>
       </div>
     </a>
