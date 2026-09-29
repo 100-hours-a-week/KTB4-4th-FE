@@ -1,3 +1,5 @@
+import { GoogleAnalytics } from "@next/third-parties/google";
+
 import { kakaoSmallSans } from "./fonts";
 import "./globals.css";
 
@@ -15,12 +17,15 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
   colorScheme: "light",
 };
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko" className={kakaoSmallSans.variable}>
       <body>
         <div className="mobile-layout">{children}</div>
       </body>
+
+      <GoogleAnalytics gaId="G-6HBHQRT9R6" />
     </html>
   );
 }
