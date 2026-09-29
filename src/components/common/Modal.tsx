@@ -1,3 +1,5 @@
+// 제목과 설명 및 선택지 버튼을 제공하는 공통 모달 컴포넌트
+
 "use client";
 
 import { useId, type ComponentProps, type ReactNode } from "react";
@@ -13,6 +15,7 @@ type ModalProps = {
   children?: ReactNode;
   firstAction?: ComponentProps<typeof ChoiceButtons>["first"];
   secondAction: ComponentProps<typeof ChoiceButtons>["second"];
+  actionsClassName?: string;
   keepHeaderInteractive?: boolean;
 };
 
@@ -24,6 +27,7 @@ export default function Modal({
   children,
   firstAction,
   secondAction,
+  actionsClassName = "mt-4",
   keepHeaderInteractive = false,
 }: ModalProps) {
   const dialogRef = useDialogControl({
@@ -67,7 +71,7 @@ export default function Modal({
 
         {children && <div className="mt-8">{children}</div>}
 
-        <ChoiceButtons first={firstAction} second={secondAction} className="mt-4" />
+        <ChoiceButtons first={firstAction} second={secondAction} className={actionsClassName} />
       </dialog>
     </>
   );

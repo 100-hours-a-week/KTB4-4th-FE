@@ -10,7 +10,9 @@ import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
+import PreferenceDataInsufficientModal from "@/components/chat/PreferenceDataInsufficientModal";
 import ActionButton from "@/components/common/ActionButton";
+import useAiConversationStart from "@/hooks/useAiConversationStart";
 import {
   confirmAiPreferenceAnalysis,
   requestAiPreferenceAnalysis,
@@ -20,6 +22,7 @@ import {
 import {
   sendAiConversationMessage,
   type SendAiConversationMessageData,
+  SendAiConversationMessageError,
 } from "@/lib/api/aiConversationMessageSend";
 import { ApiRequestError } from "@/lib/api/client";
 import type { ChatMessage, PreferenceAnalysisResult, PreferenceAnalysisStatus } from "@/types/chat";
@@ -73,13 +76,22 @@ export default function ChatRoom({
   const [messages, setMessages] = useState(initialMessages);
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
   const [analysisResult, setAnalysisResult] = useState(initialAnalysisResult);
+  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
   const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
+  const [isRestartRequired, setIsRestartRequired] = useState(false);
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
   const isAnalysisRequestingRef = useRef(false);
   const pendingMessageRef = useRef<PendingMessage | null>(null);
+  const {
+    errorMessage: conversationStartError,
+    isStartingConversation,
+    isUnavailable: isConversationStartUnavailable,
+    retryAfterSeconds: conversationStartRetryAfterSeconds,
+    startConversation,
+  } = useAiConversationStart();
 
   useEffect(() => {
     if (sendError?.status !== 429 || sendError.retryAfterSeconds <= 0) return;
@@ -168,6 +180,7 @@ export default function ChatRoom({
     };
 
     setMessages((currentMessages) => [...currentMessages, optimisticUserMessage]);
+    setIsAwaitingResponse(true);
 
     let response: SendAiConversationMessageData;
 
@@ -196,6 +209,16 @@ export default function ChatRoom({
         throw error;
       }
 
+      if (
+        error instanceof SendAiConversationMessageError &&
+        error.status === 409 &&
+        error.restartRequired
+      ) {
+        setSendError(null);
+        setIsRestartRequired(true);
+        return;
+      }
+
       setSendError({
         message: error instanceof ApiRequestError ? error.message : "메시지를 전송하지 못했습니다.",
         status: error instanceof ApiRequestError ? error.status : 0,
@@ -206,6 +229,8 @@ export default function ChatRoom({
       });
 
       throw error;
+    } finally {
+      setIsAwaitingResponse(false);
     }
 
     const assistantMessage: ChatMessage = {
@@ -344,8 +369,12 @@ export default function ChatRoom({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ChatMessageList ref={messageListRef} messages={messages} />
+    <div className="flex min-h-0 flex-1 flex-col pb-[max(calc(var(--spacing-page)*1.5),env(safe-area-inset-bottom))]">
+      <ChatMessageList
+        ref={messageListRef}
+        messages={messages}
+        isAwaitingResponse={isAwaitingResponse}
+      />
       {sendError && (
         <p role="alert" className="mb-2 text-center text-body-sm text-danger">
           {sendError.message}
@@ -369,6 +398,14 @@ export default function ChatRoom({
         }
       />
       <PreferenceAnalysisLoadingModal open={analysisStatus === "LOADING" || isConfirmingAnalysis} />
+      <PreferenceDataInsufficientModal
+        open={isRestartRequired}
+        onStartNewConversation={() => void startConversation()}
+        isStartingConversation={isStartingConversation}
+        isStartUnavailable={isConversationStartUnavailable}
+        retryAfterSeconds={conversationStartRetryAfterSeconds}
+        errorMessage={conversationStartError}
+      />
       <PreferenceAnalysisTimeoutModal
         open={analysisStatus === "TIMEOUT"}
         onReturnToChat={handleReturnToChat}

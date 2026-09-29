@@ -75,12 +75,12 @@ export default function FriendDetailContent({ userId }: FriendDetailContentProps
       </h1>
       {/* TODO: 백엔드 생일 정보 연동 확정 후 실제 생일 정보 표시 */}
       <p className="mt-2 text-body font-semibold text-muted">생일 정보 없음</p>
-      <div className="mt-6 w-full max-w-[360px]">
+      <div className="mt-4 w-full max-w-[360px]">
         <Link
           href={`/products?targetType=FRIEND&targetUserId=${friend.id}`}
           className="flex h-12 w-full items-center justify-center rounded-[6px] bg-primary px-4 text-center text-[15px] leading-[26px] text-on-primary"
         >
-          <span className="font-semibold">{friend.nickname}에게 선물하기</span>
+          <span className="font-semibold">{friend.nickname}님에게 선물하기</span>
         </Link>
       </div>
     </section>

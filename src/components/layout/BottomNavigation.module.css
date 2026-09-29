@@ -1,0 +1,19 @@
+/* 하단 내비게이션 AI 버튼의 아이콘 애니메이션 */
+
+.aiIconReveal {
+  animation: ai-icon-reveal 3.6s var(--ease-emphasized) infinite;
+}
+
+@keyframes ai-icon-reveal {
+  0%,
+  15% {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+  }
+
+  55%,
+  100% {
+    clip-path: inset(0);
+    opacity: 1;
+  }
+}

@@ -1,6 +1,7 @@
 // AI와 사용자의 대화 메시지를 순서대로 표시하는 목록 컴포넌트
 
 import ChatBubble from "@/components/chat/ChatBubble";
+import TypingIndicator from "@/components/chat/TypingIndicator";
 import type { ChatMessage } from "@/types/chat";
 
 import styles from "./ChatMessageList.module.css";
@@ -9,10 +10,15 @@ import type { Ref } from "react";
 
 type ChatMessageListProps = {
   messages: ChatMessage[];
+  isAwaitingResponse?: boolean;
   ref?: Ref<HTMLElement>;
 };
 
-export default function ChatMessageList({ messages, ref }: ChatMessageListProps) {
+export default function ChatMessageList({
+  messages,
+  isAwaitingResponse = false,
+  ref,
+}: ChatMessageListProps) {
   return (
     <section
       ref={ref}
@@ -23,6 +29,7 @@ export default function ChatMessageList({ messages, ref }: ChatMessageListProps)
       {messages.map((message) => (
         <ChatBubble key={message.id} message={message} />
       ))}
+      {isAwaitingResponse && <TypingIndicator />}
     </section>
   );
 }

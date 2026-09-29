@@ -1,0 +1,49 @@
+/* AI 응답 대기 상태를 나타내는 점 표시 스타일 */
+
+.dots {
+  display: flex;
+  align-items: center;
+  min-height: 1.25rem;
+  margin-top: 0.5rem;
+  gap: 0.25rem;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--color-muted);
+  border-radius: 9999px;
+  opacity: 0.35;
+  transform: scale(0.8);
+  animation: typing-dot 1.2s var(--ease-standard) infinite;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0) scale(0.8);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-0.2rem) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
