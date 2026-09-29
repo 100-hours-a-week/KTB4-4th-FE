@@ -11,6 +11,7 @@ import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 type ChatComposerProps = {
   onSend: (content: string) => Promise<void>;
   isDisabled?: boolean;
+  placeholder?: string;
 };
 
 const MIN_TEXTAREA_HEIGHT = 36;
@@ -25,7 +26,11 @@ function resizeTextarea(textarea: HTMLTextAreaElement) {
   textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? "auto" : "hidden";
 }
 
-export default function ChatComposer({ onSend, isDisabled = false }: ChatComposerProps) {
+export default function ChatComposer({
+  onSend,
+  isDisabled = false,
+  placeholder = "메시지 입력",
+}: ChatComposerProps) {
   const [draftMessage, setDraftMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -88,7 +93,7 @@ export default function ChatComposer({ onSend, isDisabled = false }: ChatCompose
         value={draftMessage}
         disabled={isInputDisabled}
         maxLength={500}
-        placeholder="메시지 입력"
+        placeholder={placeholder}
         autoComplete="off"
         onChange={handleChange}
         onKeyDown={handleKeyDown}

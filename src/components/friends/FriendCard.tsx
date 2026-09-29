@@ -24,8 +24,8 @@ export default function FriendCard({ userId, name, profileImageUrl }: FriendCard
           <Image src={profileImageUrl} alt="" fill sizes="48px" className="object-cover" />
         )}
       </div>
-      <div className="min-w-0">
-        <p className="text-[18px] leading-6 font-medium text-foreground">{name}</p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[18px] leading-6 font-medium text-foreground">{name}</p>
         {/* TODO: 백엔드 생일 데이터 완성 후 생일 및 D-day 정보 표시 */}
       </div>
     </Link>

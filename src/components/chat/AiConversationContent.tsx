@@ -13,7 +13,7 @@ import {
   type AiConversationMessage,
 } from "@/lib/api/aiConversationMessages";
 import type { SendAiConversationMessageData } from "@/lib/api/aiConversationMessageSend";
-import { startAiConversation } from "@/lib/api/aiConversations";
+import { startAiConversation, type AiConversationStatus } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
 import { getPreferenceAnalysisDescription } from "@/mocks/chat";
 import type { ChatMessage, PreferenceAnalysisResult } from "@/types/chat";
@@ -52,6 +52,11 @@ function toChatMessage(message: AiConversationMessage): ChatMessage {
   };
 }
 
+function isMessageHistoryAvailable(status: AiConversationStatus) {
+  // TODO: 메시지 조회를 지원하는 대화 상태가 추가되면 이 조건에 반영
+  return status === "ACTIVE" || status === "ANALYZING" || status === "COMPLETED";
+}
+
 export default function AiConversationContent({ conversationId }: AiConversationContentProps) {
   const router = useRouter();
   const { conversation, setConversation } = useAiConversationContext();
@@ -64,8 +69,12 @@ export default function AiConversationContent({ conversationId }: AiConversation
   const isVerifiedConversation =
     conversation !== null && String(conversation.conversationId) === conversationId;
   const verifiedStatus = isVerifiedConversation ? conversation.status : undefined;
+  const nextConversationAvailableAt =
+    isVerifiedConversation && conversation.status === "COMPLETED"
+      ? conversation.nextConversationAvailableAt
+      : undefined;
   const availableConversationId =
-    verifiedStatus === "ACTIVE" || verifiedStatus === "ANALYZING"
+    verifiedStatus !== undefined && isMessageHistoryAvailable(verifiedStatus)
       ? conversation?.conversationId
       : undefined;
   const messages =
@@ -87,7 +96,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
 
   useEffect(() => {
     if (isVerifiedConversation) {
-      if (conversation.status !== "ACTIVE" && conversation.status !== "ANALYZING") {
+      if (!isMessageHistoryAvailable(conversation.status)) {
         router.replace("/error");
       }
       return;
@@ -106,10 +115,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
 
         setConversation(restoredConversation);
 
-        if (
-          restoredConversation.status !== "ACTIVE" &&
-          restoredConversation.status !== "ANALYZING"
-        ) {
+        if (!isMessageHistoryAvailable(restoredConversation.status)) {
           router.replace("/error");
           return;
         }
@@ -263,6 +269,8 @@ export default function AiConversationContent({ conversationId }: AiConversation
           initialAnalysisStatus="IDLE"
           analysisResult={EMPTY_PREFERENCE_ANALYSIS_RESULT}
           isInputLocked={verifiedStatus === "ANALYZING"}
+          isReadOnly={verifiedStatus === "COMPLETED"}
+          nextConversationAvailableAt={nextConversationAvailableAt}
           conversationId={availableConversationId}
           onMessageSent={handleMessageSent}
         />

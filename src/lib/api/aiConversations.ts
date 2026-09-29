@@ -6,11 +6,20 @@ import { API_ENDPOINTS } from "@/lib/api/endpoints";
 
 export type AiConversationStatus = "PENDING" | "ACTIVE" | "ANALYZING" | "COMPLETED" | "EXPIRED";
 
-export interface AiConversation {
+type AiConversationBase = {
   conversationId: number;
-  status: AiConversationStatus;
   progress: number;
-}
+};
+
+export type AiConversation =
+  | (AiConversationBase & {
+      status: "COMPLETED";
+      nextConversationAvailableAt: string;
+    })
+  | (AiConversationBase & {
+      status: Exclude<AiConversationStatus, "COMPLETED">;
+      nextConversationAvailableAt?: string | null;
+    });
 
 interface StartAiConversationResponse {
   message: string;
