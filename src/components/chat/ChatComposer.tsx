@@ -35,7 +35,7 @@ export default function ChatComposer({
   const [isSending, setIsSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const normalizedMessage = draftMessage.trim();
-  const isInputDisabled = isDisabled || isSending;
+  const isSubmitDisabled = isDisabled || isSending || !normalizedMessage;
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -56,7 +56,7 @@ export default function ChatComposer({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isInputDisabled || !normalizedMessage) return;
+    if (isSubmitDisabled) return;
 
     setIsSending(true);
     setDraftMessage("");
@@ -64,6 +64,7 @@ export default function ChatComposer({
     if (textareaRef.current) {
       textareaRef.current.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
       textareaRef.current.style.overflowY = "hidden";
+      textareaRef.current.focus();
     }
 
     try {
@@ -91,7 +92,8 @@ export default function ChatComposer({
         id="chat-message"
         rows={1}
         value={draftMessage}
-        disabled={isInputDisabled}
+        disabled={isDisabled}
+        readOnly={isSending}
         maxLength={500}
         placeholder={placeholder}
         autoComplete="off"
@@ -102,7 +104,7 @@ export default function ChatComposer({
       <button
         type="submit"
         aria-label="메시지 보내기"
-        disabled={isInputDisabled || !normalizedMessage}
+        disabled={isSubmitDisabled}
         className={`${styles.sendButton} flex shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-primary text-sm leading-none font-bold text-on-primary disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted`}
       >
         ↑
