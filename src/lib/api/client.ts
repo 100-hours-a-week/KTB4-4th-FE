@@ -1,11 +1,17 @@
 // CSRF 보호와 액세스 토큰 재발급을 포함하는 공통 API 요청 클라이언트
 "use client";
 
-import { getCsrfHeaders } from "@/lib/api/csrf";
+import { getCsrfHeaders, getCsrfToken } from "@/lib/api/csrf";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 
 const LOGIN_PATH = "/login";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+interface CsrfErrorResponse {
+  data?: {
+    csrfTokenRefreshRequired?: boolean;
+  } | null;
+}
 
 let refreshRequest: Promise<void> | null = null;
 let refreshVersion = 0;
@@ -39,6 +45,19 @@ async function createRequestInit(init: RequestInit) {
     headers,
     credentials: "include" as const,
   };
+}
+
+async function isCsrfTokenRefreshRequired(response: Response, method: string) {
+  if (response.status !== 403 || SAFE_METHODS.has(method)) {
+    return false;
+  }
+
+  const errorResponse = (await response
+    .clone()
+    .json()
+    .catch(() => null)) as CsrfErrorResponse | null;
+
+  return errorResponse?.data?.csrfTokenRefreshRequired === true;
 }
 
 async function requestRefresh(forceCsrfRefresh = false) {
@@ -80,8 +99,14 @@ function redirectToLogin() {
 
 export async function apiFetch(input: string | URL, init: RequestInit = {}) {
   const requestVersion = refreshVersion;
-  const requestInit = await createRequestInit(init);
-  const response = await fetch(input, requestInit);
+  let requestInit = await createRequestInit(init);
+  let response = await fetch(input, requestInit);
+
+  if (await isCsrfTokenRefreshRequired(response, requestInit.method)) {
+    await getCsrfToken(true);
+    requestInit = await createRequestInit(init);
+    response = await fetch(input, requestInit);
+  }
 
   if (response.status !== 401 || input.toString().includes(API_ENDPOINTS.auth.refresh)) {
     return response;
@@ -99,5 +124,5 @@ export async function apiFetch(input: string | URL, init: RequestInit = {}) {
     throw error;
   }
 
-  return fetch(input, requestInit);
+  return fetch(input, await createRequestInit(init));
 }
