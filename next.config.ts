@@ -1,4 +1,4 @@
-// 백엔드 API를 동일 출처로 중계하는 Next.js 설정
+// 보안 응답 헤더와 백엔드 API 중계를 관리하는 Next.js 설정
 import { withSentryConfig } from "@sentry/nextjs/config";
 
 import type { NextConfig } from "next";
@@ -6,6 +6,7 @@ import type { NextConfig } from "next";
 const backendApiBaseUrl = process.env.BACKEND_API_BASE_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   images: {
     remotePatterns: [
       {
@@ -20,6 +21,19 @@ const nextConfig: NextConfig = {
   },
   turbopack: {
     root: process.cwd(),
+  },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+        ],
+      },
+    ];
   },
   async rewrites() {
     return [
