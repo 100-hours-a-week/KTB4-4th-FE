@@ -35,7 +35,9 @@ export default function ChatBubble({ message }: ChatBubbleProps) {
         {isAssistant && (
           <p className="text-body-sm font-bold text-foreground">{message.senderName}</p>
         )}
-        <p className={`whitespace-pre-line text-body text-foreground ${isAssistant ? "mt-2" : ""}`}>
+        <p
+          className={`wrap-anywhere whitespace-pre-line text-body text-foreground ${isAssistant ? "mt-2" : ""}`}
+        >
           {message.content}
         </p>
       </div>
