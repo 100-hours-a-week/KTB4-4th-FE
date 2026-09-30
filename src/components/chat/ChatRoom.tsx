@@ -12,6 +12,7 @@ import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisR
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
 import PreferenceDataInsufficientModal from "@/components/chat/PreferenceDataInsufficientModal";
 import ActionButton from "@/components/common/ActionButton";
+import AutoFitSingleLineText from "@/components/common/AutoFitSingleLineText";
 import useAiConversationStart from "@/hooks/useAiConversationStart";
 import {
   confirmAiPreferenceAnalysis,
@@ -108,6 +109,13 @@ export default function ChatRoom({
     retryAfterSeconds: conversationStartRetryAfterSeconds,
     startConversation,
   } = useAiConversationStart();
+  const sendErrorMessage = sendError
+    ? `${sendError.message}${
+        sendError.status === 429 && sendError.retryAfterSeconds > 0
+          ? ` (${sendError.retryAfterSeconds}초 후 다시 전송할 수 있어요.)`
+          : ""
+      }`
+    : "";
 
   useEffect(() => {
     if (!isReadOnly || !nextConversationAvailableAt) return;
@@ -418,12 +426,12 @@ export default function ChatRoom({
         isAwaitingResponse={isAwaitingResponse}
       />
       {sendError && (
-        <p role="alert" className="mb-2 text-center text-body-sm text-danger">
-          {sendError.message}
-          {sendError.status === 429 && sendError.retryAfterSeconds > 0
-            ? ` (${sendError.retryAfterSeconds}초 후 다시 전송할 수 있어요.)`
-            : ""}
-        </p>
+        <AutoFitSingleLineText
+          role="alert"
+          className="mb-2 w-full min-w-0 text-center text-body-sm text-danger"
+        >
+          {sendErrorMessage}
+        </AutoFitSingleLineText>
       )}
       {analysisStatus === "IDLE" && (isInputLocked || isResponseInputLocked) && (
         <ActionButton onClick={handleRetryAnalysis} className="mb-3 font-bold">
@@ -436,9 +444,12 @@ export default function ChatRoom({
         </p>
       )}
       {analysisRequestError && (
-        <p role="alert" className="mb-2 text-center text-body-sm text-danger">
+        <AutoFitSingleLineText
+          role="alert"
+          className="mb-2 w-full min-w-0 text-center text-body-sm text-danger"
+        >
           {analysisRequestError}
-        </p>
+        </AutoFitSingleLineText>
       )}
       <ChatComposer
         onSend={handleSend}

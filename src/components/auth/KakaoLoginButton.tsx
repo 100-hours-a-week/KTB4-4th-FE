@@ -3,6 +3,7 @@
 
 import Image from "next/image";
 
+import kakaoAuthButton from "@/assets/images/kakao-auth-button.png";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 
 export default function KakaoLoginButton() {
@@ -22,7 +23,7 @@ export default function KakaoLoginButton() {
       onClick={handleLogin}
     >
       <Image
-        src="/images/kakao_login_large_wide.png"
+        src={kakaoAuthButton}
         alt="카카오 로그인"
         width={600}
         height={90}
