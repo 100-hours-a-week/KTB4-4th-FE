@@ -17,6 +17,8 @@ interface CsrfTokenResponse {
   };
 }
 
+type AuthRequestStage = "session" | "csrf" | "refresh" | "revalidation";
+
 function createCookieStore(cookieHeader: string | null) {
   const cookies = new Map<string, string>();
 
@@ -38,6 +40,105 @@ function createCookieStore(cookieHeader: string | null) {
 
 function serializeCookies(cookies: Map<string, string>) {
   return Array.from(cookies, ([name, value]) => `${name}=${value}`).join("; ");
+}
+
+function getBackendApiBaseUrl() {
+  const backendApiBaseUrl = process.env.BACKEND_API_BASE_URL?.trim();
+
+  if (!backendApiBaseUrl) {
+    throw new Error("BACKEND_API_BASE_URL 환경 변수가 설정되지 않았습니다.");
+  }
+
+  const normalizedBaseUrl = new URL(
+    backendApiBaseUrl.endsWith("/") ? backendApiBaseUrl : `${backendApiBaseUrl}/`,
+  );
+
+  if (!new Set(["http:", "https:"]).has(normalizedBaseUrl.protocol)) {
+    throw new Error("BACKEND_API_BASE_URL은 HTTP 또는 HTTPS 주소여야 합니다.");
+  }
+
+  return normalizedBaseUrl;
+}
+
+function createAuthLogContext(
+  request: NextRequest,
+  cookies: Map<string, string>,
+  stage: AuthRequestStage,
+  endpoint: string,
+) {
+  return {
+    pathname: request.nextUrl.pathname,
+    stage,
+    endpoint,
+    hasAccessToken: cookies.has(ACCESS_TOKEN_COOKIE),
+    hasRefreshToken: cookies.has(REFRESH_TOKEN_COOKIE),
+  };
+}
+
+function logAuthApiFailure(
+  request: NextRequest,
+  cookies: Map<string, string>,
+  stage: AuthRequestStage,
+  endpoint: string,
+  status: number,
+  reason = "non-success response",
+) {
+  const logContext = {
+    ...createAuthLogContext(request, cookies, stage, endpoint),
+    status,
+    reason,
+  };
+
+  if (status === 401) {
+    console.warn("[proxy] auth API rejected request", logContext);
+    return;
+  }
+
+  console.error("[proxy] auth API request failed", logContext);
+}
+
+function getErrorDetails(error: unknown) {
+  if (!(error instanceof Error)) {
+    return {
+      name: "UnknownError",
+      message: String(error),
+    };
+  }
+
+  const cause = error.cause;
+
+  if (!(cause instanceof Error)) {
+    return {
+      name: error.name,
+      message: error.message,
+      ...(cause === undefined ? {} : { cause: String(cause) }),
+    };
+  }
+
+  const causeCode = (cause as Error & { code?: unknown }).code;
+
+  return {
+    name: error.name,
+    message: error.message,
+    cause: {
+      name: cause.name,
+      message: cause.message,
+      ...(typeof causeCode === "string" ? { code: causeCode } : {}),
+    },
+  };
+}
+
+function logAuthRequestError(
+  request: NextRequest,
+  cookies: Map<string, string>,
+  stage: AuthRequestStage,
+  endpoint: string,
+  error: unknown,
+) {
+  console.error("[proxy] auth request threw an error", {
+    ...createAuthLogContext(request, cookies, stage, endpoint),
+    error: getErrorDetails(error),
+  });
 }
 
 function collectSetCookieHeaders(
@@ -112,7 +213,6 @@ function createNextResponse(
 }
 
 async function fetchAuthApi(
-  request: NextRequest,
   endpoint: string,
   cookies: Map<string, string>,
   init: RequestInit = {},
@@ -126,7 +226,7 @@ async function fetchAuthApi(
     headers.set("cookie", cookieHeader);
   }
 
-  return fetch(new URL(endpoint, request.url), {
+  return fetch(new URL(endpoint, getBackendApiBaseUrl()), {
     ...init,
     headers,
     cache: "no-store",
@@ -139,19 +239,23 @@ export async function proxy(request: NextRequest) {
   const responseCookieHeaders: string[] = [];
   const hasAccessToken = cookies.has(ACCESS_TOKEN_COOKIE);
   const hasRefreshToken = cookies.has(REFRESH_TOKEN_COOKIE);
+  let authRequestStage: AuthRequestStage = "session";
+  let authEndpoint: string = API_ENDPOINTS.auth.loginValidity;
 
   if (!hasAccessToken && !hasRefreshToken) {
     return createRedirectResponse(request, LOGIN_PATH, responseCookieHeaders);
   }
 
   try {
-    const sessionResponse = await fetchAuthApi(request, API_ENDPOINTS.auth.loginValidity, cookies);
+    const sessionResponse = await fetchAuthApi(API_ENDPOINTS.auth.loginValidity, cookies);
     collectSetCookieHeaders(sessionResponse, cookies, responseCookieHeaders);
 
     if (sessionResponse.ok) {
       // TODO: 세션 API에 onboardingRequired와 currentStep이 추가되면 온보딩 분기 처리를 반영합니다.
       return createNextResponse(request, cookies, responseCookieHeaders);
     }
+
+    logAuthApiFailure(request, cookies, authRequestStage, authEndpoint, sessionResponse.status);
 
     if (sessionResponse.status !== 401) {
       if (sessionResponse.status === 429) {
@@ -165,10 +269,13 @@ export async function proxy(request: NextRequest) {
       return createRedirectResponse(request, LOGIN_PATH, responseCookieHeaders);
     }
 
-    const csrfResponse = await fetchAuthApi(request, API_ENDPOINTS.auth.csrf, cookies);
+    authRequestStage = "csrf";
+    authEndpoint = API_ENDPOINTS.auth.csrf;
+    const csrfResponse = await fetchAuthApi(API_ENDPOINTS.auth.csrf, cookies);
     collectSetCookieHeaders(csrfResponse, cookies, responseCookieHeaders);
 
     if (!csrfResponse.ok) {
+      logAuthApiFailure(request, cookies, authRequestStage, authEndpoint, csrfResponse.status);
       const redirectPath = csrfResponse.status === 401 ? LOGIN_PATH : ERROR_PATH;
       return createRedirectResponse(request, redirectPath, responseCookieHeaders);
     }
@@ -177,10 +284,20 @@ export async function proxy(request: NextRequest) {
     const csrfToken = csrfTokenResponse.data?.token;
 
     if (!csrfToken) {
+      logAuthApiFailure(
+        request,
+        cookies,
+        authRequestStage,
+        authEndpoint,
+        csrfResponse.status,
+        "missing CSRF token in response",
+      );
       return createRedirectResponse(request, ERROR_PATH, responseCookieHeaders);
     }
 
-    const refreshResponse = await fetchAuthApi(request, API_ENDPOINTS.auth.refresh, cookies, {
+    authRequestStage = "refresh";
+    authEndpoint = API_ENDPOINTS.auth.refresh;
+    const refreshResponse = await fetchAuthApi(API_ENDPOINTS.auth.refresh, cookies, {
       method: "POST",
       headers: {
         [CSRF_HEADER_NAME]: csrfToken,
@@ -189,30 +306,37 @@ export async function proxy(request: NextRequest) {
     collectSetCookieHeaders(refreshResponse, cookies, responseCookieHeaders);
 
     if (!refreshResponse.ok) {
+      logAuthApiFailure(request, cookies, authRequestStage, authEndpoint, refreshResponse.status);
       const redirectPath = refreshResponse.status === 401 ? LOGIN_PATH : ERROR_PATH;
       return createRedirectResponse(request, redirectPath, responseCookieHeaders);
     }
 
-    const revalidationResponse = await fetchAuthApi(
-      request,
-      API_ENDPOINTS.auth.loginValidity,
-      cookies,
-    );
+    authRequestStage = "revalidation";
+    authEndpoint = API_ENDPOINTS.auth.loginValidity;
+    const revalidationResponse = await fetchAuthApi(API_ENDPOINTS.auth.loginValidity, cookies);
     collectSetCookieHeaders(revalidationResponse, cookies, responseCookieHeaders);
 
     if (!revalidationResponse.ok) {
+      logAuthApiFailure(
+        request,
+        cookies,
+        authRequestStage,
+        authEndpoint,
+        revalidationResponse.status,
+      );
       const redirectPath = revalidationResponse.status === 401 ? LOGIN_PATH : ERROR_PATH;
       return createRedirectResponse(request, redirectPath, responseCookieHeaders);
     }
 
     return createNextResponse(request, cookies, responseCookieHeaders);
-  } catch {
+  } catch (error) {
+    logAuthRequestError(request, cookies, authRequestStage, authEndpoint, error);
     return createRedirectResponse(request, ERROR_PATH, responseCookieHeaders);
   }
 }
 
 export const config = {
   matcher: [
-    "/((?!api|login|error|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|images|icons).*)",
+    "/((?!api|login|error|_next/static|_next/image|favicon.ico|icon.png|sitemap.xml|robots.txt|images|icons).*)",
   ],
 };
