@@ -95,12 +95,14 @@ export default function ChatRoom({
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const [analysisRequestError, setAnalysisRequestError] = useState("");
   const [isRestartRequired, setIsRestartRequired] = useState(false);
+  const [hasRequestedNextConversation, setHasRequestedNextConversation] = useState(false);
   const [remainingConversationSeconds, setRemainingConversationSeconds] = useState<number | null>(
     null,
   );
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
   const isAnalysisRequestingRef = useRef(false);
+  const hasStartedNextConversationRef = useRef(false);
   const pendingMessageRef = useRef<PendingMessage | null>(null);
   const {
     errorMessage: conversationStartError,
@@ -122,7 +124,13 @@ export default function ChatRoom({
 
     const availableAt = Date.parse(nextConversationAvailableAt);
     const updateRemainingSeconds = () => {
-      setRemainingConversationSeconds(Math.max(0, Math.ceil((availableAt - Date.now()) / 1000)));
+      const remainingSeconds = Math.max(0, Math.ceil((availableAt - Date.now()) / 1000));
+
+      setRemainingConversationSeconds(remainingSeconds);
+
+      if (remainingSeconds === 0) {
+        window.clearInterval(intervalTimer);
+      }
     };
     const initialTimer = window.setTimeout(updateRemainingSeconds, 0);
     const intervalTimer = window.setInterval(updateRemainingSeconds, 1000);
@@ -132,6 +140,20 @@ export default function ChatRoom({
       window.clearInterval(intervalTimer);
     };
   }, [isReadOnly, nextConversationAvailableAt]);
+
+  useEffect(() => {
+    if (
+      !isReadOnly ||
+      remainingConversationSeconds !== 0 ||
+      hasStartedNextConversationRef.current
+    ) {
+      return;
+    }
+
+    hasStartedNextConversationRef.current = true;
+    setHasRequestedNextConversation(true);
+    void startConversation({ navigationMode: "replace" });
+  }, [isReadOnly, remainingConversationSeconds, startConversation]);
 
   useEffect(() => {
     if (sendError?.status !== 429 || sendError.retryAfterSeconds <= 0) return;
@@ -438,10 +460,34 @@ export default function ChatRoom({
           분석 결과 다시 보기
         </ActionButton>
       )}
-      {isReadOnly && remainingConversationSeconds !== null && (
+      {isReadOnly && remainingConversationSeconds !== null && remainingConversationSeconds > 0 && (
         <p role="status" className="mb-2 text-center text-body-sm text-danger">
           {formatRemainingConversationTime(remainingConversationSeconds)} 이후 채팅이 가능합니다.
         </p>
+      )}
+      {isReadOnly && remainingConversationSeconds === 0 && hasRequestedNextConversation && (
+        <div className="mb-3 flex flex-col items-center gap-2">
+          {conversationStartError && (
+            <AutoFitSingleLineText
+              role="alert"
+              className="w-full min-w-0 text-center text-body-sm text-danger"
+            >
+              {conversationStartError}
+            </AutoFitSingleLineText>
+          )}
+          <ActionButton
+            onClick={() => void startConversation({ navigationMode: "replace" })}
+            disabled={isConversationStartUnavailable}
+            aria-busy={isStartingConversation || undefined}
+            className="font-bold"
+          >
+            {isStartingConversation
+              ? "새로운 대화 시작 중..."
+              : conversationStartRetryAfterSeconds > 0
+                ? `${conversationStartRetryAfterSeconds}초 후 다시 시도`
+                : "새로운 대화 다시 시작"}
+          </ActionButton>
+        </div>
       )}
       {analysisRequestError && (
         <AutoFitSingleLineText
