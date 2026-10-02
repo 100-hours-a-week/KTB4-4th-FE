@@ -5,6 +5,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import AiConversationExpiredModal from "@/components/chat/AiConversationExpiredModal";
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
@@ -92,6 +93,7 @@ export default function ChatRoom({
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
   const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
+  const [isConversationExpired, setIsConversationExpired] = useState(false);
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const [analysisRequestError, setAnalysisRequestError] = useState("");
   const [isRestartRequired, setIsRestartRequired] = useState(false);
@@ -102,6 +104,8 @@ export default function ChatRoom({
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
   const isAnalysisRequestingRef = useRef(false);
+  const isMessageSendingRef = useRef(false);
+  const isConversationExpiredRef = useRef(false);
   const hasStartedNextConversationRef = useRef(false);
   const pendingMessageRef = useRef<PendingMessage | null>(null);
   const {
@@ -239,7 +243,16 @@ export default function ChatRoom({
   }, [conversationId, handleAnalysisRequest, isInputLocked, isReadOnly]);
 
   const handleSend = async (content: string) => {
-    if (conversationId === undefined || isReadOnly) return;
+    if (
+      conversationId === undefined ||
+      isReadOnly ||
+      isConversationExpiredRef.current ||
+      isMessageSendingRef.current
+    ) {
+      return;
+    }
+
+    isMessageSendingRef.current = true;
 
     const pendingMessage =
       pendingMessageRef.current?.content === content
@@ -284,6 +297,13 @@ export default function ChatRoom({
         throw error;
       }
 
+      if (error instanceof ApiRequestError && error.status === 410) {
+        isConversationExpiredRef.current = true;
+        setIsConversationExpired(true);
+        setSendError(null);
+        throw error;
+      }
+
       setSendError({
         message: error instanceof ApiRequestError ? error.message : "메시지를 전송하지 못했습니다.",
         status: error instanceof ApiRequestError ? error.status : 0,
@@ -295,6 +315,7 @@ export default function ChatRoom({
 
       throw error;
     } finally {
+      isMessageSendingRef.current = false;
       setIsAwaitingResponse(false);
     }
 
@@ -504,11 +525,20 @@ export default function ChatRoom({
           isInputLocked ||
           isResponseInputLocked ||
           isReadOnly ||
+          isConversationExpired ||
           conversationId === undefined ||
           (sendError?.status === 429 && sendError.retryAfterSeconds > 0)
         }
       />
       <PreferenceAnalysisLoadingModal open={analysisStatus === "LOADING" || isConfirmingAnalysis} />
+      <AiConversationExpiredModal
+        open={isConversationExpired}
+        onStartNewConversation={() => void startConversation({ navigationMode: "replace" })}
+        isStartingConversation={isStartingConversation}
+        isStartUnavailable={isConversationStartUnavailable}
+        retryAfterSeconds={conversationStartRetryAfterSeconds}
+        errorMessage={conversationStartError}
+      />
       <PreferenceDataInsufficientModal
         open={isRestartRequired}
         onStartNewConversation={() => void startConversation()}
