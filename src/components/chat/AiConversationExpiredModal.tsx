@@ -32,7 +32,7 @@ export default function AiConversationExpiredModal({
       open={open}
       onClose={preventClose}
       title="AI 대화 서버가 만료되었습니다."
-      actionsClassName="mt-8"
+      actionsClassName="mt-4"
       actions={
         <ActionButton
           onClick={onStartNewConversation}
