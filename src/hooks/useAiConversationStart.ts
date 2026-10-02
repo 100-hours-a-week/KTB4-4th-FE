@@ -10,6 +10,10 @@ import { ApiRequestError } from "@/lib/api/client";
 
 const ERROR_MESSAGE_DURATION_MS = 3000;
 
+type StartConversationOptions = {
+  navigationMode?: "push" | "replace";
+};
+
 export default function useAiConversationStart() {
   const router = useRouter();
   const { setConversation } = useAiConversationContext();
@@ -39,42 +43,51 @@ export default function useAiConversationStart() {
     return () => window.clearTimeout(timer);
   }, [retryAfterSeconds]);
 
-  const startConversation = useCallback(async () => {
-    if (isRequestingRef.current || retryAfterSeconds > 0) return;
+  const startConversation = useCallback(
+    async ({ navigationMode = "push" }: StartConversationOptions = {}) => {
+      if (isRequestingRef.current || retryAfterSeconds > 0) return;
 
-    isRequestingRef.current = true;
-    setErrorMessage("");
-    setIsStartingConversation(true);
+      isRequestingRef.current = true;
+      setErrorMessage("");
+      setIsStartingConversation(true);
 
-    try {
-      const conversation = await startAiConversation();
-      const { conversationId } = conversation;
-      const searchParams = new URLSearchParams({ conversationId: String(conversationId) });
+      try {
+        const conversation = await startAiConversation();
+        const { conversationId } = conversation;
+        const searchParams = new URLSearchParams({ conversationId: String(conversationId) });
 
-      setConversation(conversation);
-      router.push(`/ai?${searchParams.toString()}`);
-    } catch (error) {
-      if (error instanceof ApiRequestError) {
-        if (error.status === 401) {
-          router.replace("/login");
+        setConversation(conversation);
+        const destination = `/ai?${searchParams.toString()}`;
+
+        if (navigationMode === "replace") {
+          router.replace(destination);
+        } else {
+          router.push(destination);
+        }
+      } catch (error) {
+        if (error instanceof ApiRequestError) {
+          if (error.status === 401) {
+            router.replace("/login");
+            return;
+          }
+
+          setErrorMessage(error.message);
+
+          if (error.status === 429) {
+            setRetryAfterSeconds(error.retryAfterSeconds ?? 0);
+          }
+
           return;
         }
 
-        setErrorMessage(error.message);
-
-        if (error.status === 429) {
-          setRetryAfterSeconds(error.retryAfterSeconds ?? 0);
-        }
-
-        return;
+        setErrorMessage("AI 대화를 시작하지 못했습니다.");
+      } finally {
+        isRequestingRef.current = false;
+        setIsStartingConversation(false);
       }
-
-      setErrorMessage("AI 대화를 시작하지 못했습니다.");
-    } finally {
-      isRequestingRef.current = false;
-      setIsStartingConversation(false);
-    }
-  }, [retryAfterSeconds, router, setConversation]);
+    },
+    [retryAfterSeconds, router, setConversation],
+  );
 
   return {
     errorMessage,
