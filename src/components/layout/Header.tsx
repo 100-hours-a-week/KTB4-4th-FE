@@ -2,6 +2,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -94,7 +95,9 @@ export default function Header() {
         </button>
       )}
 
-      <Image src="/images/NeedU_logo.png" alt="NeedU" width={80} height={21} priority />
+      <Link href="/" className="touch-target flex items-center justify-center">
+        <Image src="/images/NeedU_logo.png" alt="NeedU" width={80} height={21} priority />
+      </Link>
     </header>
   );
 }
