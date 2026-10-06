@@ -27,7 +27,7 @@ export default function Header() {
           aria-label={isSidebarVisible ? "사이드바 닫기" : "사이드바 열기"}
           aria-controls={sidebarId}
           aria-expanded={sidebarState === "open"}
-          className="touch-target absolute left-page z-[70] flex items-center justify-start border-0 bg-transparent p-0 text-foreground"
+          className="touch-target absolute right-page z-[70] flex items-center justify-end border-0 bg-transparent p-0 text-foreground"
           onClick={() =>
             setSidebarState((currentState) => (currentState === "open" ? "closing" : "open"))
           }

@@ -94,13 +94,13 @@ export default function NotificationDropdown() {
   }, [isOpen]);
 
   return (
-    <div ref={containerRef} className="absolute right-page flex items-center">
+    <div ref={containerRef} className="absolute left-page flex items-center">
       <button
         type="button"
         aria-label={isOpen ? "알림 닫기" : "알림 열기"}
         aria-controls={dropdownId}
         aria-expanded={isOpen}
-        className="touch-target relative flex items-center justify-center border-0 bg-transparent p-0 text-foreground"
+        className="touch-target relative flex items-center justify-start border-0 bg-transparent p-0 text-foreground"
         onClick={() => setIsOpen((currentIsOpen) => !currentIsOpen)}
       >
         <span aria-hidden="true" className="material-symbols-rounded text-[24px] leading-none">
@@ -109,7 +109,7 @@ export default function NotificationDropdown() {
         {hasUnreadNotification && (
           <span
             aria-hidden="true"
-            className="absolute top-2.5 right-2.5 size-1.5 rounded-full bg-danger"
+            className="absolute top-2.5 left-[18px] size-1.5 rounded-full bg-danger"
           />
         )}
       </button>
@@ -118,7 +118,7 @@ export default function NotificationDropdown() {
         <section
           id={dropdownId}
           aria-labelledby={headingId}
-          className="absolute top-[calc(100%+0.5rem)] right-0 z-50 w-[calc(100vw-2rem)] max-w-[calc(var(--app-max-width)-2rem)] overflow-hidden rounded-md border border-border-strong bg-surface shadow-lg"
+          className="absolute top-[calc(100%+0.5rem)] left-0 z-50 w-[calc(100vw-2rem)] max-w-[calc(var(--app-max-width)-2rem)] overflow-hidden rounded-md border border-border-strong bg-surface shadow-lg"
         >
           <h2 id={headingId} className="m-0 px-5 py-4 text-heading-3 font-bold">
             알림
