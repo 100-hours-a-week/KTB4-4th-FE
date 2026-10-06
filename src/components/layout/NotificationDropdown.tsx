@@ -28,6 +28,20 @@ const initialNotifications: Notification[] = [
     createdAt: "어제",
     isUnread: true,
   },
+  {
+    id: 3,
+    title: "수연 님의 생일이 8일 남았어요.",
+    description: "지금 선물을 준비하면 여유 있게 도착해요.",
+    createdAt: "어제",
+    isUnread: false,
+  },
+  {
+    id: 4,
+    title: "수연 님의 생일이 8일 남았어요.",
+    description: "지금 선물을 준비하면 여유 있게 도착해요.",
+    createdAt: "어제",
+    isUnread: true,
+  },
 ];
 
 export default function NotificationDropdown() {
@@ -112,7 +126,9 @@ export default function NotificationDropdown() {
 
           {notifications.length > 0 ? (
             <>
-              <ul className="m-0 list-none border-t border-border p-0">
+              <ul
+                className={`m-0 list-none border-t border-border p-0 ${notifications.length >= 4 ? "max-h-72 overflow-y-auto overscroll-contain" : ""}`}
+              >
                 {notifications.map((notification) => (
                   <NotificationItem
                     key={notification.id}
