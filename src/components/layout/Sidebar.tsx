@@ -3,6 +3,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useId } from "react";
 
 import useDialogControl from "@/hooks/useDialogControl";
@@ -19,6 +20,7 @@ type SidebarProps = {
 export type SidebarAnimationState = "closed" | "open" | "closing";
 
 export default function Sidebar({ id, state, onClose, onClosed }: SidebarProps) {
+  const router = useRouter();
   const dialogRef = useDialogControl({
     open: state !== "closed",
     mode: "non-modal",
@@ -38,7 +40,7 @@ export default function Sidebar({ id, state, onClose, onClosed }: SidebarProps) 
   }, [onClose, state]);
 
   const handleMyPageClick = () => {
-    // TODO: 마이페이지 구현 후 해당 페이지로 이동
+    router.push("/mypage");
   };
 
   const handleSettingsClick = () => {
