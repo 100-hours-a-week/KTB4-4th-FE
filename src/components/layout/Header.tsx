@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import NotificationDropdown from "./NotificationDropdown";
-import Sidebar from "./Sidebar";
+import Sidebar, { type SidebarAnimationState } from "./Sidebar";
 
 const pathsWithoutBackButton = new Set(["/", "/friends"]);
 const sidebarId = "main-sidebar";
@@ -14,8 +14,9 @@ const sidebarId = "main-sidebar";
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarState, setSidebarState] = useState<SidebarAnimationState>("closed");
   const isHomePage = pathname === "/";
+  const isSidebarVisible = sidebarState !== "closed";
   const showBackButton = !pathsWithoutBackButton.has(pathname);
 
   return (
@@ -23,13 +24,15 @@ export default function Header() {
       {isHomePage && (
         <button
           type="button"
-          aria-label={isSidebarOpen ? "사이드바 닫기" : "사이드바 열기"}
+          aria-label={isSidebarVisible ? "사이드바 닫기" : "사이드바 열기"}
           aria-controls={sidebarId}
-          aria-expanded={isSidebarOpen}
+          aria-expanded={sidebarState === "open"}
           className="touch-target absolute left-page z-[70] flex items-center justify-start border-0 bg-transparent p-0 text-foreground"
-          onClick={() => setIsSidebarOpen((currentIsOpen) => !currentIsOpen)}
+          onClick={() =>
+            setSidebarState((currentState) => (currentState === "open" ? "closing" : "open"))
+          }
         >
-          {isSidebarOpen ? (
+          {isSidebarVisible ? (
             <svg
               aria-hidden="true"
               width="24"
@@ -81,7 +84,12 @@ export default function Header() {
       {isHomePage && (
         <>
           <NotificationDropdown />
-          <Sidebar id={sidebarId} open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+          <Sidebar
+            id={sidebarId}
+            state={sidebarState}
+            onClose={() => setSidebarState("closing")}
+            onClosed={() => setSidebarState("closed")}
+          />
         </>
       )}
     </header>
