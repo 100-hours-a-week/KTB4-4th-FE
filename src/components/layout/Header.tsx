@@ -4,6 +4,8 @@
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 
+import NotificationDropdown from "./NotificationDropdown";
+
 const pathsWithoutBackButton = new Set(["/", "/friends"]);
 
 export default function Header() {
@@ -25,6 +27,8 @@ export default function Header() {
       )}
 
       <Image src="/images/NeedU_logo.png" alt="NeedU" width={80} height={21} priority />
+
+      {pathname === "/" && <NotificationDropdown />}
     </header>
   );
 }
