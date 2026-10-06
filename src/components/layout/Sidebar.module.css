@@ -1,0 +1,29 @@
+/* 홈페이지 사이드바의 열림 전환 효과 */
+
+.sidebar {
+  inset-block: 0;
+  right: auto;
+  left: 0;
+}
+
+.sidebar[open] {
+  animation: sidebar-slide-down var(--duration-slow) var(--ease-emphasized);
+}
+
+.sidebar::backdrop {
+  background: transparent;
+}
+
+.menuButton {
+  -webkit-text-stroke: 0.2px currentColor;
+}
+
+@keyframes sidebar-slide-down {
+  from {
+    transform: translateY(-100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
