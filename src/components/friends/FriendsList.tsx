@@ -115,7 +115,7 @@ export default function FriendsList({
     <ul
       aria-label={isFavorite ? "즐겨찾는 친구" : "전체 친구"}
       aria-busy={isLoading}
-      className={`${isKakaoFriendSynced === true ? "mt-6" : "mt-12"} flex list-none flex-col gap-5 p-0`}
+      className="mt-6 flex list-none flex-col gap-5 p-0"
     >
       {friends.map((friend) => (
         <li key={friend.userId}>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import PageIntro from "@/components/common/PageIntro";
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
+import FriendSearchField from "@/components/friends/FriendSearchField";
 import FriendsList from "@/components/friends/FriendsList";
 import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectButton";
 
@@ -76,6 +77,9 @@ export default function FriendsPage() {
         ariaLabel="친구 목록 유형"
         className={isKakaoFriendSynced === true ? "mt-4" : "mt-8"}
       />
+      <div className="mt-5">
+        <FriendSearchField isFavorite={selectedTab === "favorite"} />
+      </div>
       <FriendsList
         isFavorite={selectedTab === "favorite"}
         onHasFriendsChange={setHasFriends}
