@@ -11,11 +11,13 @@ import { getFriends, type FriendListItem } from "@/lib/api/friends";
 const PAGE_SIZE = 20;
 
 type FriendsListProps = {
+  isFavorite: boolean;
   onHasFriendsChange: (hasFriends: boolean) => void;
   onKakaoFriendSyncedChange: (isKakaoFriendSynced: boolean) => void;
 };
 
 export default function FriendsList({
+  isFavorite,
   onHasFriendsChange,
   onKakaoFriendSyncedChange,
 }: FriendsListProps) {
@@ -41,6 +43,8 @@ export default function FriendsList({
     setIsLoading(true);
 
     try {
+      // TODO: 친구 목록 API 연동 시 isFavorite 쿼리 파라미터 전달
+      // isFavorite가 true이면 즐겨찾는 친구만 조회하고, false·null·미지정이면 전체 친구 조회
       const data = await getFriends({
         cursor: nextCursorRef.current ?? undefined,
         size: PAGE_SIZE,
@@ -109,7 +113,7 @@ export default function FriendsList({
 
   return (
     <ul
-      aria-label="선물할 친구"
+      aria-label={isFavorite ? "즐겨찾는 친구" : "전체 친구"}
       aria-busy={isLoading}
       className={`${isKakaoFriendSynced === true ? "mt-6" : "mt-12"} flex list-none flex-col gap-5 p-0`}
     >
