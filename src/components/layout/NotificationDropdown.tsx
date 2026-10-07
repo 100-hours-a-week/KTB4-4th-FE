@@ -103,13 +103,26 @@ export default function NotificationDropdown() {
         className="touch-target relative flex items-center justify-start border-0 bg-transparent p-0 text-foreground"
         onClick={() => setIsOpen((currentIsOpen) => !currentIsOpen)}
       >
-        <span aria-hidden="true" className="material-symbols-rounded text-[24px] leading-none">
-          notifications
-        </span>
+        <svg
+          aria-hidden="true"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M10 18C10 19.1 10.9 20 12 20C13.1 20 14 19.1 14 18M3.262 15.326A1 1 0 0 0 4 17H20A1 1 0 0 0 20.738 15.326C19.411 13.956 18 12.499 18 8A6 6 0 0 0 6 8C6 12.499 4.589 13.956 3.262 15.326Z"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
         {hasUnreadNotification && (
           <span
             aria-hidden="true"
-            className="absolute top-2.5 left-[18px] size-1.5 rounded-full bg-danger"
+            className="absolute top-2.5 left-[22px] size-1.5 rounded-full bg-danger"
           />
         )}
       </button>
