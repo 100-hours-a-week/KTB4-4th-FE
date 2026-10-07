@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import AiSummarySection from "@/components/common/AiSummarySection";
 import KeywordSection from "@/components/common/KeywordSection";
 import FriendPokeButton from "@/components/friends/FriendPokeButton";
 import { ApiRequestError } from "@/lib/api/client";
@@ -129,6 +130,7 @@ export default function FriendDetailContent({ userId }: FriendDetailContentProps
             nickname={friend.nickname}
             keywords={friendPreferenceMock.interestKeywords}
           />
+          <AiSummarySection nickname={friend.nickname} summary={friendPreferenceMock.aiSummary} />
         </div>
       ) : (
         <div className="mt-8 flex w-full max-w-[360px] justify-center">
