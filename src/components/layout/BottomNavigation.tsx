@@ -46,10 +46,7 @@ export default function BottomNavigation() {
   if (pathname === "/ai") return null;
 
   return (
-    <nav
-      aria-label="하단 메뉴"
-      className="relative z-10 shrink-0"
-    >
+    <nav aria-label="하단 메뉴" className="relative z-10 shrink-0">
       {errorMessage && (
         <p
           role="alert"
@@ -63,10 +60,7 @@ export default function BottomNavigation() {
         aria-hidden="true"
         className="pointer-events-none absolute -top-9 left-1/2 z-0 h-[88px] w-[88px] -translate-x-1/2 rounded-full border border-border bg-surface shadow-sm"
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-[1] bg-surface"
-      />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1] bg-surface" />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute top-0 right-[calc(50%+44px)] left-0 z-[2] border-t border-border"
@@ -81,8 +75,7 @@ export default function BottomNavigation() {
           const isActive = pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
           const activeIcon = "activeIcon" in item ? item.activeIcon : icon;
           const caption = "caption" in item ? item.caption : undefined;
-          const startsConversation =
-            "startsConversation" in item && item.startsConversation;
+          const startsConversation = "startsConversation" in item && item.startsConversation;
 
           return (
             <li key={href} className="flex flex-1 justify-center">
