@@ -6,11 +6,31 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
+import FriendFavoriteButton from "@/components/friends/FriendFavoriteButton";
+
 import NotificationDropdown from "./NotificationDropdown";
 import Sidebar, { type SidebarAnimationState } from "./Sidebar";
 
 const pathsWithoutBackButton = new Set(["/", "/friends"]);
 const sidebarId = "main-sidebar";
+const friendDetailPathPattern = /^\/friends\/\d+\/?$/;
+
+function FriendDetailHeaderAction() {
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  const handleToggleFavorite = () => {
+    // TODO: 즐겨찾기 API 연동 시 친구 목록과 헤더가 동일한 서버 상태를 사용하도록 상태 관리 교체 및 실패 처리
+    setIsFavorite((currentFavorite) => !currentFavorite);
+  };
+
+  return (
+    <FriendFavoriteButton
+      isFavorite={isFavorite}
+      onToggle={handleToggleFavorite}
+      className="absolute right-page"
+    />
+  );
+}
 
 function HomeHeaderActions() {
   const [sidebarState, setSidebarState] = useState<SidebarAnimationState>("closed");
@@ -78,11 +98,14 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const isHomePage = pathname === "/";
+  const isFriendDetailPage = friendDetailPathPattern.test(pathname);
   const showBackButton = !pathsWithoutBackButton.has(pathname);
 
   return (
     <header className="relative flex h-[60px] shrink-0 items-center justify-center bg-surface px-page">
       {isHomePage && <HomeHeaderActions />}
+
+      {isFriendDetailPage && <FriendDetailHeaderAction key={pathname} />}
 
       {!isHomePage && showBackButton && (
         <button

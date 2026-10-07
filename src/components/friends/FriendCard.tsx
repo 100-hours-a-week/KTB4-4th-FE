@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import FriendFavoriteButton from "@/components/friends/FriendFavoriteButton";
+
 type FriendCardProps = {
   userId: number;
   name: string;
@@ -38,25 +40,12 @@ export default function FriendCard({
           {/* TODO: 백엔드 생일 데이터 완성 후 생일 및 D-day 정보 표시 */}
         </div>
       </Link>
-      <button
-        type="button"
-        aria-label={`${name} 즐겨찾기 ${isFavorite ? "해제" : "설정"}`}
-        aria-pressed={isFavorite}
-        onClick={onToggleFavorite}
-        className={`touch-target mr-2 flex shrink-0 items-center justify-center border-0 bg-transparent p-0 transition-colors ${
-          isFavorite ? "text-primary" : "text-muted"
-        }`}
-      >
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6">
-          <path
-            d="m12 2.75 2.85 5.78 6.38.93-4.62 4.5 1.09 6.36L12 17.32l-5.7 3 1.09-6.36-4.62-4.5 6.38-.93L12 2.75Z"
-            fill={isFavorite ? "currentColor" : "none"}
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
+      <FriendFavoriteButton
+        name={name}
+        isFavorite={isFavorite}
+        onToggle={onToggleFavorite}
+        className="mr-2"
+      />
     </div>
   );
 }
