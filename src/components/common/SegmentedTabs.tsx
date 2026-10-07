@@ -23,6 +23,11 @@ export default function SegmentedTabs<T extends string>({
   ariaLabel,
   className = "",
 }: SegmentedTabsProps<T>) {
+  const selectedIndex = Math.max(
+    items.findIndex((item) => item.value === value),
+    0,
+  );
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const currentIndex = items.findIndex((item) => item.value === value);
 
@@ -58,8 +63,18 @@ export default function SegmentedTabs<T extends string>({
       role="tablist"
       aria-label={ariaLabel}
       onKeyDown={handleKeyDown}
-      className={`flex w-full rounded-full bg-background-subtle p-1 ${className}`}
+      className={`relative flex w-full overflow-hidden rounded-full bg-background-subtle p-1 ${className}`}
     >
+      {items.length > 0 && (
+        <span
+          aria-hidden="true"
+          className="absolute top-1 bottom-1 left-1 rounded-full bg-surface shadow-sm transition-transform duration-200 ease-standard"
+          style={{
+            width: `calc((100% - 0.5rem) / ${items.length})`,
+            transform: `translateX(${selectedIndex * 100}%)`,
+          }}
+        />
+      )}
       {items.map((item) => {
         const isSelected = item.value === value;
 
@@ -71,8 +86,8 @@ export default function SegmentedTabs<T extends string>({
             aria-selected={isSelected}
             tabIndex={isSelected ? 0 : -1}
             onClick={() => onChange(item.value)}
-            className={`min-w-0 flex-1 cursor-pointer rounded-full border-0 px-3 py-2.5 text-center text-body transition-colors ${
-              isSelected ? "bg-surface text-foreground shadow-sm" : "bg-transparent text-muted"
+            className={`relative z-10 min-w-0 flex-1 cursor-pointer rounded-full border-0 bg-transparent px-3 py-2.5 text-center text-body transition-colors ${
+              isSelected ? "text-foreground" : "text-muted"
             }`}
           >
             <span className="font-bold">{item.label}</span>
