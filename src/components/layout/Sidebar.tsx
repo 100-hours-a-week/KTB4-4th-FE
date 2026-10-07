@@ -44,7 +44,7 @@ export default function Sidebar({ id, state, onClose, onClosed }: SidebarProps) 
   };
 
   const handleSettingsClick = () => {
-    // TODO: 설정 페이지 구현 후 해당 페이지로 이동
+    router.push("/settings");
   };
 
   const handleLogoutClick = () => {
