@@ -7,11 +7,12 @@ import { useState } from "react";
 import Modal from "@/components/common/Modal";
 import WithdrawalModal from "@/components/settings/WithdrawalModal";
 
-type NotificationSetting = "birthday" | "friendJoined" | "feedback";
+type NotificationSetting = "webPush" | "birthday" | "friendJoined" | "feedback";
 type PolicyModalType = "aiConsent" | "privacyPolicy" | "terms";
 type PrivacyItemType = "preferences" | PolicyModalType;
 
 const notificationItems: { id: NotificationSetting; label: string }[] = [
+  { id: "webPush", label: "웹 푸시 알림" },
   { id: "birthday", label: "친구 생일 알림" },
   { id: "friendJoined", label: "친구 가입 알림" },
   { id: "feedback", label: "피드백 알림" },
@@ -44,6 +45,7 @@ export default function SettingsPage() {
   const [notificationSettings, setNotificationSettings] = useState<
     Record<NotificationSetting, boolean>
   >({
+    webPush: false,
     birthday: true,
     friendJoined: true,
     feedback: false,
@@ -58,6 +60,7 @@ export default function SettingsPage() {
       [setting]: !currentSettings[setting],
     }));
 
+    // TODO: 웹 푸시 구현 시 webPush 설정을 브라우저 알림 권한 요청 및 구독 API와 연동
     // TODO: 알림 설정 저장 API 연동
   };
 
