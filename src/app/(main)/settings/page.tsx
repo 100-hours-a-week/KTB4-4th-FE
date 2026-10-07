@@ -5,6 +5,7 @@
 import { useState } from "react";
 
 import Modal from "@/components/common/Modal";
+import WithdrawalModal from "@/components/settings/WithdrawalModal";
 
 type NotificationSetting = "birthday" | "friendJoined" | "feedback";
 type PolicyModalType = "aiConsent" | "privacyPolicy" | "terms";
@@ -48,6 +49,7 @@ export default function SettingsPage() {
     feedback: false,
   });
   const [openPolicyModal, setOpenPolicyModal] = useState<PolicyModalType | null>(null);
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
   const activePolicyModal = openPolicyModal ? policyModalContent[openPolicyModal] : null;
 
   const handleNotificationToggle = (setting: NotificationSetting) => {
@@ -60,7 +62,11 @@ export default function SettingsPage() {
   };
 
   const handleWithdrawalClick = () => {
-    // TODO: 회원 탈퇴 확인 모달 구현 후 열기 처리
+    setIsWithdrawalModalOpen(true);
+  };
+
+  const handleWithdrawalConfirm = () => {
+    // TODO: 회원 탈퇴 API 연동 후 성공 시 로그아웃 및 로그인 페이지 이동 처리
   };
 
   const handlePrivacyItemClick = (item: PrivacyItemType) => {
@@ -176,6 +182,12 @@ export default function SettingsPage() {
           {activePolicyModal?.body}
         </p>
       </Modal>
+
+      <WithdrawalModal
+        open={isWithdrawalModalOpen}
+        onClose={() => setIsWithdrawalModalOpen(false)}
+        onConfirm={handleWithdrawalConfirm}
+      />
     </main>
   );
 }

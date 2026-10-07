@@ -11,6 +11,7 @@ type ModalProps = {
   open: boolean;
   onClose: () => void;
   title: string;
+  titleClassName?: string;
   description?: string;
   children?: ReactNode;
   firstAction?: ComponentProps<typeof ChoiceButtons>["first"];
@@ -24,6 +25,7 @@ export default function Modal({
   open,
   onClose,
   title,
+  titleClassName = "",
   description,
   children,
   firstAction,
@@ -62,7 +64,7 @@ export default function Modal({
           keepHeaderInteractive ? "top-[60px]" : "top-0"
         }`}
       >
-        <h2 id={titleId} className="text-xl font-bold">
+        <h2 id={titleId} className={`text-xl font-bold ${titleClassName}`}>
           {title}
         </h2>
         {description && (
