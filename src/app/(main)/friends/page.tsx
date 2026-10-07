@@ -11,9 +11,29 @@ import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectBut
 
 type FriendsTab = "all" | "favorite";
 
+// TODO: 친구 수 조회 API 연동 후 응답 값으로 교체
+const FRIEND_COUNTS: Record<FriendsTab, number> = {
+  all: 1,
+  favorite: 0,
+};
+
 const FRIENDS_TABS: readonly SegmentedTabItem<FriendsTab>[] = [
-  { value: "all", label: "전체 친구" },
-  { value: "favorite", label: "즐겨찾는 친구" },
+  {
+    value: "all",
+    label: (
+      <span className="inline-flex items-center gap-1">
+        전체 친구 <span>{FRIEND_COUNTS.all}</span>
+      </span>
+    ),
+  },
+  {
+    value: "favorite",
+    label: (
+      <span className="inline-flex items-center gap-1">
+        즐겨찾는 친구 <span>{FRIEND_COUNTS.favorite}</span>
+      </span>
+    ),
+  },
 ];
 
 const FRIENDS_PAGE_COPY: Record<
