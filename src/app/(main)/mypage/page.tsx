@@ -1,7 +1,7 @@
 // 사용자의 프로필과 AI 취향 분석 정보를 제공하는 마이페이지
 
+import AiSummarySection from "@/components/common/AiSummarySection";
 import KeywordSection from "@/components/common/KeywordSection";
-import AiSummarySection from "@/components/mypage/AiSummarySection";
 import ProfileSection from "@/components/mypage/ProfileSection";
 import { myPageMock } from "@/mocks/mypage";
 
