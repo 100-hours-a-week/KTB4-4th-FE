@@ -27,7 +27,12 @@ import {
   type SendAiConversationMessageData,
 } from "@/lib/api/aiConversationMessageSend";
 import { ApiRequestError } from "@/lib/api/client";
-import type { ChatMessage, PreferenceAnalysisResult, PreferenceAnalysisStatus } from "@/types/chat";
+import type {
+  ChatMessage,
+  ChatMessageId,
+  PreferenceAnalysisResult,
+  PreferenceAnalysisStatus,
+} from "@/types/chat";
 
 type ChatRoomProps = {
   initialMessages: ChatMessage[];
@@ -46,12 +51,13 @@ type PendingMessage = {
 };
 
 type MessageSendError = {
-  message: string;
+  messageId: ChatMessageId;
   status: number;
   retryAfterSeconds: number;
 };
 
 const MIN_AI_RESPONSE_DELAY_MS = 600;
+const MOCK_MESSAGE_RETRY_DELAY_MS = 1000;
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => {
@@ -105,6 +111,7 @@ export default function ChatRoom({
   const isInitialRender = useRef(true);
   const isAnalysisRequestingRef = useRef(false);
   const isMessageSendingRef = useRef(false);
+  const retryingMessageIdsRef = useRef(new Set<ChatMessageId>());
   const isConversationExpiredRef = useRef(false);
   const hasStartedNextConversationRef = useRef(false);
   const pendingMessageRef = useRef<PendingMessage | null>(null);
@@ -115,13 +122,6 @@ export default function ChatRoom({
     retryAfterSeconds: conversationStartRetryAfterSeconds,
     startConversation,
   } = useAiConversationStart();
-  const sendErrorMessage = sendError
-    ? `${sendError.message}${
-        sendError.status === 429 && sendError.retryAfterSeconds > 0
-          ? ` (${sendError.retryAfterSeconds}초 후 다시 전송할 수 있어요.)`
-          : ""
-      }`
-    : "";
 
   useEffect(() => {
     if (!isReadOnly || !nextConversationAvailableAt) return;
@@ -265,6 +265,7 @@ export default function ChatRoom({
       role: "USER",
       senderName: "나",
       content: pendingMessage.content,
+      deliveryStatus: "SENT",
     };
 
     setMessages((currentMessages) => [...currentMessages, optimisticUserMessage]);
@@ -282,15 +283,7 @@ export default function ChatRoom({
         delay(MIN_AI_RESPONSE_DELAY_MS),
       ]);
     } catch (error) {
-      setMessages((currentMessages) =>
-        currentMessages.filter((message) => message.id !== pendingMessage.clientMessageId),
-      );
-
-      const isNetworkError = error instanceof TypeError;
-
-      if (!isNetworkError) {
-        pendingMessageRef.current = null;
-      }
+      pendingMessageRef.current = null;
 
       if (error instanceof ApiRequestError && error.status === 401) {
         router.replace("/login");
@@ -304,8 +297,15 @@ export default function ChatRoom({
         throw error;
       }
 
+      setMessages((currentMessages) =>
+        currentMessages.map((message) =>
+          message.id === pendingMessage.clientMessageId
+            ? { ...message, deliveryStatus: "FAILED" }
+            : message,
+        ),
+      );
       setSendError({
-        message: error instanceof ApiRequestError ? error.message : "메시지를 전송하지 못했습니다.",
+        messageId: pendingMessage.clientMessageId,
         status: error instanceof ApiRequestError ? error.status : 0,
         retryAfterSeconds:
           error instanceof ApiRequestError && error.status === 429
@@ -324,6 +324,7 @@ export default function ChatRoom({
       role: "ASSISTANT",
       senderName: "니쥬",
       content: response.content,
+      deliveryStatus: "SENT",
     };
 
     setMessages((currentMessages) => [
@@ -345,6 +346,44 @@ export default function ChatRoom({
     }
 
     onMessageSent?.(response);
+  };
+
+  const handleRetryMessage = async (messageId: ChatMessageId) => {
+    if (retryingMessageIdsRef.current.has(messageId)) return;
+
+    retryingMessageIdsRef.current.add(messageId);
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId && message.deliveryStatus === "FAILED"
+          ? { ...message, deliveryStatus: "RETRYING" }
+          : message,
+      ),
+    );
+
+    // TODO: 메시지 재전송 API 연동 후 임시 지연 및 성공 상태 전환 교체
+    await delay(MOCK_MESSAGE_RETRY_DELAY_MS);
+
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId && message.deliveryStatus === "RETRYING"
+          ? { ...message, deliveryStatus: "SENT" }
+          : message,
+      ),
+    );
+    setSendError((error) => (error?.messageId === messageId ? null : error));
+    retryingMessageIdsRef.current.delete(messageId);
+  };
+
+  const handleCancelMessage = (messageId: ChatMessageId) => {
+    // TODO: 메시지 전송 취소 API 연동 후 서버 응답에 따라 취소 상태 반영
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId && message.deliveryStatus === "FAILED"
+          ? { ...message, deliveryStatus: "CANCELED" }
+          : message,
+      ),
+    );
+    setSendError((error) => (error?.messageId === messageId ? null : error));
   };
 
   const handleReturnToChat = () => {
@@ -467,15 +506,9 @@ export default function ChatRoom({
         ref={messageListRef}
         messages={messages}
         isAwaitingResponse={isAwaitingResponse}
+        onRetryMessage={(messageId) => void handleRetryMessage(messageId)}
+        onCancelMessage={handleCancelMessage}
       />
-      {sendError && (
-        <AutoFitSingleLineText
-          role="alert"
-          className="mb-2 w-full min-w-0 text-center text-body-sm text-danger"
-        >
-          {sendErrorMessage}
-        </AutoFitSingleLineText>
-      )}
       {analysisStatus === "IDLE" && (isInputLocked || isResponseInputLocked) && (
         <ActionButton onClick={handleRetryAnalysis} className="mb-3 font-bold">
           분석 결과 다시 보기
