@@ -6,8 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import KeywordSection from "@/components/common/KeywordSection";
 import { ApiRequestError } from "@/lib/api/client";
 import { getFriendDetail, type FriendDetail } from "@/lib/api/friends";
+import { friendPreferenceMock } from "@/mocks/friendDetail";
 
 type FriendDetailContentProps = {
   userId: number;
@@ -77,7 +79,10 @@ export default function FriendDetailContent({ userId }: FriendDetailContentProps
   }
 
   return (
-    <section aria-labelledby="friend-name" className="flex flex-col items-center pt-12 text-center">
+    <section
+      aria-labelledby="friend-name"
+      className="flex flex-col items-center pt-12 pb-[max(2.5rem,env(safe-area-inset-bottom))] text-center"
+    >
       <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full bg-background-subtle">
         {friend.profileImageUrl && (
           <Image
@@ -109,6 +114,18 @@ export default function FriendDetailContent({ userId }: FriendDetailContentProps
         >
           <span className="font-semibold">{friend.nickname}님에게 선물하기</span>
         </Link>
+      </div>
+      <div className="mt-8 flex w-full max-w-[360px] flex-col gap-8 text-left">
+        <KeywordSection
+          category="취향"
+          nickname={friend.nickname}
+          keywords={friendPreferenceMock.tasteKeywords}
+        />
+        <KeywordSection
+          category="관심사"
+          nickname={friend.nickname}
+          keywords={friendPreferenceMock.interestKeywords}
+        />
       </div>
     </section>
   );
