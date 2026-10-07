@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import KeywordSection from "@/components/common/KeywordSection";
+import FriendPokeButton from "@/components/friends/FriendPokeButton";
 import { ApiRequestError } from "@/lib/api/client";
 import { getFriendDetail, type FriendDetail } from "@/lib/api/friends";
 import { friendPreferenceMock } from "@/mocks/friendDetail";
@@ -115,18 +116,25 @@ export default function FriendDetailContent({ userId }: FriendDetailContentProps
           <span className="font-semibold">{friend.nickname}님에게 선물하기</span>
         </Link>
       </div>
-      <div className="mt-8 flex w-full max-w-[360px] flex-col gap-8 text-left">
-        <KeywordSection
-          category="취향"
-          nickname={friend.nickname}
-          keywords={friendPreferenceMock.tasteKeywords}
-        />
-        <KeywordSection
-          category="관심사"
-          nickname={friend.nickname}
-          keywords={friendPreferenceMock.interestKeywords}
-        />
-      </div>
+      {friend.tasteAnalysisCompleted ? (
+        <div className="mt-8 flex w-full max-w-[360px] flex-col gap-8 text-left">
+          {/* TODO: 친구 상세 API에 취향 및 관심사 요약이 추가되면 실제 응답 데이터로 교체 */}
+          <KeywordSection
+            category="취향"
+            nickname={friend.nickname}
+            keywords={friendPreferenceMock.tasteKeywords}
+          />
+          <KeywordSection
+            category="관심사"
+            nickname={friend.nickname}
+            keywords={friendPreferenceMock.interestKeywords}
+          />
+        </div>
+      ) : (
+        <div className="mt-8 flex w-full max-w-[360px] justify-center">
+          <FriendPokeButton nickname={friend.nickname} />
+        </div>
+      )}
     </section>
   );
 }
