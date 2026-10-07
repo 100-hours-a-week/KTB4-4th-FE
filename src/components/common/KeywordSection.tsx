@@ -1,4 +1,4 @@
-// 마이페이지의 취향 또는 관심사 키워드 배지 목록
+// 사용자별 취향 또는 관심사 키워드 배지 목록
 
 type KeywordSectionProps = {
   category: "취향" | "관심사";
