@@ -130,7 +130,11 @@ function PersonalRecommendationsListContent({
   return (
     <>
       {products.map((product) => (
-        <ProductCard key={product.recommendationId} product={product} />
+        <ProductCard
+          key={product.recommendationId}
+          product={product}
+          detailHref={`/products/${product.recommendationId}`}
+        />
       ))}
 
       {hasNext && <div ref={sentinelRef} aria-hidden="true" className="h-px" />}
