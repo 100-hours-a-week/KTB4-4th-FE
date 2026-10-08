@@ -1,5 +1,7 @@
 // 추천 상품의 기본 정보를 표시하는 카드 컴포넌트
 
+import Link from "next/link";
+
 type ProductCardProps = {
   product: {
     name: string;
@@ -7,18 +9,14 @@ type ProductCardProps = {
     productImageUrl: string | null;
     purchaseUrl: string;
   };
+  detailHref?: string;
 };
 
 const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
 
-export default function ProductCard({ product }: ProductCardProps) {
-  return (
-    <a
-      href={product.purchaseUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex w-full gap-4 rounded-lg border border-border-strong bg-surface p-4"
-    >
+export default function ProductCard({ product, detailHref }: ProductCardProps) {
+  const content = (
+    <>
       <div
         role="img"
         aria-label={`${product.name} 상품 이미지`}
@@ -36,6 +34,22 @@ export default function ProductCard({ product }: ProductCardProps) {
         </h2>
         <p className="mt-1 text-body-lg font-bold text-foreground">{formatPrice(product.price)}</p>
       </div>
+    </>
+  );
+
+  const className = "flex w-full gap-4 rounded-lg border border-border-strong bg-surface p-4";
+
+  if (detailHref) {
+    return (
+      <Link href={detailHref} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <a href={product.purchaseUrl} target="_blank" rel="noopener noreferrer" className={className}>
+      {content}
     </a>
   );
 }

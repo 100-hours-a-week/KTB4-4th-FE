@@ -43,7 +43,7 @@ export default function BottomNavigation() {
     void startConversation();
   };
 
-  if (pathname === "/ai") return null;
+  if (pathname === "/ai" || /^\/products\/\d+\/?$/.test(pathname)) return null;
 
   return (
     <nav aria-label="하단 메뉴" className="relative z-10 shrink-0">
