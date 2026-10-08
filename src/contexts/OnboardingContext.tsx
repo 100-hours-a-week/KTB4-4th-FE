@@ -17,7 +17,7 @@ export type OnboardingStep = 1 | 2 | 3 | 4;
 export type AvoidanceCategory = "allergies" | "dislikedGifts";
 export const MAX_INTEREST_SELECTIONS = 5;
 
-type OnboardingPhase = "privacy-consent" | "onboarding";
+type OnboardingPhase = "privacy-consent" | "onboarding" | "review";
 
 type OnboardingState = {
   phase: OnboardingPhase;
@@ -37,6 +37,7 @@ type OnboardingAction =
   | { type: "TOGGLE_PRIVACY_CONSENT"; id: ConsentId }
   | { type: "COMPLETE_PRIVACY_CONSENT" }
   | { type: "GO_TO_STEP"; step: OnboardingStep }
+  | { type: "GO_TO_REVIEW" }
   | { type: "SET_GENDER"; gender: Gender }
   | { type: "SET_BIRTH_DATE"; birthDateDigits: string }
   | { type: "TOGGLE_INTEREST"; interest: string }
@@ -49,6 +50,7 @@ type OnboardingContextValue = {
   togglePrivacyConsent: (id: ConsentId) => void;
   completePrivacyConsent: () => void;
   goToStep: (step: OnboardingStep) => void;
+  goToReview: () => void;
   setGender: (gender: Gender) => void;
   setBirthDate: (birthDateDigits: string) => void;
   toggleInterest: (interest: string) => void;
@@ -94,7 +96,9 @@ const isStoredOnboardingState = (value: unknown): value is OnboardingState => {
   const formData = state.formData as Partial<OnboardingState["formData"]> | undefined;
 
   return (
-    (state.phase === "privacy-consent" || state.phase === "onboarding") &&
+    (state.phase === "privacy-consent" ||
+      state.phase === "onboarding" ||
+      state.phase === "review") &&
     (state.currentStep === 1 ||
       state.currentStep === 2 ||
       state.currentStep === 3 ||
@@ -132,6 +136,8 @@ const onboardingReducer = (state: OnboardingState, action: OnboardingAction): On
       return { ...state, phase: "onboarding", currentStep: 1 };
     case "GO_TO_STEP":
       return { ...state, phase: "onboarding", currentStep: action.step };
+    case "GO_TO_REVIEW":
+      return { ...state, phase: "review" };
     case "SET_GENDER":
       return { ...state, formData: { ...state.formData, gender: action.gender } };
     case "SET_BIRTH_DATE":
@@ -207,6 +213,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       togglePrivacyConsent: (id) => dispatch({ type: "TOGGLE_PRIVACY_CONSENT", id }),
       completePrivacyConsent: () => dispatch({ type: "COMPLETE_PRIVACY_CONSENT" }),
       goToStep: (step) => dispatch({ type: "GO_TO_STEP", step }),
+      goToReview: () => dispatch({ type: "GO_TO_REVIEW" }),
       setGender: (gender) => dispatch({ type: "SET_GENDER", gender }),
       setBirthDate: (birthDateDigits) => dispatch({ type: "SET_BIRTH_DATE", birthDateDigits }),
       toggleInterest: (interest) => dispatch({ type: "TOGGLE_INTEREST", interest }),
