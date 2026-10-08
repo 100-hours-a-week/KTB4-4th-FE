@@ -155,6 +155,7 @@ function FriendGiftRecommendationsListContent({
             productImageUrl: product.productImageUrl,
             purchaseUrl: product.purchaseUrl,
           }}
+          detailHref={`/products/${product.recommendationId}?targetType=FRIEND&targetUserId=${userId}`}
         />
       ))}
 
