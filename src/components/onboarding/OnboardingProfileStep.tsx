@@ -34,7 +34,7 @@ const isValidBirthDate = (digits: string) => {
 };
 
 export default function OnboardingProfileStep() {
-  const { state, setGender, setBirthDate } = useOnboarding();
+  const { state, setGender, setBirthDate, goToStep } = useOnboarding();
   const { gender, birthDateDigits } = state.formData;
   const isFormValid = gender !== null && isValidBirthDate(birthDateDigits);
 
@@ -49,7 +49,7 @@ export default function OnboardingProfileStep() {
       return;
     }
 
-    // TODO: 세 번째 온보딩 단계 구현 후 다음 단계로 이동 처리
+    goToStep(3);
   };
 
   return (

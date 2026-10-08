@@ -14,6 +14,7 @@ import {
 export type ConsentId = "collection" | "purpose" | "visibility" | "retention" | "withdrawal";
 export type Gender = "male" | "female";
 export type OnboardingStep = 1 | 2 | 3 | 4;
+export const MAX_INTEREST_SELECTIONS = 5;
 
 type OnboardingPhase = "privacy-consent" | "onboarding";
 
@@ -24,7 +25,8 @@ type OnboardingState = {
   formData: {
     gender: Gender | null;
     birthDateDigits: string;
-    // TODO: 세 번째와 네 번째 온보딩 단계 구현 시 각 단계의 입력 데이터 추가
+    interests: string[];
+    // TODO: 네 번째 온보딩 단계 구현 시 입력 데이터 추가
   };
 };
 
@@ -35,6 +37,7 @@ type OnboardingAction =
   | { type: "GO_TO_STEP"; step: OnboardingStep }
   | { type: "SET_GENDER"; gender: Gender }
   | { type: "SET_BIRTH_DATE"; birthDateDigits: string }
+  | { type: "TOGGLE_INTEREST"; interest: string }
   | { type: "RESET" };
 
 type OnboardingContextValue = {
@@ -45,6 +48,7 @@ type OnboardingContextValue = {
   goToStep: (step: OnboardingStep) => void;
   setGender: (gender: Gender) => void;
   setBirthDate: (birthDateDigits: string) => void;
+  toggleInterest: (interest: string) => void;
   resetOnboarding: () => void;
 };
 
@@ -65,6 +69,7 @@ const initialState: OnboardingState = {
   formData: {
     gender: null,
     birthDateDigits: "",
+    interests: [],
   },
 };
 
@@ -88,7 +93,11 @@ const isStoredOnboardingState = (value: unknown): value is OnboardingState => {
     Boolean(formData) &&
     (formData?.gender === null || formData?.gender === "male" || formData?.gender === "female") &&
     typeof formData?.birthDateDigits === "string" &&
-    /^\d{0,8}$/.test(formData.birthDateDigits)
+    /^\d{0,8}$/.test(formData.birthDateDigits) &&
+    Array.isArray(formData?.interests) &&
+    formData.interests.length <= MAX_INTEREST_SELECTIONS &&
+    formData.interests.every((interest) => typeof interest === "string") &&
+    new Set(formData.interests).size === formData.interests.length
   );
 };
 
@@ -119,6 +128,15 @@ const onboardingReducer = (state: OnboardingState, action: OnboardingAction): On
         ...state,
         formData: { ...state.formData, birthDateDigits: action.birthDateDigits },
       };
+    case "TOGGLE_INTEREST": {
+      const interests = state.formData.interests.includes(action.interest)
+        ? state.formData.interests.filter((interest) => interest !== action.interest)
+        : state.formData.interests.length < MAX_INTEREST_SELECTIONS
+          ? [...state.formData.interests, action.interest]
+          : state.formData.interests;
+
+      return { ...state, formData: { ...state.formData, interests } };
+    }
     case "RESET":
       return initialState;
     default:
@@ -169,6 +187,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       goToStep: (step) => dispatch({ type: "GO_TO_STEP", step }),
       setGender: (gender) => dispatch({ type: "SET_GENDER", gender }),
       setBirthDate: (birthDateDigits) => dispatch({ type: "SET_BIRTH_DATE", birthDateDigits }),
+      toggleInterest: (interest) => dispatch({ type: "TOGGLE_INTEREST", interest }),
       resetOnboarding: () => {
         window.sessionStorage.removeItem(STORAGE_KEY);
         dispatch({ type: "RESET" });
