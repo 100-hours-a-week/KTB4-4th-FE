@@ -24,10 +24,10 @@ const avoidanceGroups: Array<{
 ];
 
 export default function OnboardingAvoidanceStep() {
-  const { state, toggleAvoidance } = useOnboarding();
+  const { state, toggleAvoidance, goToReview } = useOnboarding();
 
   const handleNext = () => {
-    // TODO: 온보딩 정보 확인 페이지 구현 후 이동 처리하고, 확인 완료 시 서버 저장 및 온보딩 완료 처리
+    goToReview();
   };
 
   return (

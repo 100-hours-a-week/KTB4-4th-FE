@@ -7,6 +7,7 @@ import OnboardingAvoidanceStep from "./OnboardingAvoidanceStep";
 import OnboardingIntroStep from "./OnboardingIntroStep";
 import OnboardingPreferenceStep from "./OnboardingPreferenceStep";
 import OnboardingProfileStep from "./OnboardingProfileStep";
+import OnboardingReview from "./OnboardingReview";
 import PrivacyConsentStep from "./PrivacyConsentStep";
 
 export default function OnboardingFlow() {
@@ -18,6 +19,10 @@ export default function OnboardingFlow() {
 
   if (state.phase === "privacy-consent") {
     return <PrivacyConsentStep />;
+  }
+
+  if (state.phase === "review") {
+    return <OnboardingReview />;
   }
 
   switch (state.currentStep) {
