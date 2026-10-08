@@ -1,12 +1,11 @@
-// 나이대와 성별을 입력하는 두 번째 온보딩 페이지
+// 나이대와 성별을 입력하는 두 번째 온보딩 단계 컴포넌트
 "use client";
-
-import { useState, type ChangeEvent, type FormEvent } from "react";
 
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
+import { useOnboarding, type Gender } from "@/contexts/OnboardingContext";
 
-type Gender = "male" | "female";
+import type { ChangeEvent, FormEvent } from "react";
 
 const formatBirthDate = (digits: string) => {
   const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean);
@@ -34,13 +33,13 @@ const isValidBirthDate = (digits: string) => {
   );
 };
 
-export default function OnboardingProfilePage() {
-  const [gender, setGender] = useState<Gender | null>(null);
-  const [birthDateDigits, setBirthDateDigits] = useState("");
+export default function OnboardingProfileStep() {
+  const { state, setGender, setBirthDate } = useOnboarding();
+  const { gender, birthDateDigits } = state.formData;
   const isFormValid = gender !== null && isValidBirthDate(birthDateDigits);
 
   const handleBirthDateChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setBirthDateDigits(event.target.value.replace(/\D/g, "").slice(0, 8));
+    setBirthDate(event.target.value.replace(/\D/g, "").slice(0, 8));
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -50,7 +49,7 @@ export default function OnboardingProfilePage() {
       return;
     }
 
-    // TODO: 세 번째 온보딩 페이지 구현 후 입력 정보를 저장하고 다음 단계로 이동 처리
+    // TODO: 세 번째 온보딩 단계 구현 후 다음 단계로 이동 처리
   };
 
   return (

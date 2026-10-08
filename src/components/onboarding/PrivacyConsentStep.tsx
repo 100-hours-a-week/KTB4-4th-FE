@@ -1,9 +1,8 @@
-// 개인정보 활용 동의 내용을 안내하는 온보딩 페이지
+// 온보딩 시작 전 개인정보 활용 동의를 받는 단계 컴포넌트
 "use client";
 
-import { useState } from "react";
-
 import ActionButton from "@/components/common/ActionButton";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 
 // TODO: 개인정보 활용 동의 원문 API 구현 후 항목 내용을 교체하고, 원문이 2줄을 초과하면 각 본문에 개별 스크롤 적용
 const consentItems = [
@@ -37,30 +36,9 @@ const consentItems = [
   },
 ] as const;
 
-type ConsentId = (typeof consentItems)[number]["id"];
-
-const initialConsentState: Record<ConsentId, boolean> = {
-  collection: false,
-  purpose: false,
-  visibility: false,
-  retention: false,
-  withdrawal: false,
-};
-
-export default function PrivacyConsentPage() {
-  const [consents, setConsents] = useState(initialConsentState);
-  const allAgreed = Object.values(consents).every(Boolean);
-
-  const handleConsentChange = (id: ConsentId) => {
-    setConsents((currentConsents) => ({
-      ...currentConsents,
-      [id]: !currentConsents[id],
-    }));
-  };
-
-  const handleNext = () => {
-    // TODO: 개인정보 활용 동의 API 연동 후 동의 내역을 저장하고, 아직 미구현된 후속 온보딩 페이지로 이동 처리
-  };
+export default function PrivacyConsentStep() {
+  const { state, togglePrivacyConsent, completePrivacyConsent } = useOnboarding();
+  const allAgreed = Object.values(state.privacyConsents).every(Boolean);
 
   return (
     <main className="page-content flex min-h-0 flex-1 flex-col overflow-hidden bg-background pb-[max(16px,env(safe-area-inset-bottom))] text-foreground">
@@ -91,8 +69,8 @@ export default function PrivacyConsentPage() {
               <input
                 type="checkbox"
                 name={id}
-                checked={consents[id]}
-                onChange={() => handleConsentChange(id)}
+                checked={state.privacyConsents[id]}
+                onChange={() => togglePrivacyConsent(id)}
                 aria-label={`${title} 동의`}
                 className="peer sr-only"
               />
@@ -116,7 +94,7 @@ export default function PrivacyConsentPage() {
       </section>
 
       <div className="shrink-0 pt-4">
-        <ActionButton disabled={!allAgreed} onClick={handleNext} className="font-bold">
+        <ActionButton disabled={!allAgreed} onClick={completePrivacyConsent} className="font-bold">
           다음
         </ActionButton>
       </div>
