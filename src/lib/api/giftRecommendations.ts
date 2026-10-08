@@ -3,6 +3,7 @@
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { USE_MOCK_DATA } from "@/mocks/config";
 
 export interface GiftRecommendation {
   recommendationId: number;
@@ -92,6 +93,12 @@ export async function getGiftRecommendations({
   cursor,
   size = 20,
 }: GetGiftRecommendationsParams) {
+  if (USE_MOCK_DATA) {
+    const { getMockGiftRecommendationsPage } = await import("@/mocks/recommendations");
+
+    return getMockGiftRecommendationsPage({ cursor, size, minPrice, maxPrice });
+  }
+
   const searchParams = new URLSearchParams({ size: String(size) });
 
   if (minPrice !== undefined && maxPrice !== undefined) {

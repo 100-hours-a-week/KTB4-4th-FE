@@ -3,6 +3,7 @@
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { USE_MOCK_DATA } from "@/mocks/config";
 
 export interface PersonalRecommendation {
   recommendationId: number;
@@ -61,6 +62,12 @@ export async function getPersonalRecommendations({
   cursor,
   size = 20,
 }: GetPersonalRecommendationsParams = {}) {
+  if (USE_MOCK_DATA) {
+    const { getMockPersonalRecommendationsPage } = await import("@/mocks/recommendations");
+
+    return getMockPersonalRecommendationsPage({ cursor, size, minPrice, maxPrice });
+  }
+
   const searchParams = new URLSearchParams({ size: String(size) });
 
   if (minPrice !== undefined && maxPrice !== undefined) {
