@@ -14,6 +14,7 @@ import {
 export type ConsentId = "collection" | "purpose" | "visibility" | "retention" | "withdrawal";
 export type Gender = "male" | "female";
 export type OnboardingStep = 1 | 2 | 3 | 4;
+export type AvoidanceCategory = "allergies" | "dislikedGifts";
 export const MAX_INTEREST_SELECTIONS = 5;
 
 type OnboardingPhase = "privacy-consent" | "onboarding";
@@ -26,7 +27,8 @@ type OnboardingState = {
     gender: Gender | null;
     birthDateDigits: string;
     interests: string[];
-    // TODO: 네 번째 온보딩 단계 구현 시 입력 데이터 추가
+    allergies: string[];
+    dislikedGifts: string[];
   };
 };
 
@@ -38,6 +40,7 @@ type OnboardingAction =
   | { type: "SET_GENDER"; gender: Gender }
   | { type: "SET_BIRTH_DATE"; birthDateDigits: string }
   | { type: "TOGGLE_INTEREST"; interest: string }
+  | { type: "TOGGLE_AVOIDANCE"; category: AvoidanceCategory; item: string }
   | { type: "RESET" };
 
 type OnboardingContextValue = {
@@ -49,6 +52,7 @@ type OnboardingContextValue = {
   setGender: (gender: Gender) => void;
   setBirthDate: (birthDateDigits: string) => void;
   toggleInterest: (interest: string) => void;
+  toggleAvoidance: (category: AvoidanceCategory, item: string) => void;
   resetOnboarding: () => void;
 };
 
@@ -70,8 +74,15 @@ const initialState: OnboardingState = {
     gender: null,
     birthDateDigits: "",
     interests: [],
+    allergies: [],
+    dislikedGifts: [],
   },
 };
+
+const isUniqueStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) &&
+  value.every((item) => typeof item === "string") &&
+  new Set(value).size === value.length;
 
 const isStoredOnboardingState = (value: unknown): value is OnboardingState => {
   if (!value || typeof value !== "object") {
@@ -94,10 +105,10 @@ const isStoredOnboardingState = (value: unknown): value is OnboardingState => {
     (formData?.gender === null || formData?.gender === "male" || formData?.gender === "female") &&
     typeof formData?.birthDateDigits === "string" &&
     /^\d{0,8}$/.test(formData.birthDateDigits) &&
-    Array.isArray(formData?.interests) &&
+    isUniqueStringArray(formData?.interests) &&
     formData.interests.length <= MAX_INTEREST_SELECTIONS &&
-    formData.interests.every((interest) => typeof interest === "string") &&
-    new Set(formData.interests).size === formData.interests.length
+    isUniqueStringArray(formData?.allergies) &&
+    isUniqueStringArray(formData?.dislikedGifts)
   );
 };
 
@@ -136,6 +147,17 @@ const onboardingReducer = (state: OnboardingState, action: OnboardingAction): On
           : state.formData.interests;
 
       return { ...state, formData: { ...state.formData, interests } };
+    }
+    case "TOGGLE_AVOIDANCE": {
+      const selectedItems = state.formData[action.category];
+      const nextItems = selectedItems.includes(action.item)
+        ? selectedItems.filter((item) => item !== action.item)
+        : [...selectedItems, action.item];
+
+      return {
+        ...state,
+        formData: { ...state.formData, [action.category]: nextItems },
+      };
     }
     case "RESET":
       return initialState;
@@ -188,6 +210,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setGender: (gender) => dispatch({ type: "SET_GENDER", gender }),
       setBirthDate: (birthDateDigits) => dispatch({ type: "SET_BIRTH_DATE", birthDateDigits }),
       toggleInterest: (interest) => dispatch({ type: "TOGGLE_INTEREST", interest }),
+      toggleAvoidance: (category, item) => dispatch({ type: "TOGGLE_AVOIDANCE", category, item }),
       resetOnboarding: () => {
         window.sessionStorage.removeItem(STORAGE_KEY);
         dispatch({ type: "RESET" });

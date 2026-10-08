@@ -25,12 +25,12 @@ const interestOptions = [
 ] as const;
 
 export default function OnboardingPreferenceStep() {
-  const { state, toggleInterest } = useOnboarding();
+  const { state, toggleInterest, goToStep } = useOnboarding();
   const { interests } = state.formData;
   const isSelectionLimitReached = interests.length >= MAX_INTEREST_SELECTIONS;
 
   const handleNext = () => {
-    // TODO: 네 번째 온보딩 단계 구현 후 다음 단계로 이동 처리
+    goToStep(4);
   };
 
   return (
