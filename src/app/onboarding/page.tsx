@@ -1,12 +1,16 @@
 // 서비스의 주요 기능을 소개하는 첫 번째 온보딩 페이지
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
 
 export default function OnboardingPage() {
+  const router = useRouter();
+
   const handleNext = () => {
-    // TODO: 두 번째 온보딩 페이지 구현 후 다음 단계로 이동 처리
+    router.push("/onboarding/profile");
   };
 
   return (
