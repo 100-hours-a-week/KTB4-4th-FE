@@ -1,7 +1,9 @@
 // 여러 페이지에서 제목과 설명을 표시하는 공통 인트로 컴포넌트
 
+import type { ReactNode } from "react";
+
 type PageIntroProps = {
-  title: string;
+  title: ReactNode;
   description: string;
 };
 
