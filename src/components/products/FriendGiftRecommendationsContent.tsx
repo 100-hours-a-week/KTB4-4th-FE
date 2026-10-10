@@ -57,7 +57,6 @@ export default function FriendGiftRecommendationsContent({
           categories={mockProductCategories}
           value={selectedCategoryId}
           onChange={setSelectedCategoryId}
-          edgeFadeColor="background-subtle"
         />
         <FriendGiftRecommendationsList
           userId={target.userId}
