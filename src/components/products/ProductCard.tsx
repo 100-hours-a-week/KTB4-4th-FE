@@ -20,7 +20,7 @@ export default function ProductCard({ product, detailHref }: ProductCardProps) {
       <div
         role="img"
         aria-label={`${product.name} 상품 이미지`}
-        className="h-20 w-20 shrink-0 rounded-md bg-disabled bg-cover bg-center bg-no-repeat"
+        className="aspect-square w-full rounded-md bg-disabled bg-cover bg-center bg-no-repeat"
         style={
           product.productImageUrl
             ? { backgroundImage: `url(${JSON.stringify(product.productImageUrl)})` }
@@ -28,16 +28,16 @@ export default function ProductCard({ product, detailHref }: ProductCardProps) {
         }
       />
 
-      <div className="min-w-0 flex-1">
-        <h2 className="line-clamp-2 text-heading-3 font-semibold text-foreground">
+      <div className="mt-2 min-w-0">
+        <h2 className="line-clamp-2 text-body-sm font-medium text-foreground-secondary">
           {product.name}
         </h2>
-        <p className="mt-1 text-body-lg font-bold text-foreground">{formatPrice(product.price)}</p>
+        <p className="mt-0.5 text-body font-bold text-foreground">{formatPrice(product.price)}</p>
       </div>
     </>
   );
 
-  const className = "flex w-full gap-4 rounded-lg border border-border-strong bg-surface p-4";
+  const className = "flex w-full min-w-0 flex-col";
 
   if (detailHref) {
     return (
