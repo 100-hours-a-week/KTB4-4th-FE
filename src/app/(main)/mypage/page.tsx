@@ -5,13 +5,14 @@ import { redirect } from "next/navigation";
 import AiSummarySection from "@/components/common/AiSummarySection";
 import KeywordSection from "@/components/common/KeywordSection";
 import ProfileSection from "@/components/mypage/ProfileSection";
-import { getMyPage, MyPageApiError } from "@/lib/api/myPage";
+import { getMyPage } from "@/lib/api/myPage";
+import { ServerApiError } from "@/lib/api/serverClient";
 
 async function getMyPageOrRedirect() {
   try {
     return await getMyPage();
   } catch (error) {
-    if (error instanceof MyPageApiError && error.status === 401) {
+    if (error instanceof ServerApiError && error.status === 401) {
       redirect("/login");
     }
 
