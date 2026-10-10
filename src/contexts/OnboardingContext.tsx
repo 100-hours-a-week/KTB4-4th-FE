@@ -36,7 +36,6 @@ type OnboardingState = {
 
 type OnboardingAction =
   | { type: "HYDRATE"; state: OnboardingState }
-  | { type: "TOGGLE_PRIVACY_CONSENT"; id: ConsentId }
   | { type: "COMPLETE_PRIVACY_CONSENT" }
   | { type: "GO_TO_STEP"; step: OnboardingStep }
   | { type: "GO_TO_REVIEW" }
@@ -49,7 +48,6 @@ type OnboardingAction =
 type OnboardingContextValue = {
   state: OnboardingState;
   isHydrated: boolean;
-  togglePrivacyConsent: (id: ConsentId) => void;
   completePrivacyConsent: () => void;
   goToStep: (step: OnboardingStep) => void;
   goToReview: () => void;
@@ -177,19 +175,7 @@ const onboardingReducer = (state: OnboardingState, action: OnboardingAction): On
   switch (action.type) {
     case "HYDRATE":
       return action.state;
-    case "TOGGLE_PRIVACY_CONSENT":
-      return {
-        ...state,
-        privacyConsents: {
-          ...state.privacyConsents,
-          [action.id]: !state.privacyConsents[action.id],
-        },
-      };
     case "COMPLETE_PRIVACY_CONSENT":
-      if (!Object.values(state.privacyConsents).every(Boolean)) {
-        return state;
-      }
-
       return { ...state, phase: "onboarding", currentStep: 1 };
     case "GO_TO_STEP":
       return { ...state, phase: "onboarding", currentStep: action.step };
@@ -287,7 +273,6 @@ export function OnboardingProvider({
     () => ({
       state,
       isHydrated,
-      togglePrivacyConsent: (id) => dispatch({ type: "TOGGLE_PRIVACY_CONSENT", id }),
       completePrivacyConsent: () => dispatch({ type: "COMPLETE_PRIVACY_CONSENT" }),
       goToStep: (step) => dispatch({ type: "GO_TO_STEP", step }),
       goToReview: () => dispatch({ type: "GO_TO_REVIEW" }),
