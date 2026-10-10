@@ -33,7 +33,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   }
 
   return (
-    <main aria-label="상품 추천" className="page-content flex flex-1 flex-col bg-background-subtle">
+    <main aria-label="상품 추천" className="page-content flex flex-1 flex-col bg-background">
       <PersonalRecommendationsContent />
     </main>
   );

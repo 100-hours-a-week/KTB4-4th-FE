@@ -129,13 +129,15 @@ function PersonalRecommendationsListContent({
 
   return (
     <>
-      {products.map((product) => (
-        <ProductCard
-          key={product.recommendationId}
-          product={product}
-          detailHref={`/products/${product.recommendationId}`}
-        />
-      ))}
+      <div className="grid grid-cols-3 gap-x-2 gap-y-5">
+        {products.map((product) => (
+          <ProductCard
+            key={product.recommendationId}
+            product={product}
+            detailHref={`/products/${product.recommendationId}`}
+          />
+        ))}
+      </div>
 
       {hasNext && <div ref={sentinelRef} aria-hidden="true" className="h-px" />}
 
