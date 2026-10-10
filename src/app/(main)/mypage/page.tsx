@@ -1,28 +1,61 @@
 // 사용자의 프로필과 AI 취향 분석 정보를 제공하는 마이페이지
 
+import { redirect } from "next/navigation";
+
 import AiSummarySection from "@/components/common/AiSummarySection";
 import KeywordSection from "@/components/common/KeywordSection";
 import ProfileSection from "@/components/mypage/ProfileSection";
-import { myPageMock } from "@/mocks/mypage";
+import { getMyPage, MyPageApiError } from "@/lib/api/myPage";
 
-export default function MyPage() {
+async function getMyPageOrRedirect() {
+  try {
+    return await getMyPage();
+  } catch (error) {
+    if (error instanceof MyPageApiError && error.status === 401) {
+      redirect("/login");
+    }
+
+    redirect("/error");
+  }
+}
+
+export default async function MyPage() {
+  const myPageData = await getMyPageOrRedirect();
+  const hasTasteKeywords = myPageData.tasteKeywords.length > 0;
+  const hasInterestKeywords = myPageData.interestKeywords.length > 0;
+  const hasAiSummary = myPageData.aiSummary.trim().length > 0;
+  const hasTasteAnalysis = hasTasteKeywords || hasInterestKeywords || hasAiSummary;
+
   return (
     <main className="page-content flex flex-1 flex-col bg-background pb-[max(2.5rem,env(safe-area-inset-bottom))] text-foreground">
-      <ProfileSection profile={myPageMock.profile} />
+      <ProfileSection profile={myPageData.profile} />
 
-      <div className="mt-8 flex flex-col gap-8">
-        <KeywordSection
-          category="취향"
-          nickname={myPageMock.profile.nickname}
-          keywords={myPageMock.tasteKeywords}
-        />
-        <KeywordSection
-          category="관심사"
-          nickname={myPageMock.profile.nickname}
-          keywords={myPageMock.interestKeywords}
-        />
-        <AiSummarySection nickname={myPageMock.profile.nickname} summary={myPageMock.aiSummary} />
-      </div>
+      {hasTasteAnalysis ? (
+        <div className="mt-8 flex flex-col gap-8">
+          {hasTasteKeywords && (
+            <KeywordSection
+              category="취향"
+              nickname={myPageData.profile.nickname}
+              keywords={myPageData.tasteKeywords}
+            />
+          )}
+          {hasInterestKeywords && (
+            <KeywordSection
+              category="관심사"
+              nickname={myPageData.profile.nickname}
+              keywords={myPageData.interestKeywords}
+            />
+          )}
+          {hasAiSummary && (
+            <AiSummarySection
+              nickname={myPageData.profile.nickname}
+              summary={myPageData.aiSummary}
+            />
+          )}
+        </div>
+      ) : (
+        <p className="mt-8 text-body text-foreground-secondary">아직 취향 분석을 하지 않았어요</p>
+      )}
     </main>
   );
 }
