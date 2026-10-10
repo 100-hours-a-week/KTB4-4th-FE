@@ -4,9 +4,11 @@
 import { useCallback, useState } from "react";
 
 import FriendGiftRecommendationsList from "@/components/products/FriendGiftRecommendationsList";
+import ProductCategoryBadges from "@/components/products/ProductCategoryBadges";
 import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import type { GiftRecommendationsPriceRange } from "@/lib/api/giftRecommendations";
+import { ALL_PRODUCT_CATEGORY_ID, mockProductCategories } from "@/mocks/productCategories";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type FriendGiftRecommendationsContentProps = {
@@ -20,6 +22,7 @@ export default function FriendGiftRecommendationsContent({
     useState<GiftRecommendationsPriceRange | null>(null);
   const [selectedPriceRange, setSelectedPriceRange] = useState<PriceRange | null>(null);
   const [appliedPriceRange, setAppliedPriceRange] = useState<PriceRange | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_PRODUCT_CATEGORY_ID);
 
   const handleAvailablePriceRangeLoad = useCallback(
     (priceRange: GiftRecommendationsPriceRange | null) => {
@@ -49,6 +52,13 @@ export default function FriendGiftRecommendationsContent({
       </section>
 
       <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">
+        {/* TODO: 상품 카테고리 API 연동 후 선택 카테고리를 목록 조회 조건으로 전달 */}
+        <ProductCategoryBadges
+          categories={mockProductCategories}
+          value={selectedCategoryId}
+          onChange={setSelectedCategoryId}
+          edgeFadeColor="background-subtle"
+        />
         <FriendGiftRecommendationsList
           userId={target.userId}
           minPrice={appliedPriceRange?.minPrice}
