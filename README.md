@@ -36,7 +36,16 @@ npm run dev
 | Dev  | `https://dev.needu.gift/api` | `development`        |
 | Prod | `https://needu.gift/api`     | `production`         |
 
-로컬 개발에서 오류 수집만 확인할 때는 `NEXT_PUBLIC_SENTRY_DSN`만 필요합니다. 브라우저 Sentry 환경은 `needu.gift`에서 `production`, 그 외 hostname에서 `development`로 설정됩니다. 서버와 Edge는 `SENTRY_ENVIRONMENT`를 사용합니다. `NEXT_PUBLIC_USE_MOCK_DATA`는 로컬 성능 측정이 필요할 때만 `true`로 설정하며 공통 배포 이미지에서는 `false`를 유지합니다.
+브라우저 Sentry 환경은 접속 도메인을 기준으로 다음과 같이 구분합니다.
+
+| 도메인            | 역할                    | Sentry environment |
+| ----------------- | ----------------------- | ------------------ |
+| `dev.needu.gift`  | V2 개발                 | `development`      |
+| `v2.needu.gift`   | V2 Staging              | `staging`          |
+| `prod.needu.gift` | V2 Production 사전 확인 | `production`       |
+| `needu.gift`      | 최종 Production         | `production`       |
+
+로컬 개발처럼 위 목록에 없는 도메인은 `development`로 처리합니다. 로컬에서 오류 수집만 확인할 때는 `NEXT_PUBLIC_SENTRY_DSN`만 필요합니다. 서버와 Edge는 런타임 환경변수인 `SENTRY_ENVIRONMENT`를 사용합니다. `NEXT_PUBLIC_USE_MOCK_DATA`는 로컬 성능 측정이 필요할 때만 `true`로 설정하며 공통 배포 이미지에서는 `false`를 유지합니다.
 
 GitHub Actions는 `/needu/common/frontend-build`에서 `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`을 조회합니다. 인증 토큰은 Docker BuildKit secret으로 빌드 단계에만 전달되며 이미지 환경 변수나 레이어에 저장하지 않습니다. GitHub 커밋 SHA는 `SENTRY_RELEASE`로 자동 전달됩니다.
 
