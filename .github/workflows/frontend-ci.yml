@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [dev, main]
   push:
-    branches: [main]
+    branches: [dev]
 
 permissions:
   contents: read
@@ -48,9 +48,6 @@ jobs:
         run: npm run lint
 
       - name: Production Build
-        env:
-          # PR 검증에서는 실제 운영 Parameter를 사용하지 않는다.
-          BACKEND_API_BASE_URL: http://127.0.0.1:8080/
         run: npm run build
 
   # =========================================================
@@ -68,21 +65,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Docker Build Check
-        env:
-          BACKEND_API_BASE_URL: http://127.0.0.1:8080/
         run: |
           docker build \
-            --build-arg BACKEND_API_BASE_URL="$BACKEND_API_BASE_URL" \
             -t needu-frontend:ci-check \
             .
 
   # =========================================================
-  # main Push -> Production Image Build & ECR Push
+  # dev Push -> Shared Image Build & ECR Push
   # =========================================================
   ecr-push:
     name: Build & Push to ECR
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -101,7 +95,7 @@ jobs:
           role-to-assume: ${{ vars.NEEDU_CI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Parameter Store의 Frontend 설정값을 GitHub Actions 환경변수로 등록
+      # Parameter Store의 Frontend 공통 빌드 설정을 GitHub Actions 환경변수로 등록
       - name: Load Frontend Parameters
         shell: bash
         run: |
@@ -118,7 +112,7 @@ jobs:
           done < <(
             aws ssm get-parameters-by-path \
               --region "$AWS_REGION" \
-              --path "/needu/prod/frontend" \
+              --path "/needu/common/frontend-build" \
               --recursive \
               --with-decryption \
               --query 'Parameters[*].[Name,Value]' \
@@ -130,7 +124,6 @@ jobs:
       - name: Validate Frontend Parameters
         shell: bash
         run: |
-          : "${BACKEND_API_BASE_URL:?BACKEND_API_BASE_URL is required}"
           : "${NEXT_PUBLIC_SENTRY_DSN:?NEXT_PUBLIC_SENTRY_DSN is required}"
           : "${SENTRY_ORG:?SENTRY_ORG is required}"
           : "${SENTRY_PROJECT:?SENTRY_PROJECT is required}"
@@ -150,7 +143,6 @@ jobs:
         run: |
           docker build \
             --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
-            --build-arg BACKEND_API_BASE_URL="$BACKEND_API_BASE_URL" \
             --build-arg NEXT_PUBLIC_SENTRY_DSN="$NEXT_PUBLIC_SENTRY_DSN" \
             --build-arg SENTRY_ORG="$SENTRY_ORG" \
             --build-arg SENTRY_PROJECT="$SENTRY_PROJECT" \
