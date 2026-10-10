@@ -7,16 +7,18 @@ export type ProductCategory = {
 
 export const ALL_PRODUCT_CATEGORY_ID = "all";
 
-// TODO: 상품 카테고리 API 연동 후 이 파일의 Mock 데이터 제거
+// TODO: 서버 상품 카테고리 목록 확정 및 API 연동 후 이 파일의 Mock 데이터 제거
 export const mockProductCategories: readonly ProductCategory[] = [
   { id: ALL_PRODUCT_CATEGORY_ID, name: "전체" },
   { id: "voucher", name: "교환권" },
-  { id: "beauty", name: "뷰티" },
-  { id: "food", name: "식품" },
-  { id: "health", name: "건강" },
   { id: "living", name: "리빙" },
+  { id: "beauty", name: "뷰티" },
   { id: "fashion", name: "패션" },
-  { id: "digital", name: "디지털" },
-  { id: "hobby", name: "취미" },
+  { id: "food", name: "식품" },
+  { id: "digital", name: "가전·디지털" },
+  { id: "health", name: "건강" },
+  { id: "luxury", name: "명품" },
+  { id: "books_tickets", name: "책·음반티켓" },
+  { id: "sports", name: "레저·스포츠" },
   { id: "pet", name: "반려동물" },
 ];
