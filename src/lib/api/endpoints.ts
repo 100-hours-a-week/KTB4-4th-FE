@@ -25,5 +25,8 @@ export const API_ENDPOINTS = {
   },
   guidance: `${API_V1_PREFIX}/guidance`,
   personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
+  users: {
+    me: `${API_V1_PREFIX}/users/me`,
+  },
   giftRecommendations: (userId: number) => `${API_V1_PREFIX}/users/${userId}/gift-recommendations`,
 } as const;
