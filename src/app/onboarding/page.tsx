@@ -2,10 +2,20 @@
 
 import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
+import { isOnboardingStatusStep } from "@/lib/api/onboardingStatus";
 
-export default function OnboardingPage() {
+interface OnboardingPageProps {
+  searchParams: Promise<{
+    currentStep?: string | string[];
+  }>;
+}
+
+export default async function OnboardingPage({ searchParams }: OnboardingPageProps) {
+  const currentStepParam = (await searchParams).currentStep;
+  const serverStep = isOnboardingStatusStep(currentStepParam) ? currentStepParam : undefined;
+
   return (
-    <OnboardingProvider>
+    <OnboardingProvider serverStep={serverStep}>
       <OnboardingFlow />
     </OnboardingProvider>
   );
