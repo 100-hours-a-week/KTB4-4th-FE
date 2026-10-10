@@ -4,6 +4,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
 import PersonalRecommendationsList from "@/components/products/PersonalRecommendationsList";
 import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
@@ -12,8 +13,12 @@ import { checkLoginValidity, type LoginValidityData } from "@/lib/api/loginValid
 import type { PersonalRecommendationsPriceRange } from "@/lib/api/personalRecommendations";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
+type ProductVisibilityTab = "private" | "shared";
+
 export default function PersonalRecommendationsContent() {
   const router = useRouter();
+  const [selectedVisibilityTab, setSelectedVisibilityTab] =
+    useState<ProductVisibilityTab>("private");
   const [loginUser, setLoginUser] = useState<LoginValidityData["user"] | null>(null);
   const [availablePriceRange, setAvailablePriceRange] =
     useState<PersonalRecommendationsPriceRange | null>(null);
@@ -73,10 +78,32 @@ export default function PersonalRecommendationsContent() {
     tasteKeywords: [],
     interestKeywords: [],
   } satisfies RecommendationTargetData;
+  const productVisibilityTabs: readonly SegmentedTabItem<ProductVisibilityTab>[] = [
+    {
+      value: "private",
+      label: (
+        <span className="flex min-w-0 items-center justify-center whitespace-nowrap text-body-sm">
+          <span className="min-w-0 truncate text-info">{loginUser.nickname}</span>
+          <span className="shrink-0">님만 볼 수 있는 상품</span>
+        </span>
+      ),
+    },
+    {
+      value: "shared",
+      label: <span className="whitespace-nowrap text-body-sm">친구에게 보여지는 상품</span>,
+    },
+  ];
 
   return (
     <>
       <section aria-label="추천 대상" className="w-full pt-8">
+        <SegmentedTabs
+          items={productVisibilityTabs}
+          value={selectedVisibilityTab}
+          onChange={setSelectedVisibilityTab}
+          ariaLabel="상품 공개 범위"
+          className="mb-4"
+        />
         <RecommendationTarget
           target={selfTarget}
           availableMinPrice={availablePriceRange?.minPrice}
@@ -89,6 +116,7 @@ export default function PersonalRecommendationsContent() {
       </section>
 
       <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">
+        {/* TODO: 공개 범위 API 명세 확정 후 selectedVisibilityTab을 상품 목록 조회 조건으로 전달 */}
         <PersonalRecommendationsList
           minPrice={appliedPriceRange?.minPrice}
           maxPrice={appliedPriceRange?.maxPrice}
