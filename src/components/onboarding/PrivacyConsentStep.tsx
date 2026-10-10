@@ -1,19 +1,24 @@
 // 온보딩 시작 전 개인정보 활용 동의를 받는 단계 컴포넌트
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import ActionButton from "@/components/common/ActionButton";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { ApiRequestError } from "@/lib/api/client";
 import type { ConsentItem } from "@/lib/api/consents";
+import { saveConsents } from "@/lib/api/saveConsents";
 
 interface PrivacyConsentStepProps {
   consents: ConsentItem[];
 }
 
 export default function PrivacyConsentStep({ consents }: PrivacyConsentStepProps) {
+  const router = useRouter();
   const { completePrivacyConsent } = useOnboarding();
   const [agreedConsentIds, setAgreedConsentIds] = useState<Set<number>>(() => new Set());
+  const [isSaving, setIsSaving] = useState(false);
   const allRequiredConsentsAgreed = consents.every(
     ({ id, required }) => !required || agreedConsentIds.has(id),
   );
@@ -30,6 +35,30 @@ export default function PrivacyConsentStep({ consents }: PrivacyConsentStepProps
 
       return nextIds;
     });
+  };
+
+  const handleSubmit = async () => {
+    if (!allRequiredConsentsAgreed || isSaving) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await saveConsents({
+        consents: consents.map(({ id }) => ({
+          id,
+          agreed: agreedConsentIds.has(id),
+        })),
+      });
+      completePrivacyConsent();
+    } catch (error) {
+      router.replace(
+        error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -65,6 +94,7 @@ export default function PrivacyConsentStep({ consents }: PrivacyConsentStepProps
                 name={`consent-${id}`}
                 checked={agreedConsentIds.has(id)}
                 onChange={() => toggleConsent(id)}
+                disabled={isSaving}
                 aria-label={`${title} 동의`}
                 className="peer sr-only"
               />
@@ -90,7 +120,9 @@ export default function PrivacyConsentStep({ consents }: PrivacyConsentStepProps
       <div className="shrink-0 pt-4">
         <ActionButton
           disabled={!allRequiredConsentsAgreed}
-          onClick={completePrivacyConsent}
+          isLoading={isSaving}
+          loadingText="저장 중..."
+          onClick={handleSubmit}
           className="font-bold"
         >
           다음
