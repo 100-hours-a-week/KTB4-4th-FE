@@ -2,11 +2,13 @@
 import { NextResponse } from "next/server";
 
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { isOnboardingStatusResponse } from "@/lib/api/onboardingStatus";
 
 import type { NextRequest } from "next/server";
 
 const LOGIN_PATH = "/login";
 const ERROR_PATH = "/error";
+const ONBOARDING_PATH = "/onboarding";
 const ACCESS_TOKEN_COOKIE = "NEEDU_ACCESS_TOKEN";
 const REFRESH_TOKEN_COOKIE = "NEEDU_REFRESH_TOKEN";
 const CSRF_HEADER_NAME = "X-XSRF-TOKEN";
@@ -17,7 +19,7 @@ interface CsrfTokenResponse {
   };
 }
 
-type AuthRequestStage = "session" | "csrf" | "refresh" | "revalidation";
+type AuthRequestStage = "session" | "csrf" | "refresh" | "revalidation" | "onboarding";
 
 function createCookieStore(cookieHeader: string | null) {
   const cookies = new Map<string, string>();
@@ -234,6 +236,55 @@ async function fetchAuthApi(
   });
 }
 
+async function routeByOnboardingStatus(
+  request: NextRequest,
+  cookies: Map<string, string>,
+  responseCookieHeaders: string[],
+) {
+  if (request.nextUrl.pathname === ONBOARDING_PATH) {
+    return createNextResponse(request, cookies, responseCookieHeaders);
+  }
+
+  const onboardingResponse = await fetchAuthApi(API_ENDPOINTS.users.onboardingStatus, cookies);
+  collectSetCookieHeaders(onboardingResponse, cookies, responseCookieHeaders);
+
+  if (!onboardingResponse.ok) {
+    logAuthApiFailure(
+      request,
+      cookies,
+      "onboarding",
+      API_ENDPOINTS.users.onboardingStatus,
+      onboardingResponse.status,
+    );
+
+    const redirectPath = onboardingResponse.status === 401 ? LOGIN_PATH : ERROR_PATH;
+    return createRedirectResponse(request, redirectPath, responseCookieHeaders);
+  }
+
+  const responseBody = (await onboardingResponse.json().catch(() => null)) as unknown;
+
+  if (!isOnboardingStatusResponse(responseBody)) {
+    logAuthApiFailure(
+      request,
+      cookies,
+      "onboarding",
+      API_ENDPOINTS.users.onboardingStatus,
+      onboardingResponse.status,
+      "invalid onboarding status response",
+    );
+    return createRedirectResponse(request, ERROR_PATH, responseCookieHeaders);
+  }
+
+  if (responseBody.data.completed) {
+    return createNextResponse(request, cookies, responseCookieHeaders);
+  }
+
+  const onboardingUrl = new URL(ONBOARDING_PATH, request.url);
+  onboardingUrl.searchParams.set("currentStep", responseBody.data.currentStep);
+
+  return appendSetCookieHeaders(NextResponse.redirect(onboardingUrl), responseCookieHeaders);
+}
+
 export async function proxy(request: NextRequest) {
   const cookies = createCookieStore(request.headers.get("cookie"));
   const responseCookieHeaders: string[] = [];
@@ -251,8 +302,9 @@ export async function proxy(request: NextRequest) {
     collectSetCookieHeaders(sessionResponse, cookies, responseCookieHeaders);
 
     if (sessionResponse.ok) {
-      // TODO: 세션 API에 onboardingRequired와 currentStep이 추가되면 온보딩 분기 처리를 반영합니다.
-      return createNextResponse(request, cookies, responseCookieHeaders);
+      authRequestStage = "onboarding";
+      authEndpoint = API_ENDPOINTS.users.onboardingStatus;
+      return await routeByOnboardingStatus(request, cookies, responseCookieHeaders);
     }
 
     logAuthApiFailure(request, cookies, authRequestStage, authEndpoint, sessionResponse.status);
@@ -328,7 +380,9 @@ export async function proxy(request: NextRequest) {
       return createRedirectResponse(request, redirectPath, responseCookieHeaders);
     }
 
-    return createNextResponse(request, cookies, responseCookieHeaders);
+    authRequestStage = "onboarding";
+    authEndpoint = API_ENDPOINTS.users.onboardingStatus;
+    return await routeByOnboardingStatus(request, cookies, responseCookieHeaders);
   } catch (error) {
     logAuthRequestError(request, cookies, authRequestStage, authEndpoint, error);
     return createRedirectResponse(request, ERROR_PATH, responseCookieHeaders);

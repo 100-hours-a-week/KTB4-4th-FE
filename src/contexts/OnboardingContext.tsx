@@ -11,6 +11,8 @@ import {
   type ReactNode,
 } from "react";
 
+import type { OnboardingStatusStep } from "@/lib/api/onboardingStatus";
+
 export type ConsentId = "collection" | "purpose" | "visibility" | "retention" | "withdrawal";
 export type Gender = "male" | "female";
 export type OnboardingStep = 1 | 2 | 3 | 4;
@@ -81,6 +83,36 @@ const initialState: OnboardingState = {
   },
 };
 
+const agreedPrivacyConsents: Record<ConsentId, boolean> = {
+  collection: true,
+  purpose: true,
+  visibility: true,
+  retention: true,
+  withdrawal: true,
+};
+
+const serverStepToOnboardingStep: Record<
+  Exclude<OnboardingStatusStep, "CONSENTS">,
+  OnboardingStep
+> = {
+  PROFILE: 1,
+  INTERESTING: 3,
+  UNWANTED: 4,
+};
+
+const createStateFromServerStep = (serverStep: OnboardingStatusStep): OnboardingState => {
+  if (serverStep === "CONSENTS") {
+    return initialState;
+  }
+
+  return {
+    ...initialState,
+    phase: "onboarding",
+    currentStep: serverStepToOnboardingStep[serverStep],
+    privacyConsents: agreedPrivacyConsents,
+  };
+};
+
 const isUniqueStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) &&
   value.every((item) => typeof item === "string") &&
@@ -114,6 +146,31 @@ const isStoredOnboardingState = (value: unknown): value is OnboardingState => {
     isUniqueStringArray(formData?.allergies) &&
     isUniqueStringArray(formData?.dislikedGifts)
   );
+};
+
+const canRestoreStoredState = (storedState: OnboardingState, serverStep?: OnboardingStatusStep) => {
+  if (!serverStep) {
+    return true;
+  }
+
+  if (serverStep === "CONSENTS") {
+    return storedState.phase === "privacy-consent";
+  }
+
+  if (serverStep === "PROFILE") {
+    return storedState.phase !== "privacy-consent";
+  }
+
+  if (storedState.phase === "review") {
+    return true;
+  }
+
+  if (storedState.phase !== "onboarding") {
+    return false;
+  }
+
+  const minimumStep = serverStepToOnboardingStep[serverStep];
+  return storedState.currentStep >= minimumStep;
 };
 
 const onboardingReducer = (state: OnboardingState, action: OnboardingAction): OnboardingState => {
@@ -174,7 +231,13 @@ const onboardingReducer = (state: OnboardingState, action: OnboardingAction): On
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
-export function OnboardingProvider({ children }: { children: ReactNode }) {
+export function OnboardingProvider({
+  children,
+  serverStep,
+}: {
+  children: ReactNode;
+  serverStep?: OnboardingStatusStep;
+}) {
   const [state, dispatch] = useReducer(onboardingReducer, initialState);
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -185,18 +248,32 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (storedValue) {
         const parsedValue = JSON.parse(storedValue) as { version?: unknown; state?: unknown };
 
-        if (parsedValue.version === STORAGE_VERSION && isStoredOnboardingState(parsedValue.state)) {
+        if (
+          parsedValue.version === STORAGE_VERSION &&
+          isStoredOnboardingState(parsedValue.state) &&
+          canRestoreStoredState(parsedValue.state, serverStep)
+        ) {
           dispatch({ type: "HYDRATE", state: parsedValue.state });
         } else {
           window.sessionStorage.removeItem(STORAGE_KEY);
+
+          if (serverStep) {
+            dispatch({ type: "HYDRATE", state: createStateFromServerStep(serverStep) });
+          }
         }
+      } else if (serverStep) {
+        dispatch({ type: "HYDRATE", state: createStateFromServerStep(serverStep) });
       }
     } catch {
       window.sessionStorage.removeItem(STORAGE_KEY);
+
+      if (serverStep) {
+        dispatch({ type: "HYDRATE", state: createStateFromServerStep(serverStep) });
+      }
     } finally {
       setIsHydrated(true);
     }
-  }, []);
+  }, [serverStep]);
 
   useEffect(() => {
     if (!isHydrated) {

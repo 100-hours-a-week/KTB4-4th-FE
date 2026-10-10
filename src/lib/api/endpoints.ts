@@ -27,6 +27,7 @@ export const API_ENDPOINTS = {
   personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
   users: {
     me: `${API_V1_PREFIX}/users/me`,
+    onboardingStatus: `${API_V1_PREFIX}/users/me/onboarding`,
   },
   giftRecommendations: (userId: number) => `${API_V1_PREFIX}/users/${userId}/gift-recommendations`,
 } as const;
