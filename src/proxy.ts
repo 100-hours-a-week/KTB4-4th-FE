@@ -8,7 +8,6 @@ import type { NextRequest } from "next/server";
 
 const LOGIN_PATH = "/login";
 const ERROR_PATH = "/error";
-const HOME_PATH = "/";
 const ONBOARDING_PATH = "/onboarding";
 const ACCESS_TOKEN_COOKIE = "NEEDU_ACCESS_TOKEN";
 const REFRESH_TOKEN_COOKIE = "NEEDU_REFRESH_TOKEN";
@@ -237,12 +236,12 @@ async function fetchAuthApi(
   });
 }
 
-async function routeAfterLogin(
+async function routeByOnboardingStatus(
   request: NextRequest,
   cookies: Map<string, string>,
   responseCookieHeaders: string[],
 ) {
-  if (request.nextUrl.pathname !== HOME_PATH) {
+  if (request.nextUrl.pathname === ONBOARDING_PATH) {
     return createNextResponse(request, cookies, responseCookieHeaders);
   }
 
@@ -305,7 +304,7 @@ export async function proxy(request: NextRequest) {
     if (sessionResponse.ok) {
       authRequestStage = "onboarding";
       authEndpoint = API_ENDPOINTS.users.onboardingStatus;
-      return await routeAfterLogin(request, cookies, responseCookieHeaders);
+      return await routeByOnboardingStatus(request, cookies, responseCookieHeaders);
     }
 
     logAuthApiFailure(request, cookies, authRequestStage, authEndpoint, sessionResponse.status);
@@ -383,7 +382,7 @@ export async function proxy(request: NextRequest) {
 
     authRequestStage = "onboarding";
     authEndpoint = API_ENDPOINTS.users.onboardingStatus;
-    return await routeAfterLogin(request, cookies, responseCookieHeaders);
+    return await routeByOnboardingStatus(request, cookies, responseCookieHeaders);
   } catch (error) {
     logAuthRequestError(request, cookies, authRequestStage, authEndpoint, error);
     return createRedirectResponse(request, ERROR_PATH, responseCookieHeaders);
