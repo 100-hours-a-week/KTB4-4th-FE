@@ -146,18 +146,20 @@ function FriendGiftRecommendationsListContent({
   // TODO: 추천 이유·카테고리·매칭 키워드 UI 확정 후 상품 카드에 연동
   return (
     <>
-      {products.map((product) => (
-        <ProductCard
-          key={product.recommendationId}
-          product={{
-            name: product.name,
-            price: product.price,
-            productImageUrl: product.productImageUrl,
-            purchaseUrl: product.purchaseUrl,
-          }}
-          detailHref={`/products/${product.recommendationId}?targetType=FRIEND&targetUserId=${userId}`}
-        />
-      ))}
+      <div className="grid grid-cols-3 gap-x-2 gap-y-5">
+        {products.map((product) => (
+          <ProductCard
+            key={product.recommendationId}
+            product={{
+              name: product.name,
+              price: product.price,
+              productImageUrl: product.productImageUrl,
+              purchaseUrl: product.purchaseUrl,
+            }}
+            detailHref={`/products/${product.recommendationId}?targetType=FRIEND&targetUserId=${userId}`}
+          />
+        ))}
+      </div>
 
       {hasNext && <div ref={sentinelRef} aria-hidden="true" className="h-px" />}
 
