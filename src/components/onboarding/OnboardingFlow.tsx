@@ -2,6 +2,7 @@
 "use client";
 
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import type { ConsentItem } from "@/lib/api/consents";
 
 import OnboardingAvoidanceStep from "./OnboardingAvoidanceStep";
 import OnboardingIntroStep from "./OnboardingIntroStep";
@@ -10,7 +11,11 @@ import OnboardingProfileStep from "./OnboardingProfileStep";
 import OnboardingReview from "./OnboardingReview";
 import PrivacyConsentStep from "./PrivacyConsentStep";
 
-export default function OnboardingFlow() {
+interface OnboardingFlowProps {
+  consents: ConsentItem[];
+}
+
+export default function OnboardingFlow({ consents }: OnboardingFlowProps) {
   const { state, isHydrated } = useOnboarding();
 
   if (!isHydrated) {
@@ -18,7 +23,7 @@ export default function OnboardingFlow() {
   }
 
   if (state.phase === "privacy-consent") {
-    return <PrivacyConsentStep />;
+    return <PrivacyConsentStep consents={consents} />;
   }
 
   if (state.phase === "review") {
