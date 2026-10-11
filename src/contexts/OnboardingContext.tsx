@@ -12,11 +12,20 @@ import {
 } from "react";
 
 import type { OnboardingStatusStep } from "@/lib/api/onboardingStatus";
+import {
+  isAllergyCode,
+  isGiftExclusionCode,
+  isInterestCategoryCode,
+  type AllergyCode,
+  type AvoidanceCode,
+  type GiftExclusionCode,
+  type InterestCategoryCode,
+} from "@/lib/onboardingOptions";
 
 export type ConsentId = "collection" | "purpose" | "visibility" | "retention" | "withdrawal";
 export type Gender = "male" | "female";
 export type OnboardingStep = 1 | 2 | 3 | 4;
-export type AvoidanceCategory = "allergies" | "dislikedGifts";
+export type AvoidanceCategory = "allergyCodes" | "giftExclusionCodes";
 export const MAX_INTEREST_SELECTIONS = 5;
 
 type OnboardingPhase = "privacy-consent" | "onboarding" | "review";
@@ -28,9 +37,9 @@ type OnboardingState = {
   formData: {
     gender: Gender | null;
     birthDateDigits: string;
-    interests: string[];
-    allergies: string[];
-    dislikedGifts: string[];
+    interestCategoryCodes: InterestCategoryCode[];
+    allergyCodes: AllergyCode[];
+    giftExclusionCodes: GiftExclusionCode[];
   };
 };
 
@@ -41,8 +50,8 @@ type OnboardingAction =
   | { type: "GO_TO_REVIEW" }
   | { type: "SET_GENDER"; gender: Gender }
   | { type: "SET_BIRTH_DATE"; birthDateDigits: string }
-  | { type: "TOGGLE_INTEREST"; interest: string }
-  | { type: "TOGGLE_AVOIDANCE"; category: AvoidanceCategory; item: string }
+  | { type: "TOGGLE_INTEREST"; interest: InterestCategoryCode }
+  | { type: "TOGGLE_AVOIDANCE"; category: AvoidanceCategory; item: AvoidanceCode }
   | { type: "RESET" };
 
 type OnboardingContextValue = {
@@ -53,13 +62,13 @@ type OnboardingContextValue = {
   goToReview: () => void;
   setGender: (gender: Gender) => void;
   setBirthDate: (birthDateDigits: string) => void;
-  toggleInterest: (interest: string) => void;
-  toggleAvoidance: (category: AvoidanceCategory, item: string) => void;
+  toggleInterest: (interest: InterestCategoryCode) => void;
+  toggleAvoidance: (category: AvoidanceCategory, item: AvoidanceCode) => void;
   resetOnboarding: () => void;
 };
 
 const STORAGE_KEY = "needu:onboarding:v1";
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
 const consentIds: ConsentId[] = ["collection", "purpose", "visibility", "retention", "withdrawal"];
 
 const initialState: OnboardingState = {
@@ -75,9 +84,9 @@ const initialState: OnboardingState = {
   formData: {
     gender: null,
     birthDateDigits: "",
-    interests: [],
-    allergies: [],
-    dislikedGifts: [],
+    interestCategoryCodes: [],
+    allergyCodes: [],
+    giftExclusionCodes: [],
   },
 };
 
@@ -111,9 +120,12 @@ const createStateFromServerStep = (serverStep: OnboardingStatusStep): Onboarding
   };
 };
 
-const isUniqueStringArray = (value: unknown): value is string[] =>
+const isUniqueCodeArray = <T extends string>(
+  value: unknown,
+  isCode: (item: string) => item is T,
+): value is T[] =>
   Array.isArray(value) &&
-  value.every((item) => typeof item === "string") &&
+  value.every((item) => typeof item === "string" && isCode(item)) &&
   new Set(value).size === value.length;
 
 const isStoredOnboardingState = (value: unknown): value is OnboardingState => {
@@ -139,10 +151,10 @@ const isStoredOnboardingState = (value: unknown): value is OnboardingState => {
     (formData?.gender === null || formData?.gender === "male" || formData?.gender === "female") &&
     typeof formData?.birthDateDigits === "string" &&
     /^\d{0,8}$/.test(formData.birthDateDigits) &&
-    isUniqueStringArray(formData?.interests) &&
-    formData.interests.length <= MAX_INTEREST_SELECTIONS &&
-    isUniqueStringArray(formData?.allergies) &&
-    isUniqueStringArray(formData?.dislikedGifts)
+    isUniqueCodeArray(formData?.interestCategoryCodes, isInterestCategoryCode) &&
+    formData.interestCategoryCodes.length <= MAX_INTEREST_SELECTIONS &&
+    isUniqueCodeArray(formData?.allergyCodes, isAllergyCode) &&
+    isUniqueCodeArray(formData?.giftExclusionCodes, isGiftExclusionCode)
   );
 };
 
@@ -189,17 +201,17 @@ const onboardingReducer = (state: OnboardingState, action: OnboardingAction): On
         formData: { ...state.formData, birthDateDigits: action.birthDateDigits },
       };
     case "TOGGLE_INTEREST": {
-      const interests = state.formData.interests.includes(action.interest)
-        ? state.formData.interests.filter((interest) => interest !== action.interest)
-        : state.formData.interests.length < MAX_INTEREST_SELECTIONS
-          ? [...state.formData.interests, action.interest]
-          : state.formData.interests;
+      const interestCategoryCodes = state.formData.interestCategoryCodes.includes(action.interest)
+        ? state.formData.interestCategoryCodes.filter((interest) => interest !== action.interest)
+        : state.formData.interestCategoryCodes.length < MAX_INTEREST_SELECTIONS
+          ? [...state.formData.interestCategoryCodes, action.interest]
+          : state.formData.interestCategoryCodes;
 
-      return { ...state, formData: { ...state.formData, interests } };
+      return { ...state, formData: { ...state.formData, interestCategoryCodes } };
     }
     case "TOGGLE_AVOIDANCE": {
       const selectedItems = state.formData[action.category];
-      const nextItems = selectedItems.includes(action.item)
+      const nextItems = (selectedItems as AvoidanceCode[]).includes(action.item)
         ? selectedItems.filter((item) => item !== action.item)
         : [...selectedItems, action.item];
 

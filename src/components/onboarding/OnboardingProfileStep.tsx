@@ -1,17 +1,19 @@
 // 나이대와 성별을 입력하는 두 번째 온보딩 단계 컴포넌트
 "use client";
 
+import { useState, type ChangeEvent, type FormEvent } from "react";
+
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
 import { useOnboarding, type Gender } from "@/contexts/OnboardingContext";
-
-import type { ChangeEvent, FormEvent } from "react";
 
 const formatBirthDate = (digits: string) => {
   const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean);
 
   return parts.join(".");
 };
+
+const padSingleDigitMonth = (value: string) => value.replace(/^(\d{4})\.([2-9])$/, "$1.0$2");
 
 const isValidBirthDate = (digits: string) => {
   if (digits.length !== 8) {
@@ -23,23 +25,36 @@ const isValidBirthDate = (digits: string) => {
   const day = Number(digits.slice(6, 8));
   const birthDate = new Date(year, month - 1, day);
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   return (
     year > 0 &&
     birthDate.getFullYear() === year &&
     birthDate.getMonth() === month - 1 &&
     birthDate.getDate() === day &&
-    birthDate <= today
+    birthDate < today
   );
 };
 
 export default function OnboardingProfileStep() {
   const { state, setGender, setBirthDate, goToStep } = useOnboarding();
   const { gender, birthDateDigits } = state.formData;
-  const isFormValid = gender !== null && isValidBirthDate(birthDateDigits);
+  const [birthDateInput, setBirthDateInput] = useState(() => formatBirthDate(birthDateDigits));
+  const isBirthDateValid = isValidBirthDate(birthDateDigits);
+  const showBirthDateError = birthDateDigits.length === 8 && !isBirthDateValid;
+  const isFormValid = gender !== null && isBirthDateValid;
 
   const handleBirthDateChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setBirthDate(event.target.value.replace(/\D/g, "").slice(0, 8));
+    const inputValue = event.target.value;
+    const isValidPartialFormat = /^\d{0,4}$|^\d{4}\.\d{0,2}$|^\d{4}\.\d{2}\.\d{0,2}$/.test(
+      inputValue,
+    );
+    const digits = inputValue.replace(/\D/g, "").slice(0, 8);
+    const formattedInputValue = isValidPartialFormat ? inputValue : formatBirthDate(digits);
+    const nextInputValue = padSingleDigitMonth(formattedInputValue);
+
+    setBirthDateInput(nextInputValue);
+    setBirthDate(nextInputValue.replace(/\D/g, ""));
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -108,11 +123,12 @@ export default function OnboardingProfileStep() {
               type="text"
               inputMode="numeric"
               autoComplete="bday"
-              value={formatBirthDate(birthDateDigits)}
+              value={birthDateInput}
               onChange={handleBirthDateChange}
               placeholder="YYYY.MM.DD"
               maxLength={10}
-              aria-describedby="birth-date-example birth-date-notice"
+              aria-invalid={showBirthDateError}
+              aria-describedby={`birth-date-example birth-date-notice${showBirthDateError ? " birth-date-error" : ""}`}
               className="h-14 w-full appearance-none rounded-md border-0 bg-background-subtle px-5 pr-32 text-body-lg text-foreground outline-none placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
             />
             <span
@@ -123,14 +139,20 @@ export default function OnboardingProfileStep() {
             </span>
           </div>
 
-          <p id="birth-date-notice" className="mt-2 text-body text-info">
-            생일은 친구 선물 알림에도 함께 쓰여요.
-          </p>
+          {showBirthDateError && (
+            <p id="birth-date-error" role="alert" className="mt-2 text-body text-danger">
+              유효하지 않은 생년월일입니다. 입력한 날짜를 확인해 주세요.
+            </p>
+          )}
         </div>
 
         <ActionButton disabled={!isFormValid} type="submit" className="mt-5 shrink-0">
           <strong className="font-bold">다음</strong>
         </ActionButton>
+
+        <p id="birth-date-notice" className="mt-3 text-center text-body text-info">
+          생일은 친구 선물 알림에도 함께 쓰여요.
+        </p>
       </form>
     </main>
   );

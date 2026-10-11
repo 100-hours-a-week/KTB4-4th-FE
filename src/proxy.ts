@@ -245,7 +245,7 @@ async function routeByOnboardingStatus(
     return createNextResponse(request, cookies, responseCookieHeaders);
   }
 
-  const onboardingResponse = await fetchAuthApi(API_ENDPOINTS.users.onboardingStatus, cookies);
+  const onboardingResponse = await fetchAuthApi(API_ENDPOINTS.users.onboarding, cookies);
   collectSetCookieHeaders(onboardingResponse, cookies, responseCookieHeaders);
 
   if (!onboardingResponse.ok) {
@@ -253,7 +253,7 @@ async function routeByOnboardingStatus(
       request,
       cookies,
       "onboarding",
-      API_ENDPOINTS.users.onboardingStatus,
+      API_ENDPOINTS.users.onboarding,
       onboardingResponse.status,
     );
 
@@ -268,7 +268,7 @@ async function routeByOnboardingStatus(
       request,
       cookies,
       "onboarding",
-      API_ENDPOINTS.users.onboardingStatus,
+      API_ENDPOINTS.users.onboarding,
       onboardingResponse.status,
       "invalid onboarding status response",
     );
@@ -303,7 +303,7 @@ export async function proxy(request: NextRequest) {
 
     if (sessionResponse.ok) {
       authRequestStage = "onboarding";
-      authEndpoint = API_ENDPOINTS.users.onboardingStatus;
+      authEndpoint = API_ENDPOINTS.users.onboarding;
       return await routeByOnboardingStatus(request, cookies, responseCookieHeaders);
     }
 
@@ -381,7 +381,7 @@ export async function proxy(request: NextRequest) {
     }
 
     authRequestStage = "onboarding";
-    authEndpoint = API_ENDPOINTS.users.onboardingStatus;
+    authEndpoint = API_ENDPOINTS.users.onboarding;
     return await routeByOnboardingStatus(request, cookies, responseCookieHeaders);
   } catch (error) {
     logAuthRequestError(request, cookies, authRequestStage, authEndpoint, error);
