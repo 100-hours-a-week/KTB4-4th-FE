@@ -1,9 +1,14 @@
 // 입력한 온보딩 정보를 확인하고 서비스 시작을 안내하는 완료 화면
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
 import { useOnboarding, type OnboardingStep } from "@/contexts/OnboardingContext";
+import { ApiRequestError } from "@/lib/api/client";
+import { completeOnboarding } from "@/lib/api/completeOnboarding";
 
 import type { ReactNode } from "react";
 
@@ -15,11 +20,17 @@ const formatBirthDate = (digits: string) => {
   return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
 };
 
+const formatBirthDateForApi = (digits: string) =>
+  `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+
 // TODO: 온보딩 정보 조회 API 연동 후 Context 대신 API 응답으로 요약 정보 표시
 export default function OnboardingReview() {
-  const { state, goToStep } = useOnboarding();
-  const { gender, birthDateDigits, interests, allergies, dislikedGifts } = state.formData;
-  const avoidanceCount = allergies.length + dislikedGifts.length;
+  const router = useRouter();
+  const { state, goToStep, resetOnboarding } = useOnboarding();
+  const [isSaving, setIsSaving] = useState(false);
+  const { gender, birthDateDigits, interestCategoryCodes, allergyCodes, giftExclusionCodes } =
+    state.formData;
+  const avoidanceCount = allergyCodes.length + giftExclusionCodes.length;
   const genderLabel = gender === "male" ? "남성" : gender === "female" ? "여성" : "미입력";
 
   const summaryItems: Array<{
@@ -36,7 +47,7 @@ export default function OnboardingReview() {
       label: "관심 카테고리",
       value: (
         <>
-          <span className="text-info">{interests.length}</span>개 선택
+          <span className="text-info">{interestCategoryCodes.length}</span>개 선택
         </>
       ),
       step: 3,
@@ -52,8 +63,35 @@ export default function OnboardingReview() {
     },
   ];
 
-  const handleStart = () => {
-    // TODO: 온보딩 입력 정보를 서버에 POST하고, API 성공 시 온보딩 완료 처리 후 홈 화면으로 이동
+  const handleStart = async () => {
+    if (isSaving) {
+      return;
+    }
+
+    if (!gender || birthDateDigits.length !== 8) {
+      goToStep(2);
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await completeOnboarding({
+        gender: gender === "male" ? "MALE" : "FEMALE",
+        birthDate: formatBirthDateForApi(birthDateDigits),
+        interestCategoryCodes,
+        allergyCodes,
+        giftExclusionCodes,
+      });
+      resetOnboarding();
+      router.replace("/");
+    } catch (error) {
+      router.replace(
+        error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -97,7 +135,12 @@ export default function OnboardingReview() {
         <p className="mt-1 text-body text-foreground">입력한 내용은 클릭하여 수정할 수 있어요.</p>
       </div>
 
-      <ActionButton onClick={handleStart} className="mt-5 shrink-0">
+      <ActionButton
+        isLoading={isSaving}
+        loadingText="저장 중..."
+        onClick={handleStart}
+        className="mt-5 shrink-0"
+      >
         <strong className="font-bold">Need U 시작하기</strong>
       </ActionButton>
     </main>

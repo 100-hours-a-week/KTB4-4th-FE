@@ -4,22 +4,26 @@
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
 import { useOnboarding, type AvoidanceCategory } from "@/contexts/OnboardingContext";
+import {
+  ALLERGY_OPTIONS,
+  GIFT_EXCLUSION_OPTIONS,
+  type AvoidanceCode,
+} from "@/lib/onboardingOptions";
 
-// TODO: 비선호 관심사 카테고리 조회 API 연동 후 응답 데이터로 교체
 const avoidanceGroups: Array<{
   category: AvoidanceCategory;
   label: string;
-  options: string[];
+  options: ReadonlyArray<{ code: AvoidanceCode; label: string }>;
 }> = [
   {
-    category: "allergies",
+    category: "allergyCodes",
     label: "알레르기·못 먹는 것 (선택)",
-    options: ["견과류", "유제품", "갑각류", "밀가루"],
+    options: ALLERGY_OPTIONS,
   },
   {
-    category: "dislikedGifts",
+    category: "giftExclusionCodes",
     label: "받고 싶지 않은 선물 (선택)",
-    options: ["향수", "화장품", "옷", "주류"],
+    options: GIFT_EXCLUSION_OPTIONS,
   },
 ];
 
@@ -56,21 +60,21 @@ export default function OnboardingAvoidanceStep() {
           <fieldset key={category}>
             <legend className="text-body font-bold">{label}</legend>
             <div className="mt-3 flex flex-wrap gap-2">
-              {options.map((option) => {
-                const isSelected = state.formData[category].includes(option);
+              {options.map(({ code, label }) => {
+                const isSelected = (state.formData[category] as AvoidanceCode[]).includes(code);
 
                 return (
-                  <label key={option} className="cursor-pointer">
+                  <label key={code} className="cursor-pointer">
                     <input
                       type="checkbox"
                       name={category}
-                      value={option}
+                      value={code}
                       checked={isSelected}
-                      onChange={() => toggleAvoidance(category, option)}
+                      onChange={() => toggleAvoidance(category, code)}
                       className="peer sr-only"
                     />
                     <span className="flex min-h-11 items-center justify-center rounded-full border border-border-strong bg-background px-4 text-body transition-colors peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-foreground">
-                      {option}
+                      {label}
                     </span>
                   </label>
                 );
