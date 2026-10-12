@@ -5,6 +5,8 @@ import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import { USE_MOCK_DATA } from "@/mocks/config";
 
+export type PersonalRecommendationFeedback = "LIKE" | "DISLIKE";
+
 export interface PersonalRecommendation {
   recommendationId: number;
   productId: number;
@@ -13,7 +15,9 @@ export interface PersonalRecommendation {
   purchaseUrl: string;
   category: string;
   price: number;
+  score: number;
   reason: string;
+  myFeedback: PersonalRecommendationFeedback | null;
 }
 
 export interface PersonalRecommendationsPriceRange {
