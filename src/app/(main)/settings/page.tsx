@@ -2,6 +2,7 @@
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import Modal from "@/components/common/Modal";
@@ -41,6 +42,8 @@ const policyModalContent: Record<PolicyModalType, { title: string; body: string 
 };
 
 export default function SettingsPage() {
+  const router = useRouter();
+
   // TODO: 알림 설정 조회 API 연동 후 서버 응답값으로 초기 상태 설정
   const [notificationSettings, setNotificationSettings] = useState<
     Record<NotificationSetting, boolean>
@@ -74,7 +77,7 @@ export default function SettingsPage() {
 
   const handlePrivacyItemClick = (item: PrivacyItemType) => {
     if (item === "preferences") {
-      // TODO: 온보딩 이후 저장된 취향 데이터 페이지 구현 시 이동 처리
+      router.push("/settings/preferences");
       return;
     }
 

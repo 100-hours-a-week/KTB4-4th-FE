@@ -16,6 +16,7 @@ import {
   isAllergyCode,
   isGiftExclusionCode,
   isInterestCategoryCode,
+  MAX_INTEREST_SELECTIONS,
   type AllergyCode,
   type AvoidanceCode,
   type GiftExclusionCode,
@@ -26,7 +27,6 @@ export type ConsentId = "collection" | "purpose" | "visibility" | "retention" | 
 export type Gender = "male" | "female";
 export type OnboardingStep = 1 | 2 | 3 | 4;
 export type AvoidanceCategory = "allergyCodes" | "giftExclusionCodes";
-export const MAX_INTEREST_SELECTIONS = 5;
 
 type OnboardingPhase = "privacy-consent" | "onboarding" | "review";
 
