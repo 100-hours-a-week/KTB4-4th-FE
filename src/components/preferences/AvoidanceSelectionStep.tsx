@@ -22,6 +22,8 @@ interface AvoidanceSelectionStepProps {
   stepIndicator: string;
   stepAriaLabel: string;
   actionLabel: string;
+  isActionLoading?: boolean;
+  actionLoadingText?: string;
   onToggle: (category: AvoidanceCategory, code: AvoidanceCode) => void;
   onAction: () => void;
 }
@@ -48,6 +50,8 @@ export default function AvoidanceSelectionStep({
   stepIndicator,
   stepAriaLabel,
   actionLabel,
+  isActionLoading = false,
+  actionLoadingText,
   onToggle,
   onAction,
 }: AvoidanceSelectionStepProps) {
@@ -81,16 +85,20 @@ export default function AvoidanceSelectionStep({
                 const isSelected = (selectedCodes[category] as AvoidanceCode[]).includes(code);
 
                 return (
-                  <label key={code} className="cursor-pointer">
+                  <label
+                    key={code}
+                    className={isActionLoading ? "cursor-not-allowed" : "cursor-pointer"}
+                  >
                     <input
                       type="checkbox"
                       name={category}
                       value={code}
                       checked={isSelected}
+                      disabled={isActionLoading}
                       onChange={() => onToggle(category, code)}
                       className="peer sr-only"
                     />
-                    <span className="flex min-h-11 items-center justify-center rounded-full border border-border-strong bg-background px-4 text-body transition-colors peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-foreground">
+                    <span className="flex min-h-11 items-center justify-center rounded-full border border-border-strong bg-background px-4 text-body transition-colors peer-checked:border-primary peer-checked:bg-primary peer-disabled:opacity-40 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-foreground">
                       {label}
                     </span>
                   </label>
@@ -101,7 +109,12 @@ export default function AvoidanceSelectionStep({
         ))}
       </div>
 
-      <ActionButton onClick={onAction} className="mt-5 shrink-0">
+      <ActionButton
+        isLoading={isActionLoading}
+        loadingText={actionLoadingText}
+        onClick={onAction}
+        className="mt-5 shrink-0"
+      >
         <strong className="font-bold">{actionLabel}</strong>
       </ActionButton>
 
