@@ -10,7 +10,7 @@ import {
   type MouseEvent,
 } from "react";
 
-import type { ProductCategory } from "@/mocks/productCategories";
+import type { ProductCategory } from "@/lib/productCategories";
 
 type ScrollDirection = "left" | "right";
 
@@ -29,7 +29,7 @@ const getScrollBehavior = (): ScrollBehavior =>
 type ProductCategoryBadgesProps = {
   categories: readonly ProductCategory[];
   value: string;
-  onChange: (categoryId: string) => void;
+  onChange: (categoryCode: string) => void;
   edgeFadeColor?: keyof typeof EDGE_FADE_CLASS_NAMES;
   className?: string;
 };
@@ -160,13 +160,13 @@ export default function ProductCategoryBadges({
     );
   };
 
-  const handleTabClick = (event: MouseEvent<HTMLButtonElement>, categoryId: string) => {
-    onChange(categoryId);
+  const handleTabClick = (event: MouseEvent<HTMLButtonElement>, categoryCode: string) => {
+    onChange(categoryCode);
     scrollClippedTabIntoView(event.currentTarget);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const currentIndex = categories.findIndex((category) => category.id === value);
+    const currentIndex = categories.findIndex((category) => category.code === value);
 
     if (currentIndex === -1) {
       return;
@@ -189,7 +189,7 @@ export default function ProductCategoryBadges({
     }
 
     event.preventDefault();
-    onChange(categories[nextIndex].id);
+    onChange(categories[nextIndex].code);
 
     const tabs = event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='tab']");
     tabs[nextIndex]?.focus();
@@ -207,16 +207,16 @@ export default function ProductCategoryBadges({
         className="flex gap-5 overflow-x-auto pr-page [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {categories.map((category) => {
-          const isSelected = category.id === value;
+          const isSelected = category.code === value;
 
           return (
             <button
-              key={category.id}
+              key={category.code}
               type="button"
               role="tab"
               aria-selected={isSelected}
               tabIndex={isSelected ? 0 : -1}
-              onClick={(event) => handleTabClick(event, category.id)}
+              onClick={(event) => handleTabClick(event, category.code)}
               className={`relative shrink-0 cursor-pointer border-0 bg-transparent px-0.5 text-body-lg whitespace-nowrap transition-colors ${
                 isSelected ? "font-bold text-foreground" : "font-medium text-muted"
               }`}

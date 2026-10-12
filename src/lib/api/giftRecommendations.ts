@@ -48,7 +48,7 @@ interface GiftRecommendationsResponse {
 }
 
 type GiftRecommendationsPaginationParams = {
-  userId: number;
+  category?: string;
   cursor?: string;
   size?: number;
 };
@@ -65,6 +65,15 @@ type GiftRecommendationsPriceParams =
 
 type GetGiftRecommendationsParams = GiftRecommendationsPaginationParams &
   GiftRecommendationsPriceParams;
+
+type GetFriendGiftRecommendationsParams = GetGiftRecommendationsParams & {
+  userId: number;
+};
+
+type GiftRecommendationsRequestParams = GiftRecommendationsPaginationParams & {
+  minPrice?: number;
+  maxPrice?: number;
+};
 
 const normalizePriceRange = (
   priceRange: GiftRecommendationsPriceRangeResponse | null,
@@ -86,13 +95,10 @@ const normalizePriceRange = (
   };
 };
 
-export async function getGiftRecommendations({
-  userId,
-  minPrice,
-  maxPrice,
-  cursor,
-  size = 20,
-}: GetGiftRecommendationsParams) {
+async function requestGiftRecommendations(
+  endpoint: string,
+  { category, minPrice, maxPrice, cursor, size = 20 }: GiftRecommendationsRequestParams,
+) {
   if (USE_MOCK_DATA) {
     const { getMockGiftRecommendationsPage } = await import("@/mocks/recommendations");
 
@@ -106,20 +112,21 @@ export async function getGiftRecommendations({
     searchParams.set("maxPrice", String(maxPrice));
   }
 
+  if (category) {
+    searchParams.set("category", category);
+  }
+
   if (cursor) {
     searchParams.set("cursor", cursor);
   }
 
-  const response = await apiFetch(
-    `${API_ENDPOINTS.giftRecommendations(userId)}?${searchParams.toString()}`,
-    {
-      method: "GET",
-      cache: "no-store",
-    },
-  );
+  const response = await apiFetch(`${endpoint}?${searchParams.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+  });
 
   if (!response.ok) {
-    throw new ApiRequestError("친구 선물 추천 상품을 불러오지 못했습니다.", response.status);
+    throw new ApiRequestError("선물 추천 상품을 불러오지 못했습니다.", response.status);
   }
 
   const { data, nextCursor, hasNext } = (await response.json()) as GiftRecommendationsResponse;
@@ -130,4 +137,25 @@ export async function getGiftRecommendations({
     nextCursor,
     hasNext,
   } satisfies GiftRecommendationsPage;
+}
+
+export async function getMyGiftRecommendations(params: GetGiftRecommendationsParams) {
+  return requestGiftRecommendations(API_ENDPOINTS.users.giftRecommendations, params);
+}
+
+export async function getGiftRecommendations({
+  userId,
+  category,
+  minPrice,
+  maxPrice,
+  cursor,
+  size = 20,
+}: GetFriendGiftRecommendationsParams) {
+  return requestGiftRecommendations(API_ENDPOINTS.giftRecommendations(userId), {
+    category,
+    minPrice,
+    maxPrice,
+    cursor,
+    size,
+  });
 }
