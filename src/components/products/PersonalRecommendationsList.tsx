@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
+import { ApiRequestError } from "@/lib/api/client";
 import {
   getPersonalRecommendations,
   type PersonalRecommendation,
@@ -88,9 +89,12 @@ function PersonalRecommendationsListContent({
       hasNextRef.current = data.hasNext && Boolean(data.nextCursor);
       setNextCursor(data.nextCursor);
       setHasNext(hasNextRef.current);
-    } catch {
+    } catch (error) {
+      // TODO: 429 응답의 Retry-After 또는 retryAfterSeconds를 활용한 재시도 안내 연동
       if (isMountedRef.current && requestGeneration === requestGenerationRef.current) {
-        router.replace("/error");
+        router.replace(
+          error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
+        );
       }
     } finally {
       if (requestGeneration === requestGenerationRef.current) {

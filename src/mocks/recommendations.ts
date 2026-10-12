@@ -62,7 +62,16 @@ function getMockProductsPage({ cursor, size, minPrice, maxPrice }: MockPageParam
 export async function getMockPersonalRecommendationsPage(params: MockPageParams) {
   await mockDelay();
 
-  return getMockProductsPage(params) satisfies PersonalRecommendationsPage;
+  const page = getMockProductsPage(params);
+
+  return {
+    ...page,
+    items: page.items.map((product) => ({
+      ...product,
+      score: 0.9,
+      myFeedback: null,
+    })),
+  } satisfies PersonalRecommendationsPage;
 }
 
 export async function getMockGiftRecommendationsPage(params: MockPageParams) {
