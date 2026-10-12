@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import AvoidanceSelectionStep from "@/components/preferences/AvoidanceSelectionStep";
 import PreferenceSelectionStep from "@/components/preferences/PreferenceSelectionStep";
+import type { GiftPreferencesData } from "@/lib/api/giftPreferences";
 import {
   MAX_INTEREST_SELECTIONS,
   type AllergyCode,
@@ -20,19 +21,24 @@ type AvoidanceCategory = "allergyCodes" | "giftExclusionCodes";
 
 interface SavedPreferencesFlowProps {
   currentStep: PreferencesStep;
+  initialPreferences: GiftPreferencesData;
 }
 
-export default function SavedPreferencesFlow({ currentStep }: SavedPreferencesFlowProps) {
+export default function SavedPreferencesFlow({
+  currentStep,
+  initialPreferences,
+}: SavedPreferencesFlowProps) {
   const router = useRouter();
-  // TODO: 저장된 취향 데이터 조회 API 응답으로 초기 선택값 설정
-  const [interestCategoryCodes, setInterestCategoryCodes] = useState<InterestCategoryCode[]>([]);
+  const [interestCategoryCodes, setInterestCategoryCodes] = useState<InterestCategoryCode[]>(() =>
+    initialPreferences.exists ? [...initialPreferences.interestCategoryCodes] : [],
+  );
   const [avoidanceCodes, setAvoidanceCodes] = useState<{
     allergyCodes: AllergyCode[];
     giftExclusionCodes: GiftExclusionCode[];
-  }>({
-    allergyCodes: [],
-    giftExclusionCodes: [],
-  });
+  }>(() => ({
+    allergyCodes: initialPreferences.exists ? [...initialPreferences.allergyCodes] : [],
+    giftExclusionCodes: initialPreferences.exists ? [...initialPreferences.giftExclusionCodes] : [],
+  }));
 
   const handleInterestToggle = (code: InterestCategoryCode) => {
     setInterestCategoryCodes((currentCodes) =>
