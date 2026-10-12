@@ -7,7 +7,9 @@ import { useState } from "react";
 
 import AvoidanceSelectionStep from "@/components/preferences/AvoidanceSelectionStep";
 import PreferenceSelectionStep from "@/components/preferences/PreferenceSelectionStep";
+import { ApiRequestError } from "@/lib/api/client";
 import type { GiftPreferencesData } from "@/lib/api/giftPreferences";
+import { updateGiftPreferences } from "@/lib/api/updateGiftPreferences";
 import {
   MAX_INTEREST_SELECTIONS,
   type AllergyCode,
@@ -29,6 +31,7 @@ export default function SavedPreferencesFlow({
   initialPreferences,
 }: SavedPreferencesFlowProps) {
   const router = useRouter();
+  const [isUpdating, setIsUpdating] = useState(false);
   const [interestCategoryCodes, setInterestCategoryCodes] = useState<InterestCategoryCode[]>(() =>
     initialPreferences.exists ? [...initialPreferences.interestCategoryCodes] : [],
   );
@@ -61,8 +64,27 @@ export default function SavedPreferencesFlow({
     });
   };
 
-  const handleUpdate = () => {
-    // TODO: 취향 데이터 수정 API 연동
+  const handleUpdate = async () => {
+    if (isUpdating) {
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      await updateGiftPreferences({
+        interestCategoryCodes,
+        allergyCodes: avoidanceCodes.allergyCodes,
+        giftExclusionCodes: avoidanceCodes.giftExclusionCodes,
+      });
+      router.replace("/settings");
+    } catch (error) {
+      router.replace(
+        error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
+      );
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   if (currentStep === "avoidance") {
@@ -72,6 +94,8 @@ export default function SavedPreferencesFlow({
         stepIndicator="2 / 2"
         stepAriaLabel="저장된 취향 데이터 2단계 중 2단계"
         actionLabel="수정하기"
+        isActionLoading={isUpdating}
+        actionLoadingText="수정 중..."
         onToggle={handleAvoidanceToggle}
         onAction={handleUpdate}
       />
