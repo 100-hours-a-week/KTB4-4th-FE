@@ -33,5 +33,6 @@ export const API_ENDPOINTS = {
     giftPreferences: `${API_V1_PREFIX}/users/me/gift-preferences`,
     onboarding: `${API_V1_PREFIX}/users/me/onboarding`,
   },
-  giftRecommendations: (userId: number) => `${API_V1_PREFIX}/users/${userId}/gift-recommendations`,
+  friendGiftRecommendations: (userId: number) =>
+    `${API_V1_PREFIX}/users/${userId}/gift-recommendations`,
 } as const;
