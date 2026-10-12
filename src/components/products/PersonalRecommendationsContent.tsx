@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
+import GiftRecommendationsList from "@/components/products/GiftRecommendationsList";
 import PersonalRecommendationsList from "@/components/products/PersonalRecommendationsList";
 import ProductCategoryBadges from "@/components/products/ProductCategoryBadges";
 import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
@@ -12,12 +13,18 @@ import RecommendationTarget from "@/components/recommendations/RecommendationTar
 import { ApiRequestError } from "@/lib/api/client";
 import { checkLoginValidity, type LoginValidityData } from "@/lib/api/loginValidity";
 import type { PersonalRecommendationsPriceRange } from "@/lib/api/personalRecommendations";
-import { ALL_PRODUCT_CATEGORY_ID, mockProductCategories } from "@/mocks/productCategories";
+import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type ProductVisibilityTab = "private" | "shared";
 
-export default function PersonalRecommendationsContent() {
+type PersonalRecommendationsContentProps = {
+  categories: readonly ProductCategory[];
+};
+
+export default function PersonalRecommendationsContent({
+  categories,
+}: PersonalRecommendationsContentProps) {
   const router = useRouter();
   const [selectedVisibilityTab, setSelectedVisibilityTab] =
     useState<ProductVisibilityTab>("private");
@@ -26,7 +33,8 @@ export default function PersonalRecommendationsContent() {
     useState<PersonalRecommendationsPriceRange | null>(null);
   const [selectedPriceRange, setSelectedPriceRange] = useState<PriceRange | null>(null);
   const [appliedPriceRange, setAppliedPriceRange] = useState<PriceRange | null>(null);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_PRODUCT_CATEGORY_ID);
+  const [selectedCategoryCode, setSelectedCategoryCode] =
+    useState<string>(ALL_PRODUCT_CATEGORY_CODE);
 
   useEffect(() => {
     let isActive = true;
@@ -119,18 +127,35 @@ export default function PersonalRecommendationsContent() {
       </section>
 
       <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">
-        {/* TODO: 상품 카테고리 API 연동 후 선택 카테고리를 목록 조회 조건으로 전달 */}
         <ProductCategoryBadges
-          categories={mockProductCategories}
-          value={selectedCategoryId}
-          onChange={setSelectedCategoryId}
+          categories={categories}
+          value={selectedCategoryCode}
+          onChange={setSelectedCategoryCode}
         />
-        {/* TODO: 공개 범위 API 명세 확정 후 selectedVisibilityTab을 상품 목록 조회 조건으로 전달 */}
-        <PersonalRecommendationsList
-          minPrice={appliedPriceRange?.minPrice}
-          maxPrice={appliedPriceRange?.maxPrice}
-          onPriceRangeLoad={appliedPriceRange === null ? handleAvailablePriceRangeLoad : undefined}
-        />
+        {selectedVisibilityTab === "private" ? (
+          <PersonalRecommendationsList
+            category={
+              selectedCategoryCode === ALL_PRODUCT_CATEGORY_CODE ? undefined : selectedCategoryCode
+            }
+            minPrice={appliedPriceRange?.minPrice}
+            maxPrice={appliedPriceRange?.maxPrice}
+            onPriceRangeLoad={
+              appliedPriceRange === null ? handleAvailablePriceRangeLoad : undefined
+            }
+          />
+        ) : (
+          <GiftRecommendationsList
+            target={{ type: "SELF" }}
+            category={
+              selectedCategoryCode === ALL_PRODUCT_CATEGORY_CODE ? undefined : selectedCategoryCode
+            }
+            minPrice={appliedPriceRange?.minPrice}
+            maxPrice={appliedPriceRange?.maxPrice}
+            onPriceRangeLoad={
+              appliedPriceRange === null ? handleAvailablePriceRangeLoad : undefined
+            }
+          />
+        )}
       </section>
     </>
   );

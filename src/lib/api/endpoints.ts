@@ -25,9 +25,11 @@ export const API_ENDPOINTS = {
   },
   guidance: `${API_V1_PREFIX}/guidance`,
   personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
+  productCategories: `${API_V1_PREFIX}/products/categories`,
   users: {
     me: `${API_V1_PREFIX}/users/me`,
     consents: `${API_V1_PREFIX}/users/me/consents`,
+    giftRecommendations: `${API_V1_PREFIX}/users/me/gift-recommendations`,
     giftPreferences: `${API_V1_PREFIX}/users/me/gift-preferences`,
     onboarding: `${API_V1_PREFIX}/users/me/onboarding`,
   },

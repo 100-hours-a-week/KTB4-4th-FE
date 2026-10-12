@@ -39,6 +39,7 @@ interface PersonalRecommendationsResponse {
 }
 
 type PersonalRecommendationsPaginationParams = {
+  category?: string;
   cursor?: string;
   size?: number;
 };
@@ -57,6 +58,7 @@ type GetPersonalRecommendationsParams = PersonalRecommendationsPaginationParams 
   PersonalRecommendationsPriceParams;
 
 export async function getPersonalRecommendations({
+  category,
   minPrice,
   maxPrice,
   cursor,
@@ -73,6 +75,10 @@ export async function getPersonalRecommendations({
   if (minPrice !== undefined && maxPrice !== undefined) {
     searchParams.set("minPrice", String(minPrice));
     searchParams.set("maxPrice", String(maxPrice));
+  }
+
+  if (category) {
+    searchParams.set("category", category);
   }
 
   if (cursor) {

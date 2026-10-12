@@ -9,13 +9,18 @@ import FriendTasteAnalysisRequired from "@/components/products/FriendTasteAnalys
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import { ApiRequestError } from "@/lib/api/client";
 import { getFriendDetail, type FriendDetail } from "@/lib/api/friends";
+import type { ProductCategory } from "@/lib/productCategories";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type FriendRecommendationContentProps = {
   userId: number;
+  categories: readonly ProductCategory[];
 };
 
-export default function FriendRecommendationContent({ userId }: FriendRecommendationContentProps) {
+export default function FriendRecommendationContent({
+  userId,
+  categories,
+}: FriendRecommendationContentProps) {
   const router = useRouter();
   const [friend, setFriend] = useState<FriendDetail | null>(null);
   const isMountedRef = useRef(false);
@@ -69,7 +74,13 @@ export default function FriendRecommendationContent({ userId }: FriendRecommenda
   } satisfies RecommendationTargetData;
 
   if (friend.tasteAnalysisCompleted) {
-    return <FriendGiftRecommendationsContent key={target.userId} target={target} />;
+    return (
+      <FriendGiftRecommendationsContent
+        key={target.userId}
+        target={target}
+        categories={categories}
+      />
+    );
   }
 
   return (
