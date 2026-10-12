@@ -1,4 +1,4 @@
-// 친구 선물 추천 상품 목록 조회 API 요청과 커서 페이지네이션 응답 타입
+// 내 공개 상품과 친구 선물 추천 상품 목록 조회 API 요청 및 응답 타입
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -13,8 +13,15 @@ export interface GiftRecommendation {
   category: string;
   name: string;
   price: number;
+  score: number;
   matchingKeywords: string[];
   reason: string;
+}
+
+export type GiftRecommendationFeedback = "LIKE" | "DISLIKE";
+
+export interface MyGiftRecommendation extends GiftRecommendation {
+  myFeedback: GiftRecommendationFeedback | null;
 }
 
 export interface GiftRecommendationsPriceRange {
@@ -22,8 +29,8 @@ export interface GiftRecommendationsPriceRange {
   maxPrice: number;
 }
 
-interface GiftRecommendationsData {
-  items: GiftRecommendation[];
+interface GiftRecommendationsData<TItem extends GiftRecommendation> {
+  items: TItem[];
   priceRange: GiftRecommendationsPriceRange | null;
 }
 
@@ -32,15 +39,17 @@ interface GiftRecommendationsPriceRangeResponse {
   maxPrice: number | null;
 }
 
-export interface GiftRecommendationsPage extends GiftRecommendationsData {
+export interface GiftRecommendationsPage<
+  TItem extends GiftRecommendation = GiftRecommendation,
+> extends GiftRecommendationsData<TItem> {
   nextCursor: string | null;
   hasNext: boolean;
 }
 
-interface GiftRecommendationsResponse {
+interface GiftRecommendationsResponse<TItem extends GiftRecommendation> {
   message: string;
   data: {
-    items: GiftRecommendation[];
+    items: TItem[];
     priceRange: GiftRecommendationsPriceRangeResponse | null;
   };
   nextCursor: string | null;
@@ -95,16 +104,10 @@ const normalizePriceRange = (
   };
 };
 
-async function requestGiftRecommendations(
+async function requestGiftRecommendations<TItem extends GiftRecommendation>(
   endpoint: string,
   { category, minPrice, maxPrice, cursor, size = 20 }: GiftRecommendationsRequestParams,
 ) {
-  if (USE_MOCK_DATA) {
-    const { getMockGiftRecommendationsPage } = await import("@/mocks/recommendations");
-
-    return getMockGiftRecommendationsPage({ cursor, size, minPrice, maxPrice });
-  }
-
   const searchParams = new URLSearchParams({ size: String(size) });
 
   if (minPrice !== undefined && maxPrice !== undefined) {
@@ -129,18 +132,31 @@ async function requestGiftRecommendations(
     throw new ApiRequestError("선물 추천 상품을 불러오지 못했습니다.", response.status);
   }
 
-  const { data, nextCursor, hasNext } = (await response.json()) as GiftRecommendationsResponse;
+  const { data, nextCursor, hasNext } =
+    (await response.json()) as GiftRecommendationsResponse<TItem>;
 
   return {
     items: data.items,
     priceRange: normalizePriceRange(data.priceRange),
     nextCursor,
     hasNext,
-  } satisfies GiftRecommendationsPage;
+  } satisfies GiftRecommendationsPage<TItem>;
 }
 
 export async function getMyGiftRecommendations(params: GetGiftRecommendationsParams) {
-  return requestGiftRecommendations(API_ENDPOINTS.users.giftRecommendations, params);
+  if (USE_MOCK_DATA) {
+    const { getMockMyGiftRecommendationsPage } = await import("@/mocks/recommendations");
+
+    return getMockMyGiftRecommendationsPage({
+      ...params,
+      size: params.size ?? 20,
+    });
+  }
+
+  return requestGiftRecommendations<MyGiftRecommendation>(
+    API_ENDPOINTS.users.giftRecommendations,
+    params,
+  );
 }
 
 export async function getGiftRecommendations({
@@ -151,11 +167,22 @@ export async function getGiftRecommendations({
   cursor,
   size = 20,
 }: GetFriendGiftRecommendationsParams) {
-  return requestGiftRecommendations(API_ENDPOINTS.giftRecommendations(userId), {
+  const params = {
     category,
     minPrice,
     maxPrice,
     cursor,
     size,
-  });
+  };
+
+  if (USE_MOCK_DATA) {
+    const { getMockGiftRecommendationsPage } = await import("@/mocks/recommendations");
+
+    return getMockGiftRecommendationsPage(params);
+  }
+
+  return requestGiftRecommendations<GiftRecommendation>(
+    API_ENDPOINTS.giftRecommendations(userId),
+    params,
+  );
 }
