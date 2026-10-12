@@ -1,6 +1,10 @@
 // 성능 측정용 내 추천·친구 선물 추천 상품 임시 데이터
 
-import type { GiftRecommendation, GiftRecommendationsPage } from "@/lib/api/giftRecommendations";
+import type {
+  GiftRecommendation,
+  GiftRecommendationsPage,
+  MyGiftRecommendation,
+} from "@/lib/api/giftRecommendations";
 import type { PersonalRecommendationsPage } from "@/lib/api/personalRecommendations";
 import { mockDelay } from "@/mocks/config";
 
@@ -31,6 +35,7 @@ const mockProducts: GiftRecommendation[] = Array.from(
           ? `테스트 상품 ${order}`
           : `테스트 상품 ${order} 두 줄까지 표시되는 긴 상품명을 확인하기 위한 이름`,
       price: 10_000 + ((index * 7) % 20) * 10_000,
+      score: 0.9,
       matchingKeywords: ["테스트"],
       reason: "성능 측정용 목업 추천 이유입니다.",
     };
@@ -78,4 +83,18 @@ export async function getMockGiftRecommendationsPage(params: MockPageParams) {
   await mockDelay();
 
   return getMockProductsPage(params) satisfies GiftRecommendationsPage;
+}
+
+export async function getMockMyGiftRecommendationsPage(params: MockPageParams) {
+  await mockDelay();
+
+  const page = getMockProductsPage(params);
+
+  return {
+    ...page,
+    items: page.items.map((product) => ({
+      ...product,
+      myFeedback: null,
+    })),
+  } satisfies GiftRecommendationsPage<MyGiftRecommendation>;
 }
