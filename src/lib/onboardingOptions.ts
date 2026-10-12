@@ -1,5 +1,7 @@
 // 온보딩 선택 항목의 API 코드와 화면 표시명 모음
 
+export const MAX_INTEREST_SELECTIONS = 5;
+
 export const INTEREST_CATEGORY_OPTIONS = [
   { code: "FASHION", label: "패션" },
   { code: "BEAUTY", label: "뷰티" },
