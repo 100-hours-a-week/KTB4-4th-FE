@@ -159,7 +159,7 @@ export async function getMyGiftRecommendations(params: GetGiftRecommendationsPar
   );
 }
 
-export async function getGiftRecommendations({
+export async function getFriendGiftRecommendations({
   userId,
   category,
   minPrice,
@@ -182,7 +182,7 @@ export async function getGiftRecommendations({
   }
 
   return requestGiftRecommendations<GiftRecommendation>(
-    API_ENDPOINTS.giftRecommendations(userId),
+    API_ENDPOINTS.friendGiftRecommendations(userId),
     params,
   );
 }

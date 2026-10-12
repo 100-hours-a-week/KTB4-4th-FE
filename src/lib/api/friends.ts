@@ -39,9 +39,17 @@ interface FriendsResponse {
   hasNext: boolean;
 }
 
+interface FriendDetailData {
+  userId: number;
+  name: string;
+  profileImageUrl: string | null;
+  tasteAnalysisCompleted: boolean;
+  birthDate: string;
+}
+
 interface FriendDetailResponse {
   message: string;
-  data: FriendDetail;
+  data: FriendDetailData;
 }
 
 interface GetFriendsParams {
@@ -103,5 +111,11 @@ export async function getFriendDetail(userId: number) {
 
   const { data } = (await response.json()) as FriendDetailResponse;
 
-  return data;
+  return {
+    id: data.userId,
+    nickname: data.name,
+    profileImageUrl: data.profileImageUrl,
+    tasteAnalysisCompleted: data.tasteAnalysisCompleted,
+    birthDate: data.birthDate,
+  } satisfies FriendDetail;
 }

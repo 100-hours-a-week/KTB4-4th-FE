@@ -8,7 +8,7 @@ import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProd
 import ProductCard from "@/components/products/ProductCard";
 import { ApiRequestError } from "@/lib/api/client";
 import {
-  getGiftRecommendations,
+  getFriendGiftRecommendations,
   getMyGiftRecommendations,
   type GiftRecommendation,
   type GiftRecommendationsPriceRange,
@@ -93,7 +93,7 @@ function GiftRecommendationsListContent({
       };
       const data =
         targetType === "FRIEND" && targetUserId !== undefined
-          ? await getGiftRecommendations({ userId: targetUserId, ...paginationParams })
+          ? await getFriendGiftRecommendations({ userId: targetUserId, ...paginationParams })
           : await getMyGiftRecommendations(paginationParams);
 
       if (!isMountedRef.current || requestGeneration !== requestGenerationRef.current) {
