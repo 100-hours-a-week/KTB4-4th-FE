@@ -32,6 +32,8 @@ interface FriendsData {
 }
 
 export interface FriendsPage extends FriendsData {
+  totalCount?: number;
+  favoriteTotalCount?: number;
   nextCursor: string | null;
   hasNext: boolean;
 }
@@ -39,6 +41,8 @@ export interface FriendsPage extends FriendsData {
 interface FriendsResponse {
   message: string;
   data: FriendsData;
+  totalCount?: number;
+  favoriteTotalCount?: number;
   nextCursor: string | null;
   hasNext: boolean;
 }
@@ -192,11 +196,14 @@ export async function getFriends({
     );
   }
 
-  const { data, nextCursor, hasNext } = (await response.json()) as FriendsResponse;
+  const { data, totalCount, favoriteTotalCount, nextCursor, hasNext } =
+    (await response.json()) as FriendsResponse;
 
   return {
     items: data.items,
     isKakaoFriendSynced: data.isKakaoFriendSynced,
+    totalCount,
+    favoriteTotalCount,
     nextCursor,
     hasNext,
   } satisfies FriendsPage;

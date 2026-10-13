@@ -1,7 +1,7 @@
 // 선물할 친구 목록을 표시하는 페이지
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import PageIntro from "@/components/common/PageIntro";
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
@@ -11,17 +11,31 @@ import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectBut
 
 type FriendsTab = "all" | "favorite";
 
-// TODO: 친구 목록 응답에 전체·즐겨찾기 친구 수가 추가되면 각 탭에 개수 표시
-const FRIENDS_TABS: readonly SegmentedTabItem<FriendsTab>[] = [
-  {
-    value: "all",
-    label: "전체 친구",
-  },
-  {
-    value: "favorite",
-    label: "즐겨찾는 친구",
-  },
-];
+type FriendCounts = {
+  total: number;
+  favorite: number;
+};
+
+function createFriendsTabs(counts: FriendCounts | null): readonly SegmentedTabItem<FriendsTab>[] {
+  return [
+    {
+      value: "all",
+      label: (
+        <span className="inline-flex items-center gap-1">
+          전체 친구 {counts && <span>{counts.total}</span>}
+        </span>
+      ),
+    },
+    {
+      value: "favorite",
+      label: (
+        <span className="inline-flex items-center gap-1">
+          즐겨찾는 친구 {counts && <span>{counts.favorite}</span>}
+        </span>
+      ),
+    },
+  ];
+}
 
 const FRIENDS_PAGE_COPY: Record<
   FriendsTab,
@@ -45,7 +59,13 @@ export default function FriendsPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [hasFriends, setHasFriends] = useState<boolean | null>(null);
   const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
+  const [friendCounts, setFriendCounts] = useState<FriendCounts | null>(null);
   const pageCopy = FRIENDS_PAGE_COPY[selectedTab];
+  const friendsTabs = createFriendsTabs(friendCounts);
+
+  const handleFriendCountsChange = useCallback((totalCount: number, favoriteTotalCount: number) => {
+    setFriendCounts({ total: totalCount, favorite: favoriteTotalCount });
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -88,7 +108,7 @@ export default function FriendsPage() {
         </div>
       )}
       <SegmentedTabs
-        items={FRIENDS_TABS}
+        items={friendsTabs}
         value={selectedTab}
         onChange={setSelectedTab}
         ariaLabel="친구 목록 유형"
@@ -108,6 +128,7 @@ export default function FriendsPage() {
         keyword={searchKeyword}
         onHasFriendsChange={setHasFriends}
         onKakaoFriendSyncedChange={setIsKakaoFriendSynced}
+        onFriendCountsChange={handleFriendCountsChange}
       />
     </main>
   );
