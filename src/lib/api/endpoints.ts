@@ -24,6 +24,10 @@ export const API_ENDPOINTS = {
     kakaoAuthorize: `${API_V1_PREFIX}/friends/kakao/authorize`,
   },
   guidance: `${API_V1_PREFIX}/guidance`,
+  notifications: {
+    list: `${API_V1_PREFIX}/notifications`,
+    stream: `${API_V1_PREFIX}/notifications/stream`,
+  },
   personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
   productCategories: `${API_V1_PREFIX}/products/categories`,
   productDetail: (productId: number) => `${API_V1_PREFIX}/products/${productId}`,
