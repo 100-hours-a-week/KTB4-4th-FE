@@ -11,10 +11,12 @@ type ModalProps = {
   open: boolean;
   onClose: () => void;
   title: string;
+  titleClassName?: string;
   description?: string;
   children?: ReactNode;
   firstAction?: ComponentProps<typeof ChoiceButtons>["first"];
-  secondAction: ComponentProps<typeof ChoiceButtons>["second"];
+  secondAction?: ComponentProps<typeof ChoiceButtons>["second"];
+  actions?: ReactNode;
   actionsClassName?: string;
   keepHeaderInteractive?: boolean;
 };
@@ -23,10 +25,12 @@ export default function Modal({
   open,
   onClose,
   title,
+  titleClassName = "",
   description,
   children,
   firstAction,
   secondAction,
+  actions,
   actionsClassName = "mt-4",
   keepHeaderInteractive = false,
 }: ModalProps) {
@@ -60,7 +64,7 @@ export default function Modal({
           keepHeaderInteractive ? "top-[60px]" : "top-0"
         }`}
       >
-        <h2 id={titleId} className="text-xl font-bold">
+        <h2 id={titleId} className={`text-xl font-bold ${titleClassName}`}>
           {title}
         </h2>
         {description && (
@@ -71,7 +75,13 @@ export default function Modal({
 
         {children && <div className="mt-8">{children}</div>}
 
-        <ChoiceButtons first={firstAction} second={secondAction} className={actionsClassName} />
+        {actions ? (
+          <div className={actionsClassName}>{actions}</div>
+        ) : (
+          secondAction && (
+            <ChoiceButtons first={firstAction} second={secondAction} className={actionsClassName} />
+          )
+        )}
       </dialog>
     </>
   );

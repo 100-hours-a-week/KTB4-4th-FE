@@ -1,4 +1,4 @@
-// 친구 선물 추천 상품을 가격 조건과 커서 기반 무한 스크롤로 표시하는 목록
+// 내 공개 상품 또는 친구 선물 추천 상품을 커서 기반 무한 스크롤로 표시하는 목록
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -8,30 +8,43 @@ import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProd
 import ProductCard from "@/components/products/ProductCard";
 import { ApiRequestError } from "@/lib/api/client";
 import {
-  getGiftRecommendations,
+  getFriendGiftRecommendations,
+  getMyGiftRecommendations,
   type GiftRecommendation,
   type GiftRecommendationsPriceRange,
 } from "@/lib/api/giftRecommendations";
 
 const PAGE_SIZE = 20;
 
-type FriendGiftRecommendationsListProps = {
-  userId: number;
+type GiftRecommendationsTarget =
+  | { type: "SELF" }
+  | {
+      type: "FRIEND";
+      userId: number;
+    };
+
+type GiftRecommendationsListProps = {
+  target: GiftRecommendationsTarget;
+  category?: string;
   minPrice?: number;
   maxPrice?: number;
   onPriceRangeLoad?: (priceRange: GiftRecommendationsPriceRange | null) => void;
 };
 
-export default function FriendGiftRecommendationsList({
-  userId,
+export default function GiftRecommendationsList({
+  target,
+  category,
   minPrice,
   maxPrice,
   onPriceRangeLoad,
-}: FriendGiftRecommendationsListProps) {
+}: GiftRecommendationsListProps) {
+  const targetKey = target.type === "FRIEND" ? `friend:${target.userId}` : "self";
+
   return (
-    <FriendGiftRecommendationsListContent
-      key={`${userId}:${minPrice ?? "initial"}:${maxPrice ?? "initial"}`}
-      userId={userId}
+    <GiftRecommendationsListContent
+      key={`${targetKey}:${category ?? "all"}:${minPrice ?? "initial"}:${maxPrice ?? "initial"}`}
+      target={target}
+      category={category}
       minPrice={minPrice}
       maxPrice={maxPrice}
       onPriceRangeLoad={onPriceRangeLoad}
@@ -39,13 +52,16 @@ export default function FriendGiftRecommendationsList({
   );
 }
 
-function FriendGiftRecommendationsListContent({
-  userId,
+function GiftRecommendationsListContent({
+  target,
+  category,
   minPrice,
   maxPrice,
   onPriceRangeLoad,
-}: FriendGiftRecommendationsListProps) {
+}: GiftRecommendationsListProps) {
   const router = useRouter();
+  const targetType = target.type;
+  const targetUserId = target.type === "FRIEND" ? target.userId : undefined;
   const [products, setProducts] = useState<GiftRecommendation[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasNext, setHasNext] = useState(true);
@@ -69,12 +85,16 @@ function FriendGiftRecommendationsListContent({
     try {
       const priceParams =
         minPrice !== undefined && maxPrice !== undefined ? { minPrice, maxPrice } : {};
-      const data = await getGiftRecommendations({
-        userId,
+      const paginationParams = {
         ...priceParams,
+        category,
         cursor: nextCursorRef.current ?? undefined,
         size: PAGE_SIZE,
-      });
+      };
+      const data =
+        targetType === "FRIEND" && targetUserId !== undefined
+          ? await getFriendGiftRecommendations({ userId: targetUserId, ...paginationParams })
+          : await getMyGiftRecommendations(paginationParams);
 
       if (!isMountedRef.current || requestGeneration !== requestGenerationRef.current) {
         return;
@@ -105,7 +125,7 @@ function FriendGiftRecommendationsListContent({
         }
       }
     }
-  }, [maxPrice, minPrice, onPriceRangeLoad, router, userId]);
+  }, [category, maxPrice, minPrice, onPriceRangeLoad, router, targetType, targetUserId]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -146,17 +166,27 @@ function FriendGiftRecommendationsListContent({
   // TODO: 추천 이유·카테고리·매칭 키워드 UI 확정 후 상품 카드에 연동
   return (
     <>
-      {products.map((product) => (
-        <ProductCard
-          key={product.recommendationId}
-          product={{
-            name: product.name,
-            price: product.price,
-            productImageUrl: product.productImageUrl,
-            purchaseUrl: product.purchaseUrl,
-          }}
-        />
-      ))}
+      <div className="grid grid-cols-3 gap-x-2 gap-y-5">
+        {products.map((product) => {
+          const detailHref =
+            targetType === "FRIEND" && targetUserId !== undefined
+              ? `/products/${product.productId}?context=FRIEND_GIFT&userId=${targetUserId}`
+              : `/products/${product.productId}?context=MY_GIFT`;
+
+          return (
+            <ProductCard
+              key={product.recommendationId}
+              product={{
+                name: product.name,
+                price: product.price,
+                productImageUrl: product.productImageUrl,
+                purchaseUrl: product.purchaseUrl,
+              }}
+              detailHref={detailHref}
+            />
+          );
+        })}
+      </div>
 
       {hasNext && <div ref={sentinelRef} aria-hidden="true" className="h-px" />}
 

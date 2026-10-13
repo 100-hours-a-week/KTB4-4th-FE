@@ -11,11 +11,13 @@ import { getFriends, type FriendListItem } from "@/lib/api/friends";
 const PAGE_SIZE = 20;
 
 type FriendsListProps = {
+  isFavorite: boolean;
   onHasFriendsChange: (hasFriends: boolean) => void;
   onKakaoFriendSyncedChange: (isKakaoFriendSynced: boolean) => void;
 };
 
 export default function FriendsList({
+  isFavorite,
   onHasFriendsChange,
   onKakaoFriendSyncedChange,
 }: FriendsListProps) {
@@ -31,6 +33,15 @@ export default function FriendsList({
   const hasNextRef = useRef(true);
   const nextCursorRef = useRef<string | null>(null);
 
+  const handleToggleFavorite = useCallback((userId: number) => {
+    // TODO: 즐겨찾기 설정·해제 API 연동 후 성공 응답을 기준으로 상태 갱신 및 실패 처리
+    setFriends((currentFriends) =>
+      currentFriends.map((friend) =>
+        friend.userId === userId ? { ...friend, isFavorite: !friend.isFavorite } : friend,
+      ),
+    );
+  }, []);
+
   const loadNextPage = useCallback(async () => {
     if (isLoadingRef.current || !hasNextRef.current) {
       return;
@@ -41,6 +52,8 @@ export default function FriendsList({
     setIsLoading(true);
 
     try {
+      // TODO: 친구 목록 API 연동 시 isFavorite 쿼리 파라미터 전달
+      // isFavorite가 true이면 즐겨찾는 친구만 조회하고, false·null·미지정이면 전체 친구 조회
       const data = await getFriends({
         cursor: nextCursorRef.current ?? undefined,
         size: PAGE_SIZE,
@@ -107,18 +120,22 @@ export default function FriendsList({
     return <EmptyFriends showKakaoConnectButton={isKakaoFriendSynced === false} />;
   }
 
+  const visibleFriends = isFavorite ? friends.filter((friend) => friend.isFavorite) : friends;
+
   return (
     <ul
-      aria-label="선물할 친구"
+      aria-label={isFavorite ? "즐겨찾는 친구" : "전체 친구"}
       aria-busy={isLoading}
-      className={`${isKakaoFriendSynced === true ? "mt-6" : "mt-12"} flex list-none flex-col gap-5 p-0`}
+      className="mt-6 flex list-none flex-col gap-5 p-0"
     >
-      {friends.map((friend) => (
+      {visibleFriends.map((friend) => (
         <li key={friend.userId}>
           <FriendCard
             userId={friend.userId}
             name={friend.name}
             profileImageUrl={friend.profileImageUrl}
+            isFavorite={friend.isFavorite}
+            onToggleFavorite={() => handleToggleFavorite(friend.userId)}
           />
         </li>
       ))}

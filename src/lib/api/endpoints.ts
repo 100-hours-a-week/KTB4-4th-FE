@@ -25,5 +25,15 @@ export const API_ENDPOINTS = {
   },
   guidance: `${API_V1_PREFIX}/guidance`,
   personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
-  giftRecommendations: (userId: number) => `${API_V1_PREFIX}/users/${userId}/gift-recommendations`,
+  productCategories: `${API_V1_PREFIX}/products/categories`,
+  productDetail: (productId: number) => `${API_V1_PREFIX}/products/${productId}`,
+  users: {
+    me: `${API_V1_PREFIX}/users/me`,
+    consents: `${API_V1_PREFIX}/users/me/consents`,
+    giftRecommendations: `${API_V1_PREFIX}/users/me/gift-recommendations`,
+    giftPreferences: `${API_V1_PREFIX}/users/me/gift-preferences`,
+    onboarding: `${API_V1_PREFIX}/users/me/onboarding`,
+  },
+  friendGiftRecommendations: (userId: number) =>
+    `${API_V1_PREFIX}/users/${userId}/gift-recommendations`,
 } as const;

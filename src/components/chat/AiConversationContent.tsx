@@ -49,6 +49,7 @@ function toChatMessage(message: AiConversationMessage): ChatMessage {
     role: isAiMessage ? "ASSISTANT" : "USER",
     senderName: isAiMessage ? "니쥬" : "나",
     content: message.content,
+    deliveryStatus: "SENT",
   };
 }
 

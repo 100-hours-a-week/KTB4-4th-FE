@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 
 import FriendRecommendationContent from "@/components/products/FriendRecommendationContent";
 import PersonalRecommendationsContent from "@/components/products/PersonalRecommendationsContent";
+import { getProductCategories } from "@/lib/api/productCategories";
+import { ServerApiError } from "@/lib/api/serverClient";
+import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
 
 type ProductsPageProps = {
   searchParams: Promise<{
@@ -11,6 +14,20 @@ type ProductsPageProps = {
     targetUserId?: string;
   }>;
 };
+
+async function getProductCategoriesOrRedirect(): Promise<ProductCategory[]> {
+  try {
+    const categories = await getProductCategories();
+
+    return [{ code: ALL_PRODUCT_CATEGORY_CODE, name: "전체" }, ...categories];
+  } catch (error) {
+    if (error instanceof ServerApiError && error.status === 401) {
+      redirect("/login");
+    }
+
+    redirect("/error");
+  }
+}
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const { targetType, targetUserId } = await searchParams;
@@ -22,19 +39,20 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       redirect("/error");
     }
 
+    const categories = await getProductCategoriesOrRedirect();
+
     return (
-      <main
-        aria-label="상품 추천"
-        className="page-content flex flex-1 flex-col bg-background-subtle"
-      >
-        <FriendRecommendationContent userId={userId} />
+      <main aria-label="상품 추천" className="page-content flex flex-1 flex-col bg-background">
+        <FriendRecommendationContent userId={userId} categories={categories} />
       </main>
     );
   }
 
+  const categories = await getProductCategoriesOrRedirect();
+
   return (
-    <main aria-label="상품 추천" className="page-content flex flex-1 flex-col bg-background-subtle">
-      <PersonalRecommendationsContent />
+    <main aria-label="상품 추천" className="page-content flex flex-1 flex-col bg-background">
+      <PersonalRecommendationsContent categories={categories} />
     </main>
   );
 }

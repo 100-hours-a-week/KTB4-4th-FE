@@ -3,23 +3,29 @@
 
 import { useCallback, useState } from "react";
 
-import FriendGiftRecommendationsList from "@/components/products/FriendGiftRecommendationsList";
+import GiftRecommendationsList from "@/components/products/GiftRecommendationsList";
+import ProductCategoryBadges from "@/components/products/ProductCategoryBadges";
 import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import type { GiftRecommendationsPriceRange } from "@/lib/api/giftRecommendations";
+import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type FriendGiftRecommendationsContentProps = {
   target: RecommendationTargetData;
+  categories: readonly ProductCategory[];
 };
 
 export default function FriendGiftRecommendationsContent({
   target,
+  categories,
 }: FriendGiftRecommendationsContentProps) {
   const [availablePriceRange, setAvailablePriceRange] =
     useState<GiftRecommendationsPriceRange | null>(null);
   const [selectedPriceRange, setSelectedPriceRange] = useState<PriceRange | null>(null);
   const [appliedPriceRange, setAppliedPriceRange] = useState<PriceRange | null>(null);
+  const [selectedCategoryCode, setSelectedCategoryCode] =
+    useState<string>(ALL_PRODUCT_CATEGORY_CODE);
 
   const handleAvailablePriceRangeLoad = useCallback(
     (priceRange: GiftRecommendationsPriceRange | null) => {
@@ -49,8 +55,16 @@ export default function FriendGiftRecommendationsContent({
       </section>
 
       <section aria-label="추천 상품 목록" className="flex w-full flex-col gap-4 py-5">
-        <FriendGiftRecommendationsList
-          userId={target.userId}
+        <ProductCategoryBadges
+          categories={categories}
+          value={selectedCategoryCode}
+          onChange={setSelectedCategoryCode}
+        />
+        <GiftRecommendationsList
+          target={{ type: "FRIEND", userId: target.userId }}
+          category={
+            selectedCategoryCode === ALL_PRODUCT_CATEGORY_CODE ? undefined : selectedCategoryCode
+          }
           minPrice={appliedPriceRange?.minPrice}
           maxPrice={appliedPriceRange?.maxPrice}
           onPriceRangeLoad={appliedPriceRange === null ? handleAvailablePriceRangeLoad : undefined}

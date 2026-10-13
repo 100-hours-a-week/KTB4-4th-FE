@@ -1,0 +1,10 @@
+/* 실패한 메시지 작업 버튼의 작은 정사각형 크기 */
+
+.compactActionButton {
+  min-height: 1.75rem;
+}
+
+.actionGroup {
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  backdrop-filter: blur(0.25rem);
+}

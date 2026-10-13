@@ -5,6 +5,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import AiConversationExpiredModal from "@/components/chat/AiConversationExpiredModal";
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
@@ -26,7 +27,12 @@ import {
   type SendAiConversationMessageData,
 } from "@/lib/api/aiConversationMessageSend";
 import { ApiRequestError } from "@/lib/api/client";
-import type { ChatMessage, PreferenceAnalysisResult, PreferenceAnalysisStatus } from "@/types/chat";
+import type {
+  ChatMessage,
+  ChatMessageId,
+  PreferenceAnalysisResult,
+  PreferenceAnalysisStatus,
+} from "@/types/chat";
 
 type ChatRoomProps = {
   initialMessages: ChatMessage[];
@@ -45,12 +51,13 @@ type PendingMessage = {
 };
 
 type MessageSendError = {
-  message: string;
+  messageId: ChatMessageId;
   status: number;
   retryAfterSeconds: number;
 };
 
 const MIN_AI_RESPONSE_DELAY_MS = 600;
+const MOCK_MESSAGE_RETRY_DELAY_MS = 1000;
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => {
@@ -92,15 +99,21 @@ export default function ChatRoom({
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
   const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
+  const [isConversationExpired, setIsConversationExpired] = useState(false);
   const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const [analysisRequestError, setAnalysisRequestError] = useState("");
   const [isRestartRequired, setIsRestartRequired] = useState(false);
+  const [hasRequestedNextConversation, setHasRequestedNextConversation] = useState(false);
   const [remainingConversationSeconds, setRemainingConversationSeconds] = useState<number | null>(
     null,
   );
   const messageListRef = useRef<HTMLElement>(null);
   const isInitialRender = useRef(true);
   const isAnalysisRequestingRef = useRef(false);
+  const isMessageSendingRef = useRef(false);
+  const retryingMessageIdsRef = useRef(new Set<ChatMessageId>());
+  const isConversationExpiredRef = useRef(false);
+  const hasStartedNextConversationRef = useRef(false);
   const pendingMessageRef = useRef<PendingMessage | null>(null);
   const {
     errorMessage: conversationStartError,
@@ -109,20 +122,19 @@ export default function ChatRoom({
     retryAfterSeconds: conversationStartRetryAfterSeconds,
     startConversation,
   } = useAiConversationStart();
-  const sendErrorMessage = sendError
-    ? `${sendError.message}${
-        sendError.status === 429 && sendError.retryAfterSeconds > 0
-          ? ` (${sendError.retryAfterSeconds}초 후 다시 전송할 수 있어요.)`
-          : ""
-      }`
-    : "";
 
   useEffect(() => {
     if (!isReadOnly || !nextConversationAvailableAt) return;
 
     const availableAt = Date.parse(nextConversationAvailableAt);
     const updateRemainingSeconds = () => {
-      setRemainingConversationSeconds(Math.max(0, Math.ceil((availableAt - Date.now()) / 1000)));
+      const remainingSeconds = Math.max(0, Math.ceil((availableAt - Date.now()) / 1000));
+
+      setRemainingConversationSeconds(remainingSeconds);
+
+      if (remainingSeconds === 0) {
+        window.clearInterval(intervalTimer);
+      }
     };
     const initialTimer = window.setTimeout(updateRemainingSeconds, 0);
     const intervalTimer = window.setInterval(updateRemainingSeconds, 1000);
@@ -132,6 +144,20 @@ export default function ChatRoom({
       window.clearInterval(intervalTimer);
     };
   }, [isReadOnly, nextConversationAvailableAt]);
+
+  useEffect(() => {
+    if (
+      !isReadOnly ||
+      remainingConversationSeconds !== 0 ||
+      hasStartedNextConversationRef.current
+    ) {
+      return;
+    }
+
+    hasStartedNextConversationRef.current = true;
+    setHasRequestedNextConversation(true);
+    void startConversation({ navigationMode: "replace" });
+  }, [isReadOnly, remainingConversationSeconds, startConversation]);
 
   useEffect(() => {
     if (sendError?.status !== 429 || sendError.retryAfterSeconds <= 0) return;
@@ -217,7 +243,16 @@ export default function ChatRoom({
   }, [conversationId, handleAnalysisRequest, isInputLocked, isReadOnly]);
 
   const handleSend = async (content: string) => {
-    if (conversationId === undefined || isReadOnly) return;
+    if (
+      conversationId === undefined ||
+      isReadOnly ||
+      isConversationExpiredRef.current ||
+      isMessageSendingRef.current
+    ) {
+      return;
+    }
+
+    isMessageSendingRef.current = true;
 
     const pendingMessage =
       pendingMessageRef.current?.content === content
@@ -230,6 +265,7 @@ export default function ChatRoom({
       role: "USER",
       senderName: "나",
       content: pendingMessage.content,
+      deliveryStatus: "SENT",
     };
 
     setMessages((currentMessages) => [...currentMessages, optimisticUserMessage]);
@@ -247,23 +283,29 @@ export default function ChatRoom({
         delay(MIN_AI_RESPONSE_DELAY_MS),
       ]);
     } catch (error) {
-      setMessages((currentMessages) =>
-        currentMessages.filter((message) => message.id !== pendingMessage.clientMessageId),
-      );
-
-      const isNetworkError = error instanceof TypeError;
-
-      if (!isNetworkError) {
-        pendingMessageRef.current = null;
-      }
+      pendingMessageRef.current = null;
 
       if (error instanceof ApiRequestError && error.status === 401) {
         router.replace("/login");
         throw error;
       }
 
+      if (error instanceof ApiRequestError && error.status === 410) {
+        isConversationExpiredRef.current = true;
+        setIsConversationExpired(true);
+        setSendError(null);
+        throw error;
+      }
+
+      setMessages((currentMessages) =>
+        currentMessages.map((message) =>
+          message.id === pendingMessage.clientMessageId
+            ? { ...message, deliveryStatus: "FAILED" }
+            : message,
+        ),
+      );
       setSendError({
-        message: error instanceof ApiRequestError ? error.message : "메시지를 전송하지 못했습니다.",
+        messageId: pendingMessage.clientMessageId,
         status: error instanceof ApiRequestError ? error.status : 0,
         retryAfterSeconds:
           error instanceof ApiRequestError && error.status === 429
@@ -273,6 +315,7 @@ export default function ChatRoom({
 
       throw error;
     } finally {
+      isMessageSendingRef.current = false;
       setIsAwaitingResponse(false);
     }
 
@@ -281,6 +324,7 @@ export default function ChatRoom({
       role: "ASSISTANT",
       senderName: "니쥬",
       content: response.content,
+      deliveryStatus: "SENT",
     };
 
     setMessages((currentMessages) => [
@@ -302,6 +346,44 @@ export default function ChatRoom({
     }
 
     onMessageSent?.(response);
+  };
+
+  const handleRetryMessage = async (messageId: ChatMessageId) => {
+    if (retryingMessageIdsRef.current.has(messageId)) return;
+
+    retryingMessageIdsRef.current.add(messageId);
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId && message.deliveryStatus === "FAILED"
+          ? { ...message, deliveryStatus: "RETRYING" }
+          : message,
+      ),
+    );
+
+    // TODO: 메시지 재전송 API 연동 후 임시 지연 및 성공 상태 전환 교체
+    await delay(MOCK_MESSAGE_RETRY_DELAY_MS);
+
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId && message.deliveryStatus === "RETRYING"
+          ? { ...message, deliveryStatus: "SENT" }
+          : message,
+      ),
+    );
+    setSendError((error) => (error?.messageId === messageId ? null : error));
+    retryingMessageIdsRef.current.delete(messageId);
+  };
+
+  const handleCancelMessage = (messageId: ChatMessageId) => {
+    // TODO: 메시지 전송 취소 API 연동 후 서버 응답에 따라 취소 상태 반영
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId && message.deliveryStatus === "FAILED"
+          ? { ...message, deliveryStatus: "CANCELED" }
+          : message,
+      ),
+    );
+    setSendError((error) => (error?.messageId === messageId ? null : error));
   };
 
   const handleReturnToChat = () => {
@@ -424,24 +506,42 @@ export default function ChatRoom({
         ref={messageListRef}
         messages={messages}
         isAwaitingResponse={isAwaitingResponse}
+        onRetryMessage={(messageId) => void handleRetryMessage(messageId)}
+        onCancelMessage={handleCancelMessage}
       />
-      {sendError && (
-        <AutoFitSingleLineText
-          role="alert"
-          className="mb-2 w-full min-w-0 text-center text-body-sm text-danger"
-        >
-          {sendErrorMessage}
-        </AutoFitSingleLineText>
-      )}
       {analysisStatus === "IDLE" && (isInputLocked || isResponseInputLocked) && (
         <ActionButton onClick={handleRetryAnalysis} className="mb-3 font-bold">
           분석 결과 다시 보기
         </ActionButton>
       )}
-      {isReadOnly && remainingConversationSeconds !== null && (
+      {isReadOnly && remainingConversationSeconds !== null && remainingConversationSeconds > 0 && (
         <p role="status" className="mb-2 text-center text-body-sm text-danger">
           {formatRemainingConversationTime(remainingConversationSeconds)} 이후 채팅이 가능합니다.
         </p>
+      )}
+      {isReadOnly && remainingConversationSeconds === 0 && hasRequestedNextConversation && (
+        <div className="mb-3 flex flex-col items-center gap-2">
+          {conversationStartError && (
+            <AutoFitSingleLineText
+              role="alert"
+              className="w-full min-w-0 text-center text-body-sm text-danger"
+            >
+              {conversationStartError}
+            </AutoFitSingleLineText>
+          )}
+          <ActionButton
+            onClick={() => void startConversation({ navigationMode: "replace" })}
+            disabled={isConversationStartUnavailable}
+            aria-busy={isStartingConversation || undefined}
+            className="font-bold"
+          >
+            {isStartingConversation
+              ? "새로운 대화 시작 중..."
+              : conversationStartRetryAfterSeconds > 0
+                ? `${conversationStartRetryAfterSeconds}초 후 다시 시도`
+                : "새로운 대화 다시 시작"}
+          </ActionButton>
+        </div>
       )}
       {analysisRequestError && (
         <AutoFitSingleLineText
@@ -458,11 +558,20 @@ export default function ChatRoom({
           isInputLocked ||
           isResponseInputLocked ||
           isReadOnly ||
+          isConversationExpired ||
           conversationId === undefined ||
           (sendError?.status === 429 && sendError.retryAfterSeconds > 0)
         }
       />
       <PreferenceAnalysisLoadingModal open={analysisStatus === "LOADING" || isConfirmingAnalysis} />
+      <AiConversationExpiredModal
+        open={isConversationExpired}
+        onStartNewConversation={() => void startConversation({ navigationMode: "replace" })}
+        isStartingConversation={isStartingConversation}
+        isStartUnavailable={isConversationStartUnavailable}
+        retryAfterSeconds={conversationStartRetryAfterSeconds}
+        errorMessage={conversationStartError}
+      />
       <PreferenceDataInsufficientModal
         open={isRestartRequired}
         onStartNewConversation={() => void startConversation()}

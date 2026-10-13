@@ -2,7 +2,7 @@
 
 import ChatBubble from "@/components/chat/ChatBubble";
 import TypingIndicator from "@/components/chat/TypingIndicator";
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMessage, ChatMessageId } from "@/types/chat";
 
 import styles from "./ChatMessageList.module.css";
 
@@ -11,12 +11,16 @@ import type { Ref } from "react";
 type ChatMessageListProps = {
   messages: ChatMessage[];
   isAwaitingResponse?: boolean;
+  onRetryMessage: (messageId: ChatMessageId) => void;
+  onCancelMessage: (messageId: ChatMessageId) => void;
   ref?: Ref<HTMLElement>;
 };
 
 export default function ChatMessageList({
   messages,
   isAwaitingResponse = false,
+  onRetryMessage,
+  onCancelMessage,
   ref,
 }: ChatMessageListProps) {
   return (
@@ -27,7 +31,12 @@ export default function ChatMessageList({
       className={`${styles.messageList} flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto py-5 pr-3`}
     >
       {messages.map((message) => (
-        <ChatBubble key={message.id} message={message} />
+        <ChatBubble
+          key={message.id}
+          message={message}
+          onRetryMessage={onRetryMessage}
+          onCancelMessage={onCancelMessage}
+        />
       ))}
       {isAwaitingResponse && <TypingIndicator />}
     </section>

@@ -3,6 +3,9 @@
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { USE_MOCK_DATA } from "@/mocks/config";
+
+export type PersonalRecommendationFeedback = "LIKE" | "DISLIKE";
 
 export interface PersonalRecommendation {
   recommendationId: number;
@@ -12,7 +15,9 @@ export interface PersonalRecommendation {
   purchaseUrl: string;
   category: string;
   price: number;
+  score: number;
   reason: string;
+  myFeedback: PersonalRecommendationFeedback | null;
 }
 
 export interface PersonalRecommendationsPriceRange {
@@ -38,6 +43,7 @@ interface PersonalRecommendationsResponse {
 }
 
 type PersonalRecommendationsPaginationParams = {
+  category?: string;
   cursor?: string;
   size?: number;
 };
@@ -56,16 +62,27 @@ type GetPersonalRecommendationsParams = PersonalRecommendationsPaginationParams 
   PersonalRecommendationsPriceParams;
 
 export async function getPersonalRecommendations({
+  category,
   minPrice,
   maxPrice,
   cursor,
   size = 20,
 }: GetPersonalRecommendationsParams = {}) {
+  if (USE_MOCK_DATA) {
+    const { getMockPersonalRecommendationsPage } = await import("@/mocks/recommendations");
+
+    return getMockPersonalRecommendationsPage({ cursor, size, minPrice, maxPrice });
+  }
+
   const searchParams = new URLSearchParams({ size: String(size) });
 
   if (minPrice !== undefined && maxPrice !== undefined) {
     searchParams.set("minPrice", String(minPrice));
     searchParams.set("maxPrice", String(maxPrice));
+  }
+
+  if (category) {
+    searchParams.set("category", category);
   }
 
   if (cursor) {

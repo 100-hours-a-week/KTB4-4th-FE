@@ -1,10 +1,11 @@
+
 name: Frontend CI
 
 on:
   pull_request:
     branches: [dev, main]
   push:
-    branches: [main]
+    branches: [dev, main]
 
 permissions:
   contents: read
@@ -14,11 +15,8 @@ env:
   ECR_REPOSITORY: need-u/frontend
 
 jobs:
-  # =========================================================
-  # PR / Push 공통 기본 검증
-  # =========================================================
   check:
-    name: Type Check, Lint & Build
+    name: Format Check, Type Check, Lint & Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -35,6 +33,9 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Format Check
+        run: npm run format:check
+
       - name: Generate Next.js Types
         run: npx next typegen
 
@@ -45,18 +46,12 @@ jobs:
         run: npm run lint
 
       - name: Production Build
-        env:
-          # PR 검증에서는 실제 운영 Parameter를 사용하지 않는다.
-          BACKEND_API_BASE_URL: http://127.0.0.1:8080/
         run: npm run build
 
-  # =========================================================
-  # dev -> main PR Docker Build 검증
-  # =========================================================
   docker-build-check:
     name: Docker Build Check
     needs: check
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    if: github.event_name == 'pull_request' && github.base_ref == 'dev'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -65,19 +60,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Docker Build Check
-        env:
-          BACKEND_API_BASE_URL: http://127.0.0.1:8080/
         run: |
           docker build \
-            --build-arg BACKEND_API_BASE_URL="$BACKEND_API_BASE_URL" \
             -t needu-frontend:ci-check \
             .
 
   # =========================================================
-  # main Push -> Production Image Build & ECR Push
+  # V1: main Push -> SHA Image
   # =========================================================
-  ecr-push:
-    name: Build & Push to ECR
+  v1-ecr-push:
+    name: Build & Push V1 Image
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -91,59 +83,49 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # GitHub Actions -> AWS OIDC 인증
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.NEEDU_CI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Parameter Store의 Frontend 설정값을 GitHub Actions 환경변수로 등록
-      - name: Load Frontend Parameters
+      - name: Load V1 Frontend Parameters
         shell: bash
         run: |
-          while IFS=$'\t' read -r name value; do
-            if [ -n "$name" ]; then
-              key="$(basename "$name")"
+          set -euo pipefail
 
-              # GitHub Actions Log에 값이 노출되지 않도록 Masking
-              echo "::add-mask::$value"
-
-              # 이후 Step에서 환경변수로 사용할 수 있도록 등록
-              echo "$key=$value" >> "$GITHUB_ENV"
-            fi
-          done < <(
-            aws ssm get-parameters-by-path \
+          for key in \
+            BACKEND_API_BASE_URL \
+            NEXT_PUBLIC_SENTRY_DSN \
+            SENTRY_ORG \
+            SENTRY_PROJECT \
+            SENTRY_AUTH_TOKEN
+          do
+            value=$(aws ssm get-parameter \
               --region "$AWS_REGION" \
-              --path "/needu/prod/frontend" \
-              --recursive \
+              --name "/needu/prod/frontend/$key" \
               --with-decryption \
-              --query 'Parameters[*].[Name,Value]' \
-              --output text
-          )
+              --query 'Parameter.Value' \
+              --output text)
 
-      # 필수 Parameter가 제대로 들어왔는지만 확인
-      # 실제 값은 출력하지 않는다.
-      - name: Validate Frontend Parameters
-        shell: bash
-        run: |
-          : "${BACKEND_API_BASE_URL:?BACKEND_API_BASE_URL is required}"
-          : "${NEXT_PUBLIC_SENTRY_DSN:?NEXT_PUBLIC_SENTRY_DSN is required}"
-          : "${SENTRY_ORG:?SENTRY_ORG is required}"
-          : "${SENTRY_PROJECT:?SENTRY_PROJECT is required}"
-          : "${SENTRY_AUTH_TOKEN:?SENTRY_AUTH_TOKEN is required}"
+            if [[ -z "$value" || "$value" == "None" ]]; then
+              echo "Missing V1 parameter: $key"
+              exit 1
+            fi
 
-          echo "Frontend parameters loaded successfully."
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build Docker Image
+      - name: Build V1 Docker Image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-          DOCKER_BUILDKIT: 1
+          IMAGE_SHA: ${{ github.sha }}
+          DOCKER_BUILDKIT: "1"
         run: |
           docker build \
             --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
@@ -151,14 +133,106 @@ jobs:
             --build-arg NEXT_PUBLIC_SENTRY_DSN="$NEXT_PUBLIC_SENTRY_DSN" \
             --build-arg SENTRY_ORG="$SENTRY_ORG" \
             --build-arg SENTRY_PROJECT="$SENTRY_PROJECT" \
-            --build-arg SENTRY_RELEASE="$IMAGE_TAG" \
-            -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            --build-arg SENTRY_RELEASE="$IMAGE_SHA" \
+            -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_SHA" \
             .
 
-      - name: Push Docker Image
+      - name: Push V1 Docker Image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_SHA: ${{ github.sha }}
         run: |
           docker push \
-            "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+            "$REGISTRY/$ECR_REPOSITORY:$IMAGE_SHA"
+
+  # =========================================================
+  # V2: dev Push -> v2-SHA Image
+  # =========================================================
+  v2-ecr-push:
+    name: Build & Push V2 Image
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Load V2 Frontend Parameters
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for key in \
+            NEXT_PUBLIC_SENTRY_DSN \
+            SENTRY_ORG \
+            SENTRY_PROJECT \
+            SENTRY_AUTH_TOKEN
+          do
+            value=$(aws ssm get-parameter \
+              --region "$AWS_REGION" \
+              --name "/needu/common/frontend-build/$key" \
+              --with-decryption \
+              --query 'Parameter.Value' \
+              --output text)
+
+            if [[ -z "$value" || "$value" == "None" ]]; then
+              echo "Missing V2 parameter: $key"
+              exit 1
+            fi
+
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build V2 Docker Image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_SHA: ${{ github.sha }}
+          DOCKER_BUILDKIT: "1"
+        run: |
+          docker build \
+            --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN="$NEXT_PUBLIC_SENTRY_DSN" \
+            --build-arg SENTRY_ORG="$SENTRY_ORG" \
+            --build-arg SENTRY_PROJECT="$SENTRY_PROJECT" \
+            --build-arg SENTRY_RELEASE="$IMAGE_SHA" \
+            -t "$REGISTRY/$ECR_REPOSITORY:v2-$IMAGE_SHA" \
+            .
+
+      - name: Push V2 Docker Image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_SHA: ${{ github.sha }}
+        run: |
+          docker push \
+            "$REGISTRY/$ECR_REPOSITORY:v2-$IMAGE_SHA"
+
+  # =========================================================
+  # V2 Dev: ECR Push 성공 후 ECS 자동 배포
+  # =========================================================
+  deploy-dev:
+    name: Deploy V2 Dev
+    needs: v2-ecr-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: dev
+      github_environment: dev
+      image_sha: ${{ github.sha }}
+    secrets: inherit

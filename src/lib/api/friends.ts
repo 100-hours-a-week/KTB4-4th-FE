@@ -3,6 +3,7 @@
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { USE_MOCK_DATA } from "@/mocks/config";
 
 export interface FriendListItem {
   userId: number;
@@ -38,9 +39,17 @@ interface FriendsResponse {
   hasNext: boolean;
 }
 
+interface FriendDetailData {
+  userId: number;
+  name: string;
+  profileImageUrl: string | null;
+  tasteAnalysisCompleted: boolean;
+  birthDate: string;
+}
+
 interface FriendDetailResponse {
   message: string;
-  data: FriendDetail;
+  data: FriendDetailData;
 }
 
 interface GetFriendsParams {
@@ -49,6 +58,12 @@ interface GetFriendsParams {
 }
 
 export async function getFriends({ cursor, size = 20 }: GetFriendsParams = {}) {
+  if (USE_MOCK_DATA) {
+    const { getMockFriendsPage } = await import("@/mocks/friends");
+
+    return getMockFriendsPage(cursor, size);
+  }
+
   const searchParams = new URLSearchParams({
     size: String(size),
   });
@@ -77,6 +92,14 @@ export async function getFriends({ cursor, size = 20 }: GetFriendsParams = {}) {
 }
 
 export async function getFriendDetail(userId: number) {
+  if (USE_MOCK_DATA) {
+    const { getMockFriendDetail, isMockFriendId } = await import("@/mocks/friends");
+
+    if (isMockFriendId(userId)) {
+      return getMockFriendDetail(userId);
+    }
+  }
+
   const response = await apiFetch(API_ENDPOINTS.friends.detail(userId), {
     method: "GET",
     cache: "no-store",
@@ -88,5 +111,11 @@ export async function getFriendDetail(userId: number) {
 
   const { data } = (await response.json()) as FriendDetailResponse;
 
-  return data;
+  return {
+    id: data.userId,
+    nickname: data.name,
+    profileImageUrl: data.profileImageUrl,
+    tasteAnalysisCompleted: data.tasteAnalysisCompleted,
+    birthDate: data.birthDate,
+  } satisfies FriendDetail;
 }

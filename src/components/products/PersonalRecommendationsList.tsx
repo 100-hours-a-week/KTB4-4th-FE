@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
+import { ApiRequestError } from "@/lib/api/client";
 import {
   getPersonalRecommendations,
   type PersonalRecommendation,
@@ -15,19 +16,22 @@ import {
 const PAGE_SIZE = 20;
 
 type PersonalRecommendationsListProps = {
+  category?: string;
   minPrice?: number;
   maxPrice?: number;
   onPriceRangeLoad?: (priceRange: PersonalRecommendationsPriceRange | null) => void;
 };
 
 export default function PersonalRecommendationsList({
+  category,
   minPrice,
   maxPrice,
   onPriceRangeLoad,
 }: PersonalRecommendationsListProps) {
   return (
     <PersonalRecommendationsListContent
-      key={`${minPrice ?? "initial"}:${maxPrice ?? "initial"}`}
+      key={`${category ?? "all"}:${minPrice ?? "initial"}:${maxPrice ?? "initial"}`}
+      category={category}
       minPrice={minPrice}
       maxPrice={maxPrice}
       onPriceRangeLoad={onPriceRangeLoad}
@@ -36,6 +40,7 @@ export default function PersonalRecommendationsList({
 }
 
 function PersonalRecommendationsListContent({
+  category,
   minPrice,
   maxPrice,
   onPriceRangeLoad,
@@ -50,12 +55,14 @@ function PersonalRecommendationsListContent({
   const isLoadingRef = useRef(false);
   const hasNextRef = useRef(true);
   const nextCursorRef = useRef<string | null>(null);
+  const requestGenerationRef = useRef(0);
 
   const loadNextPage = useCallback(async () => {
     if (isLoadingRef.current || !hasNextRef.current) {
       return;
     }
 
+    const requestGeneration = requestGenerationRef.current;
     isLoadingRef.current = true;
     setIsLoading(true);
 
@@ -64,11 +71,12 @@ function PersonalRecommendationsListContent({
         minPrice !== undefined && maxPrice !== undefined ? { minPrice, maxPrice } : {};
       const data = await getPersonalRecommendations({
         ...priceParams,
+        category,
         cursor: nextCursorRef.current ?? undefined,
         size: PAGE_SIZE,
       });
 
-      if (!isMountedRef.current) {
+      if (!isMountedRef.current || requestGeneration !== requestGenerationRef.current) {
         return;
       }
 
@@ -81,25 +89,33 @@ function PersonalRecommendationsListContent({
       hasNextRef.current = data.hasNext && Boolean(data.nextCursor);
       setNextCursor(data.nextCursor);
       setHasNext(hasNextRef.current);
-    } catch {
-      if (isMountedRef.current) {
-        router.replace("/error");
+    } catch (error) {
+      // TODO: 429 응답의 Retry-After 또는 retryAfterSeconds를 활용한 재시도 안내 연동
+      if (isMountedRef.current && requestGeneration === requestGenerationRef.current) {
+        router.replace(
+          error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
+        );
       }
     } finally {
-      isLoadingRef.current = false;
+      if (requestGeneration === requestGenerationRef.current) {
+        isLoadingRef.current = false;
 
-      if (isMountedRef.current) {
-        setIsLoading(false);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
       }
     }
-  }, [maxPrice, minPrice, onPriceRangeLoad, router]);
+  }, [category, maxPrice, minPrice, onPriceRangeLoad, router]);
 
   useEffect(() => {
     isMountedRef.current = true;
+    requestGenerationRef.current += 1;
+    isLoadingRef.current = false;
     void loadNextPage();
 
     return () => {
       isMountedRef.current = false;
+      requestGenerationRef.current += 1;
     };
   }, [loadNextPage]);
 
@@ -129,9 +145,15 @@ function PersonalRecommendationsListContent({
 
   return (
     <>
-      {products.map((product) => (
-        <ProductCard key={product.recommendationId} product={product} />
-      ))}
+      <div className="grid grid-cols-3 gap-x-2 gap-y-5">
+        {products.map((product) => (
+          <ProductCard
+            key={product.recommendationId}
+            product={product}
+            detailHref={`/products/${product.productId}?context=PERSONAL`}
+          />
+        ))}
+      </div>
 
       {hasNext && <div ref={sentinelRef} aria-hidden="true" className="h-px" />}
 

@@ -33,7 +33,10 @@ export default function RecommendationTarget({
     availableMinPrice <= availableMaxPrice;
   const recommendationTitle =
     target.type === "SELF" ? (
-      "나를 위한 추천"
+      <span className="flex min-w-0 items-center whitespace-nowrap">
+        <span className="min-w-0 truncate text-info">{target.name}</span>
+        <span className="shrink-0">님을 위한 추천</span>
+      </span>
     ) : (
       <span className="flex min-w-0 items-center whitespace-nowrap">
         <span className="min-w-0 truncate text-[#4684e9]">{target.name}</span>
@@ -42,7 +45,7 @@ export default function RecommendationTarget({
     );
 
   return (
-    <div className="flex w-full items-center gap-3 rounded-lg border border-border-strong bg-surface p-4">
+    <div className="flex w-full items-center gap-3 rounded-lg bg-background-subtle p-4">
       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-background-subtle">
         {target.profileImageUrl ? (
           <Image
