@@ -239,11 +239,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         // 로그인 확인 실패 시 각 페이지의 인증 처리에 맡기고 연결을 열지 않음
       });
 
-    // 페이지 이동 중에도 연결을 유지해야 하므로 언마운트 시 연결은 닫지 않음
+    // (main) 내부 화면 전환 중에는 레이아웃이 유지되어 연결도 유지되고,
+    // (main) 영역을 벗어나 Provider가 언마운트될 때만 연결을 닫음
     return () => {
       isMountedRef.current = false;
       retryTimers.forEach((timer) => clearTimeout(timer));
       retryTimers.clear();
+      closeNotificationStream();
     };
   }, [loadInitialNotifications, recoverMissedNotifications]);
 
