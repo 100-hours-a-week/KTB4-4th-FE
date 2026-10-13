@@ -1,4 +1,3 @@
-
 name: Frontend CI
 
 on:
@@ -230,9 +229,16 @@ jobs:
     name: Deploy V2 Dev
     needs: v2-ecr-push
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+
+    permissions:
+      contents: read
+      id-token: write
+
     uses: ./.github/workflows/deploy.yml
+
     with:
       environment: dev
       github_environment: dev
       image_sha: ${{ github.sha }}
+
     secrets: inherit
