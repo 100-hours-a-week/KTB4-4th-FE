@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import EmptyFriends from "@/components/friends/EmptyFriends";
 import FriendCard from "@/components/friends/FriendCard";
 import { ApiRequestError } from "@/lib/api/client";
-import { getFriends, type FriendListItem } from "@/lib/api/friends";
+import { getFriends, type FriendListItem, updateFriendFavorite } from "@/lib/api/friends";
 
 const PAGE_SIZE = 20;
 
@@ -23,6 +23,10 @@ type FriendListRequestError = {
   retryAfterSeconds: number;
 };
 
+type FavoriteRequestError = FriendListRequestError & {
+  userId: number;
+};
+
 export default function FriendsList({
   isFavorite,
   keyword,
@@ -36,21 +40,19 @@ export default function FriendsList({
   const [isLoading, setIsLoading] = useState(false);
   const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
   const [requestError, setRequestError] = useState<FriendListRequestError | null>(null);
+  const [pendingFavoriteUserIds, setPendingFavoriteUserIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const [favoriteRequestError, setFavoriteRequestError] = useState<FavoriteRequestError | null>(
+    null,
+  );
   const sentinelRef = useRef<HTMLLIElement>(null);
   const isMountedRef = useRef(false);
   const isLoadingRef = useRef(false);
   const hasNextRef = useRef(true);
   const nextCursorRef = useRef<string | null>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
-
-  const handleToggleFavorite = useCallback((userId: number) => {
-    // TODO: 즐겨찾기 설정·해제 API 연동 후 성공 응답을 기준으로 상태 갱신 및 실패 처리
-    setFriends((currentFriends) =>
-      currentFriends.map((friend) =>
-        friend.userId === userId ? { ...friend, isFavorite: !friend.isFavorite } : friend,
-      ),
-    );
-  }, []);
+  const pendingFavoriteUserIdsRef = useRef(new Set<number>());
 
   const loadNextPage = useCallback(async () => {
     if (isLoadingRef.current || !hasNextRef.current) {
@@ -74,7 +76,7 @@ export default function FriendsList({
         signal: requestController.signal,
       });
 
-      if (!isMountedRef.current) {
+      if (!isMountedRef.current || requestControllerRef.current !== requestController) {
         return;
       }
 
@@ -84,7 +86,9 @@ export default function FriendsList({
         onKakaoFriendSyncedChange(data.isKakaoFriendSynced);
       }
 
-      setFriends((currentFriends) => [...currentFriends, ...data.items]);
+      setFriends((currentFriends) =>
+        isFirstPage ? data.items : [...currentFriends, ...data.items],
+      );
       nextCursorRef.current = data.nextCursor;
       hasNextRef.current = data.hasNext && Boolean(data.nextCursor);
       setNextCursor(data.nextCursor);
@@ -115,15 +119,77 @@ export default function FriendsList({
     } finally {
       if (requestControllerRef.current === requestController) {
         requestControllerRef.current = null;
-      }
+        isLoadingRef.current = false;
 
-      isLoadingRef.current = false;
-
-      if (isMountedRef.current) {
-        setIsLoading(false);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
       }
     }
   }, [isFavorite, keyword, onHasFriendsChange, onKakaoFriendSyncedChange, router]);
+
+  const handleToggleFavorite = useCallback(
+    async (userId: number, currentIsFavorite: boolean) => {
+      if (
+        pendingFavoriteUserIdsRef.current.has(userId) ||
+        (favoriteRequestError?.userId === userId && favoriteRequestError.retryAfterSeconds > 0)
+      ) {
+        return;
+      }
+
+      pendingFavoriteUserIdsRef.current.add(userId);
+      setPendingFavoriteUserIds(new Set(pendingFavoriteUserIdsRef.current));
+      setFavoriteRequestError(null);
+
+      try {
+        await updateFriendFavorite(userId, !currentIsFavorite);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        requestControllerRef.current?.abort();
+        requestControllerRef.current = null;
+        isLoadingRef.current = false;
+        nextCursorRef.current = null;
+        hasNextRef.current = true;
+        setFriends([]);
+        setNextCursor(null);
+        setHasNext(true);
+        setRequestError(null);
+
+        await loadNextPage();
+      } catch (error) {
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        setFavoriteRequestError({
+          userId,
+          message:
+            error instanceof ApiRequestError
+              ? error.message
+              : "즐겨찾기를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          retryAfterSeconds:
+            error instanceof ApiRequestError && error.status === 429
+              ? (error.retryAfterSeconds ?? 0)
+              : 0,
+        });
+      } finally {
+        pendingFavoriteUserIdsRef.current.delete(userId);
+
+        if (isMountedRef.current) {
+          setPendingFavoriteUserIds(new Set(pendingFavoriteUserIdsRef.current));
+        }
+      }
+    },
+    [favoriteRequestError, loadNextPage, router],
+  );
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -133,6 +199,7 @@ export default function FriendsList({
       isMountedRef.current = false;
       requestControllerRef.current?.abort();
       requestControllerRef.current = null;
+      isLoadingRef.current = false;
     };
   }, [loadNextPage]);
 
@@ -157,6 +224,28 @@ export default function FriendsList({
 
     return () => window.clearInterval(timer);
   }, [requestError]);
+
+  useEffect(() => {
+    if (!favoriteRequestError || favoriteRequestError.retryAfterSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setFavoriteRequestError((currentError) => {
+        if (!currentError || currentError.retryAfterSeconds <= 1) {
+          window.clearInterval(timer);
+          return currentError ? { ...currentError, retryAfterSeconds: 0 } : null;
+        }
+
+        return {
+          ...currentError,
+          retryAfterSeconds: currentError.retryAfterSeconds - 1,
+        };
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [favoriteRequestError]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -197,17 +286,34 @@ export default function FriendsList({
       aria-busy={isLoading}
       className="mt-6 flex list-none flex-col gap-5 p-0"
     >
-      {visibleFriends.map((friend) => (
-        <li key={friend.userId}>
-          <FriendCard
-            userId={friend.userId}
-            name={friend.name}
-            profileImageUrl={friend.profileImageUrl}
-            isFavorite={friend.isFavorite}
-            onToggleFavorite={() => handleToggleFavorite(friend.userId)}
-          />
-        </li>
-      ))}
+      {visibleFriends.map((friend) => {
+        const friendFavoriteError =
+          favoriteRequestError?.userId === friend.userId ? favoriteRequestError : null;
+
+        return (
+          <li key={friend.userId}>
+            <FriendCard
+              userId={friend.userId}
+              name={friend.name}
+              profileImageUrl={friend.profileImageUrl}
+              birthDate={friend.birthDate}
+              isFavorite={friend.isFavorite}
+              isFavoritePending={pendingFavoriteUserIds.has(friend.userId)}
+              isFavoriteDisabled={Boolean(
+                friendFavoriteError && friendFavoriteError.retryAfterSeconds > 0,
+              )}
+              onToggleFavorite={() => void handleToggleFavorite(friend.userId, friend.isFavorite)}
+            />
+            {friendFavoriteError && (
+              <p role="alert" className="mt-1 text-right text-caption text-danger">
+                {friendFavoriteError.message}
+                {friendFavoriteError.retryAfterSeconds > 0 &&
+                  ` ${friendFavoriteError.retryAfterSeconds}초 후 다시 시도해 주세요.`}
+              </p>
+            )}
+          </li>
+        );
+      })}
 
       {hasNext && !requestError && <li ref={sentinelRef} aria-hidden="true" className="h-px" />}
 
