@@ -20,6 +20,7 @@ import {
   openNotificationStream,
   updateNotificationServerTime,
 } from "@/lib/api/notificationStream";
+import { parseServerDateTime } from "@/lib/parseServerDateTime";
 import type {
   NotificationCreatedEvent,
   NotificationItem,
@@ -43,7 +44,9 @@ type NotificationContextValue = {
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
 function sortByCreatedAtDesc(items: NotificationItem[]) {
-  return [...items].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  return [...items].sort(
+    (a, b) => parseServerDateTime(b.createdAt) - parseServerDateTime(a.createdAt),
+  );
 }
 
 // 웹 푸시·재연결 복구로 같은 알림이 중복될 수 있어 notificationId 기준으로 병합함

@@ -3,6 +3,7 @@
 
 import { ApiRequestError, redirectToLogin, refreshAccessToken } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { parseServerDateTime } from "@/lib/parseServerDateTime";
 import type {
   NotificationConnectedEvent,
   NotificationCreatedEvent,
@@ -36,7 +37,7 @@ function parseEventData<T>(event: MessageEvent<string>) {
 function isLaterThanLastServerTime(serverTime: string) {
   if (!lastServerTime) return true;
 
-  return Date.parse(serverTime) > Date.parse(lastServerTime);
+  return parseServerDateTime(serverTime) > parseServerDateTime(lastServerTime);
 }
 
 export function updateNotificationServerTime(serverTime: string) {
@@ -133,7 +134,7 @@ function connect() {
 
   source.addEventListener("connected", handleConnected);
   source.addEventListener("heartbeat", handleHeartbeat);
-  source.addEventListener("notification", handleNotification);
+  source.addEventListener("notification.created", handleNotification);
   source.onerror = () => {
     // CONNECTING 상태는 30분 만료 등으로 브라우저가 자동 재연결 중이므로 그대로 둠
     if (source !== eventSource || source.readyState !== EventSource.CLOSED) return;
