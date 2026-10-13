@@ -3,15 +3,15 @@
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import type {
+  NotificationSetting,
+  NotificationSettingType,
+} from "@/lib/api/notificationSettingTypes";
 
-export type NotificationSettingType =
-  "WEB_PUSH" | "FRIEND_BIRTHDAY" | "FRIEND_JOINED" | "PURCHASE_FEEDBACK";
-
-export interface NotificationSetting {
-  type: NotificationSettingType;
-  enabled: boolean;
-  updatedAt: string;
-}
+export type {
+  NotificationSetting,
+  NotificationSettingType,
+} from "@/lib/api/notificationSettingTypes";
 
 interface UpdateNotificationSettingResponse {
   message: string;
