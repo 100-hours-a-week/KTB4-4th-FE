@@ -2,11 +2,31 @@
 
 import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectButton";
 
+type EmptyFriendsVariant = "friends" | "favorites" | "search";
+
 type EmptyFriendsProps = {
+  variant: EmptyFriendsVariant;
   showKakaoConnectButton: boolean;
 };
 
-export default function EmptyFriends({ showKakaoConnectButton }: EmptyFriendsProps) {
+const EMPTY_CONTENT: Record<EmptyFriendsVariant, { title: string; description: string }> = {
+  friends: {
+    title: "선물을 추천받을 친구가 아직 없어요.",
+    description: "카카오톡 친구가 니쥬를 시작하면 이곳에 표시돼요.",
+  },
+  favorites: {
+    title: "즐겨찾는 친구가 아직 없어요.",
+    description: "친구를 즐겨찾기에 추가하면 여기에서 빠르게 찾을 수 있어요.",
+  },
+  search: {
+    title: "검색 결과가 없어요.",
+    description: "다른 검색어로 다시 찾아보세요.",
+  },
+};
+
+export default function EmptyFriends({ variant, showKakaoConnectButton }: EmptyFriendsProps) {
+  const content = EMPTY_CONTENT[variant];
+
   return (
     <section className="mt-[clamp(120px,20vh,190px)] flex flex-col items-center text-center">
       <svg
@@ -26,12 +46,8 @@ export default function EmptyFriends({ showKakaoConnectButton }: EmptyFriendsPro
         />
         <path d="m70 29 7 7m0-7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
-      <p className="mt-4 text-body-lg font-bold text-foreground">
-        선물을 추천받을 친구가 아직 없어요.
-      </p>
-      <p className="mt-1 text-body-sm text-muted">
-        카카오톡 친구가 니쥬를 시작하면 이곳에 표시돼요.
-      </p>
+      <p className="mt-4 text-body-lg font-bold text-foreground">{content.title}</p>
+      <p className="mt-1 text-body-sm text-muted">{content.description}</p>
       {showKakaoConnectButton && (
         <div className="mt-5 w-full max-w-[332px]">
           <KakaoFriendConnectButton />
