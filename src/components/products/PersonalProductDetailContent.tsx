@@ -9,11 +9,20 @@ import Modal from "@/components/common/Modal";
 import { ApiRequestError } from "@/lib/api/client";
 import type { ProductDetail, ProductDetailContext } from "@/lib/api/productDetail";
 import { saveProductFeedback } from "@/lib/api/productFeedback";
+import { recordProductLinkClick } from "@/lib/api/productLinkClicks";
 
 type PersonalProductDetailContentProps = {
   product: ProductDetail;
-  context: ProductDetailContext;
-};
+} & (
+  | {
+      context: Exclude<ProductDetailContext, "FRIEND_GIFT">;
+      friendUserId?: never;
+    }
+  | {
+      context: "FRIEND_GIFT";
+      friendUserId: number;
+    }
+);
 
 const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
 
@@ -32,6 +41,7 @@ const getFeedbackErrorMessage = (error: unknown) => {
 export default function PersonalProductDetailContent({
   product,
   context,
+  friendUserId,
 }: PersonalProductDetailContentProps) {
   const router = useRouter();
   const [feedback, setFeedback] = useState(product.myFeedback);
@@ -41,6 +51,21 @@ export default function PersonalProductDetailContent({
   const isFriendGift = context === "FRIEND_GIFT";
 
   const handlePurchase = () => {
+    const clickRecord =
+      context === "FRIEND_GIFT"
+        ? {
+            productId: product.productId,
+            context,
+            friendUserId,
+            recommendationId: product.recommendation.recommendationId,
+          }
+        : {
+            productId: product.productId,
+            context,
+            recommendationId: product.recommendation.recommendationId,
+          };
+
+    void recordProductLinkClick(clickRecord).catch(() => undefined);
     window.open(product.purchaseUrl, "_blank", "noopener,noreferrer");
   };
 

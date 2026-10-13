@@ -11,6 +11,9 @@ export const API_ENDPOINTS = {
     conversationConfirmation: (conversationId: number) =>
       `${API_V1_PREFIX}/ai/conversations/${conversationId}/confirm`,
   },
+  analytics: {
+    productLinkClicks: `${API_V1_PREFIX}/analytics/product-link-clicks`,
+  },
   auth: {
     kakaoAuthorize: `${API_V1_PREFIX}/auth/kakao/authorize`,
     csrf: `${API_V1_PREFIX}/auth/csrf`,

@@ -67,13 +67,17 @@ export default async function ProductDetailPage({ params, searchParams }: Produc
   }
 
   const product = await getProductDetailOrRedirect(parsedProductId, context, parsedUserId);
+  const detailProps =
+    context === "FRIEND_GIFT"
+      ? { product, context, friendUserId: parsedUserId as number }
+      : { product, context };
 
   return (
     <main
       aria-label="상품 상세"
       className="page-content flex flex-1 flex-col bg-background pb-[max(2rem,env(safe-area-inset-bottom))]"
     >
-      <PersonalProductDetailContent product={product} context={context} />
+      <PersonalProductDetailContent {...detailProps} />
     </main>
   );
 }
