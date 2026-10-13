@@ -2,6 +2,7 @@
 
 import type {
   FriendDetail,
+  FriendFavorite,
   FriendListItem,
   FriendsPage,
   GetFriendsParams,
@@ -32,34 +33,7 @@ type MockCursor = {
   keyword: string;
 };
 
-function getUpcomingBirthdayTime(birthDate: string | null) {
-  if (!birthDate) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  const [, month, day] = birthDate.split("-").map(Number);
-  const today = new Date();
-  const upcomingBirthday = new Date(today.getFullYear(), month - 1, day);
-
-  if (upcomingBirthday < new Date(today.getFullYear(), today.getMonth(), today.getDate())) {
-    upcomingBirthday.setFullYear(today.getFullYear() + 1);
-  }
-
-  return upcomingBirthday.getTime();
-}
-
 function sortFriends(left: FriendListItem, right: FriendListItem) {
-  if (left.isFavorite !== right.isFavorite) {
-    return left.isFavorite ? -1 : 1;
-  }
-
-  const birthdayDifference =
-    getUpcomingBirthdayTime(left.birthDate) - getUpcomingBirthdayTime(right.birthDate);
-
-  if (birthdayDifference !== 0) {
-    return birthdayDifference;
-  }
-
   return left.name.localeCompare(right.name, "ko");
 }
 
@@ -129,4 +103,21 @@ export async function getMockFriendDetail(userId: number) {
     tasteAnalysisCompleted: true,
     birthDate: friend.birthDate ?? "2000-01-01",
   } satisfies FriendDetail;
+}
+
+export async function updateMockFriendFavorite(userId: number, isFavorite: boolean) {
+  await mockDelay();
+
+  const friend = mockFriends.find((item) => item.userId === userId);
+
+  if (!friend) {
+    throw new Error("목업 친구를 찾을 수 없습니다.");
+  }
+
+  friend.isFavorite = isFavorite;
+
+  return {
+    userId: friend.userId,
+    isFavorite: friend.isFavorite,
+  } satisfies FriendFavorite;
 }

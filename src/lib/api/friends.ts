@@ -21,6 +21,11 @@ export interface FriendDetail {
   birthDate: string;
 }
 
+export interface FriendFavorite {
+  userId: number;
+  isFavorite: boolean;
+}
+
 interface FriendsData {
   items: FriendListItem[];
   isKakaoFriendSynced: boolean;
@@ -58,6 +63,11 @@ interface FriendDetailResponse {
   data: FriendDetailData;
 }
 
+interface FriendFavoriteResponse {
+  message: string;
+  data: FriendFavorite;
+}
+
 export interface GetFriendsParams {
   cursor?: string;
   size?: number;
@@ -74,6 +84,16 @@ const DEFAULT_ERROR_MESSAGES: Partial<Record<number, string>> = {
   401: "로그인이 필요합니다.",
   403: "친구 목록을 조회할 수 없는 계정입니다.",
   404: "사용자 정보를 찾을 수 없습니다.",
+  422: "입력값이 유효하지 않습니다. 입력 내용을 확인해 주세요.",
+  429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+  500: "요청을 처리하지 못했습니다.",
+  503: "일시적으로 서비스를 이용할 수 없습니다.",
+};
+const FRIEND_FAVORITE_ERROR_MESSAGES: Partial<Record<number, string>> = {
+  400: "요청 형식이 올바르지 않습니다.",
+  401: "로그인이 필요합니다.",
+  403: "보안 토큰을 확인하지 못했습니다. 다시 시도해 주세요.",
+  404: "친구를 찾을 수 없습니다.",
   422: "입력값이 유효하지 않습니다. 입력 내용을 확인해 주세요.",
   429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   500: "요청을 처리하지 못했습니다.",
@@ -209,4 +229,36 @@ export async function getFriendDetail(userId: number) {
     tasteAnalysisCompleted: data.tasteAnalysisCompleted,
     birthDate: data.birthDate,
   } satisfies FriendDetail;
+}
+
+export async function updateFriendFavorite(userId: number, isFavorite: boolean) {
+  if (USE_MOCK_DATA) {
+    const { updateMockFriendFavorite } = await import("@/mocks/friends");
+
+    return updateMockFriendFavorite(userId, isFavorite);
+  }
+
+  const response = await apiFetch(API_ENDPOINTS.friends.favorite(userId), {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ isFavorite }),
+  });
+
+  if (!response.ok) {
+    const errorResponse = (await response.json().catch(() => null)) as FriendsErrorResponse | null;
+
+    throw new ApiRequestError(
+      errorResponse?.message ??
+        FRIEND_FAVORITE_ERROR_MESSAGES[response.status] ??
+        "즐겨찾기를 변경하지 못했습니다.",
+      response.status,
+      getRetryAfterSeconds(response, errorResponse),
+    );
+  }
+
+  const { data } = (await response.json()) as FriendFavoriteResponse;
+
+  return data;
 }
