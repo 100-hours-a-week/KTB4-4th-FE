@@ -3,21 +3,31 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import Modal from "@/components/common/Modal";
 import WithdrawalModal from "@/components/settings/WithdrawalModal";
+import { ApiRequestError } from "@/lib/api/client";
+import {
+  type NotificationSettingType,
+  updateNotificationSetting,
+} from "@/lib/api/notificationSettings";
 
-type NotificationSetting = "webPush" | "birthday" | "friendJoined" | "feedback";
 type PolicyModalType = "aiConsent" | "privacyPolicy" | "terms";
 type PrivacyItemType = "preferences" | PolicyModalType;
 
-const notificationItems: { id: NotificationSetting; label: string }[] = [
-  { id: "webPush", label: "웹 푸시 알림" },
-  { id: "birthday", label: "친구 생일 알림" },
-  { id: "friendJoined", label: "친구 가입 알림" },
-  { id: "feedback", label: "피드백 알림" },
+const notificationItems: { type: NotificationSettingType; label: string }[] = [
+  { type: "WEB_PUSH", label: "웹 푸시 알림" },
+  { type: "FRIEND_BIRTHDAY", label: "친구 생일 알림" },
+  { type: "FRIEND_JOINED", label: "친구 가입 알림" },
+  { type: "PURCHASE_FEEDBACK", label: "피드백 알림" },
 ];
+const initialNotificationSettings: Record<NotificationSettingType, boolean> = {
+  WEB_PUSH: false,
+  FRIEND_BIRTHDAY: true,
+  FRIEND_JOINED: true,
+  PURCHASE_FEEDBACK: false,
+};
 const privacyItems: { id: PrivacyItemType; label: string }[] = [
   { id: "preferences", label: "저장된 취향 데이터" },
   { id: "aiConsent", label: "AI 대화 정보 활용 동의" },
@@ -41,30 +51,83 @@ const policyModalContent: Record<PolicyModalType, { title: string; body: string 
   },
 };
 
+const getNotificationErrorMessage = (error: unknown) => {
+  if (!(error instanceof ApiRequestError)) {
+    return "알림 설정을 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+  }
+
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
+
+  return error.message;
+};
+
 export default function SettingsPage() {
   const router = useRouter();
+  const pendingSettingTypesRef = useRef(new Set<NotificationSettingType>());
 
   // TODO: 알림 설정 조회 API 연동 후 서버 응답값으로 초기 상태 설정
   const [notificationSettings, setNotificationSettings] = useState<
-    Record<NotificationSetting, boolean>
-  >({
-    webPush: false,
-    birthday: true,
-    friendJoined: true,
-    feedback: false,
-  });
+    Record<NotificationSettingType, boolean>
+  >(initialNotificationSettings);
+  const [pendingSettingTypes, setPendingSettingTypes] = useState(
+    () => new Set<NotificationSettingType>(),
+  );
+  const [notificationErrors, setNotificationErrors] = useState<
+    Partial<Record<NotificationSettingType, string>>
+  >({});
   const [openPolicyModal, setOpenPolicyModal] = useState<PolicyModalType | null>(null);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
   const activePolicyModal = openPolicyModal ? policyModalContent[openPolicyModal] : null;
 
-  const handleNotificationToggle = (setting: NotificationSetting) => {
+  const handleNotificationToggle = async (settingType: NotificationSettingType) => {
+    if (pendingSettingTypesRef.current.has(settingType)) {
+      return;
+    }
+
+    const previousEnabled = notificationSettings[settingType];
+    const nextEnabled = !previousEnabled;
+
+    pendingSettingTypesRef.current.add(settingType);
+    setPendingSettingTypes(new Set(pendingSettingTypesRef.current));
+    setNotificationErrors((currentErrors) => ({
+      ...currentErrors,
+      [settingType]: "",
+    }));
     setNotificationSettings((currentSettings) => ({
       ...currentSettings,
-      [setting]: !currentSettings[setting],
+      [settingType]: nextEnabled,
     }));
 
-    // TODO: 웹 푸시 구현 시 webPush 설정을 브라우저 알림 권한 요청 및 구독 API와 연동
-    // TODO: 알림 설정 저장 API 연동
+    try {
+      const updatedSetting = await updateNotificationSetting(settingType, nextEnabled);
+
+      setNotificationSettings((currentSettings) => ({
+        ...currentSettings,
+        [settingType]: updatedSetting.enabled,
+      }));
+    } catch (error) {
+      setNotificationSettings((currentSettings) => ({
+        ...currentSettings,
+        [settingType]: previousEnabled,
+      }));
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      setNotificationErrors((currentErrors) => ({
+        ...currentErrors,
+        [settingType]: getNotificationErrorMessage(error),
+      }));
+    } finally {
+      pendingSettingTypesRef.current.delete(settingType);
+      setPendingSettingTypes(new Set(pendingSettingTypesRef.current));
+    }
+
+    // TODO: 웹 푸시 구현 시 WEB_PUSH 설정을 브라우저 알림 권한 요청 및 구독 API와 연동
   };
 
   const handleWithdrawalClick = () => {
@@ -93,24 +156,35 @@ export default function SettingsPage() {
 
         <div className="mt-3">
           <ul className="m-0 list-none p-0">
-            {notificationItems.map(({ id, label }) => {
-              const isEnabled = notificationSettings[id];
+            {notificationItems.map(({ type, label }) => {
+              const isEnabled = notificationSettings[type];
+              const isPending = pendingSettingTypes.has(type);
+              const errorMessage = notificationErrors[type];
 
               return (
                 <li
-                  key={id}
-                  className="flex h-[64px] items-center justify-between gap-4 border-b border-border pr-2"
+                  key={type}
+                  className="flex min-h-[64px] items-center justify-between gap-4 border-b border-border py-2 pr-2"
                 >
-                  <span id={`${id}-notification-label`} className="text-body-sm">
-                    {label}
-                  </span>
+                  <div className="min-w-0">
+                    <span id={`${type}-notification-label`} className="text-body-sm">
+                      {label}
+                    </span>
+                    {errorMessage && (
+                      <p role="alert" className="mt-1 text-caption text-danger">
+                        {errorMessage}
+                      </p>
+                    )}
+                  </div>
                   <button
                     type="button"
                     role="switch"
                     aria-checked={isEnabled}
-                    aria-labelledby={`${id}-notification-label`}
-                    className="relative h-touch w-11 shrink-0 border-0 bg-transparent p-0"
-                    onClick={() => handleNotificationToggle(id)}
+                    aria-busy={isPending}
+                    aria-labelledby={`${type}-notification-label`}
+                    disabled={isPending}
+                    className="relative h-touch w-11 shrink-0 border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => void handleNotificationToggle(type)}
                   >
                     <span
                       aria-hidden="true"
