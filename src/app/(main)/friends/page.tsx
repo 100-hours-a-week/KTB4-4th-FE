@@ -11,28 +11,15 @@ import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectBut
 
 type FriendsTab = "all" | "favorite";
 
-// TODO: 친구 수 조회 API 연동 후 응답 값으로 교체
-const FRIEND_COUNTS: Record<FriendsTab, number> = {
-  all: 1,
-  favorite: 0,
-};
-
+// TODO: 친구 목록 응답에 전체·즐겨찾기 친구 수가 추가되면 각 탭에 개수 표시
 const FRIENDS_TABS: readonly SegmentedTabItem<FriendsTab>[] = [
   {
     value: "all",
-    label: (
-      <span className="inline-flex items-center gap-1">
-        전체 친구 <span>{FRIEND_COUNTS.all}</span>
-      </span>
-    ),
+    label: "전체 친구",
   },
   {
     value: "favorite",
-    label: (
-      <span className="inline-flex items-center gap-1">
-        즐겨찾는 친구 <span>{FRIEND_COUNTS.favorite}</span>
-      </span>
-    ),
+    label: "즐겨찾는 친구",
   },
 ];
 
@@ -54,9 +41,19 @@ const FRIENDS_PAGE_COPY: Record<
 
 export default function FriendsPage() {
   const [selectedTab, setSelectedTab] = useState<FriendsTab>("all");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
   const [hasFriends, setHasFriends] = useState<boolean | null>(null);
   const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
   const pageCopy = FRIENDS_PAGE_COPY[selectedTab];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearchKeyword(searchInput.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     if (hasFriends === null) {
@@ -98,10 +95,17 @@ export default function FriendsPage() {
         className={isKakaoFriendSynced === true ? "mt-4" : "mt-8"}
       />
       <div className="mt-5">
-        <FriendSearchField isFavorite={selectedTab === "favorite"} />
+        <FriendSearchField
+          isFavorite={selectedTab === "favorite"}
+          value={searchInput}
+          onChange={setSearchInput}
+          onSearch={() => setSearchKeyword(searchInput.trim())}
+        />
       </div>
       <FriendsList
+        key={`${selectedTab}:${searchKeyword}`}
         isFavorite={selectedTab === "favorite"}
+        keyword={searchKeyword}
         onHasFriendsChange={setHasFriends}
         onKakaoFriendSyncedChange={setIsKakaoFriendSynced}
       />

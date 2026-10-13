@@ -1,21 +1,26 @@
 // 선택된 친구 분류 내에서 친구를 검색하는 입력 필드
 "use client";
 
-import { useState, type FormEvent } from "react";
+import type { FormEvent } from "react";
 
 type FriendSearchFieldProps = {
   isFavorite: boolean;
+  value: string;
+  onChange: (value: string) => void;
+  onSearch: () => void;
 };
 
-export default function FriendSearchField({ isFavorite }: FriendSearchFieldProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+export default function FriendSearchField({
+  isFavorite,
+  value,
+  onChange,
+  onSearch,
+}: FriendSearchFieldProps) {
   const searchScopeLabel = isFavorite ? "즐겨찾는 친구" : "전체 친구";
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    // TODO: 돋보기 아이콘 클릭 또는 Enter 입력 시 친구 검색 API 호출
-    // 전체 친구 탭에서는 전체 친구 목록 내에서, 즐겨찾는 친구 탭에서는 즐겨찾는 친구 목록 내에서 검색
+    onSearch();
   };
 
   return (
@@ -28,8 +33,9 @@ export default function FriendSearchField({ isFavorite }: FriendSearchFieldProps
           id="friend-search"
           type="text"
           inputMode="search"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
+          value={value}
+          maxLength={20}
+          onChange={(event) => onChange(event.target.value)}
           placeholder="검색어를 입력해주세요."
           className="h-14 w-full appearance-none rounded-md border-0 bg-background-subtle px-5 pr-14 text-body-lg text-foreground outline-none placeholder:text-muted"
         />
