@@ -1,82 +1,44 @@
-// 사용자 관점 UI를 기반으로 사용자 또는 친구의 추천 상품 상세 정보를 표시하는 컴포넌트
+// 상품과 추천 문맥에 맞는 상세 정보를 표시하는 컴포넌트
 "use client";
 
 import { useState } from "react";
 
 import ActionButton from "@/components/common/ActionButton";
+import type { ProductDetail, ProductDetailContext } from "@/lib/api/productDetail";
 
 type PersonalProductDetailContentProps = {
-  recommendationId: number;
-  targetType?: "SELF" | "FRIEND";
-  targetUserId?: number;
+  product: ProductDetail;
+  context: ProductDetailContext;
 };
 
 type RecommendationFeedback = "LIKE" | "DISLIKE";
 
-type TemporaryProductDetail = {
-  recommendationId: number;
-  targetUserId?: number;
-  recipientName: string;
-  category: string;
-  name: string;
-  price: number;
-  reason: string;
-  matchingKeywords: string[];
-};
-
-const getTemporaryProductDetail = ({
-  recommendationId,
-  targetType,
-  targetUserId,
-}: PersonalProductDetailContentProps): TemporaryProductDetail => {
-  if (targetType === "FRIEND") {
-    // TODO: 친구 상품 상세 조회 API 연동 후 recommendationId와 targetUserId로 조회한 응답 데이터로 교체
-    return {
-      recommendationId,
-      targetUserId,
-      recipientName: "지호",
-      category: "카카오톡 선물하기",
-      name: "맥세이프 충전기",
-      price: 27_000,
-      reason: "전자기기를 좋아하고 심플한 디자인을 선호해요.",
-      matchingKeywords: ["전자기기", "심플"],
-    };
-  }
-
-  // TODO: 내 상품 상세 조회 API 연동 후 recommendationId로 조회한 실제 응답 데이터로 교체
-  return {
-    recommendationId,
-    recipientName: "수연",
-    category: "카카오톡 선물하기",
-    name: "오브제 세라믹 드리퍼",
-    price: 48_000,
-    reason: "홈카페를 즐기고 군더더기 없는 무채색을 선호해요.",
-    matchingKeywords: ["홈카페", "미니멀"],
-  };
-};
-
 const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
 
 export default function PersonalProductDetailContent({
-  targetType = "SELF",
-  ...props
+  product,
+  context,
 }: PersonalProductDetailContentProps) {
   const [feedback, setFeedback] = useState<RecommendationFeedback | null>(null);
-  const product = getTemporaryProductDetail({ ...props, targetType });
+  const isFriendGift = context === "FRIEND_GIFT";
 
   const handlePurchase = () => {
-    // TODO: 상품 상세 조회 API의 구매 URL을 사용해 외부 상품 상세 페이지로 이동
+    window.open(product.purchaseUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
     <article className="flex w-full flex-col gap-3 pt-2">
-      {/* TODO: 상품 상세 조회 API 연동 후 실제 상품 이미지로 교체 */}
       <div
         role="img"
-        aria-label={`${product.name} 상품 이미지 준비 중`}
-        className="flex h-64 w-full items-center justify-center rounded-sm bg-disabled text-body-sm text-foreground-secondary"
+        aria-label={`${product.name} 상품 이미지${product.productImageUrl ? "" : " 준비 중"}`}
+        className="flex h-64 w-full items-center justify-center rounded-sm bg-disabled bg-cover bg-center bg-no-repeat text-body-sm text-foreground-secondary"
+        style={
+          product.productImageUrl
+            ? { backgroundImage: `url(${JSON.stringify(product.productImageUrl)})` }
+            : undefined
+        }
       >
-        이미지 영역
+        {!product.productImageUrl && "이미지 영역"}
       </div>
 
       <section
@@ -87,6 +49,9 @@ export default function PersonalProductDetailContent({
         <h1 id="product-name" className="mt-2 text-heading-2 font-bold text-foreground">
           {product.name}
         </h1>
+        {product.description && (
+          <p className="mt-2 text-body text-foreground-secondary">{product.description}</p>
+        )}
         <p className="mt-4 text-heading-2 font-bold text-foreground">
           {formatPrice(product.price)}
         </p>
@@ -97,15 +62,14 @@ export default function PersonalProductDetailContent({
         className="rounded-sm border border-border-strong bg-surface px-4 py-4"
       >
         <h2 id="recommendation-reason-title" className="text-heading-3 font-bold text-foreground">
-          <span className="text-info">{product.recipientName}</span>
-          {targetType === "SELF" ? " 님에게 잘 맞는 이유" : "님에게 잘 맞는 이유"}
+          {isFriendGift ? "친구에게 잘 맞는 이유" : "나에게 잘 맞는 이유"}
         </h2>
-        <p className="mt-1 text-body text-foreground-secondary">{product.reason}</p>
+        <p className="mt-1 text-body text-foreground-secondary">{product.recommendation.reason}</p>
         <ul aria-label="추천 키워드" className="mt-3 flex list-none flex-wrap gap-2 p-0">
-          {product.matchingKeywords.map((keyword) => (
+          {product.recommendation.matchingKeywords.map((keyword) => (
             <li
               key={keyword}
-              className="rounded-full border border-brand-100 bg-warning-subtle px-3 py-1 text-caption font-bold text-foreground-secondary"
+              className="inline-flex items-center rounded-full border border-brand-400 bg-brand-50 px-3 py-1.5 text-body-sm font-bold text-foreground"
             >
               {keyword}
             </li>
@@ -113,7 +77,7 @@ export default function PersonalProductDetailContent({
         </ul>
       </section>
 
-      {targetType === "SELF" && (
+      {!isFriendGift && (
         <section
           aria-labelledby="recommendation-feedback-title"
           className="rounded-md bg-background-subtle px-4 py-4"

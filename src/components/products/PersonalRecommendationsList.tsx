@@ -150,7 +150,7 @@ function PersonalRecommendationsListContent({
           <ProductCard
             key={product.recommendationId}
             product={product}
-            detailHref={`/products/${product.recommendationId}`}
+            detailHref={`/products/${product.productId}?context=PERSONAL`}
           />
         ))}
       </div>

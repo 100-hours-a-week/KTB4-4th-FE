@@ -1,5 +1,7 @@
 // 메인 페이지 맞춤 상품의 요약 정보를 표시하는 카드
 
+import Link from "next/link";
+
 import type { PersonalRecommendation } from "@/lib/api/personalRecommendations";
 
 type HomeProductCardProps = {
@@ -10,10 +12,8 @@ const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
 
 export default function HomeProductCard({ product }: HomeProductCardProps) {
   return (
-    <a
-      href={product.purchaseUrl}
-      target="_blank"
-      rel="noopener noreferrer"
+    <Link
+      href={`/products/${product.productId}?context=PERSONAL`}
       className="min-w-0 rounded-sm border border-border-strong bg-surface p-2"
     >
       <div
@@ -31,6 +31,6 @@ export default function HomeProductCard({ product }: HomeProductCardProps) {
       <p className="mt-1 text-body font-bold whitespace-nowrap text-foreground">
         {formatPrice(product.price)}
       </p>
-    </a>
+    </Link>
   );
 }
