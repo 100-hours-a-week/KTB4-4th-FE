@@ -16,6 +16,7 @@ type FriendsListProps = {
   keyword: string;
   onHasFriendsChange: (hasFriends: boolean) => void;
   onKakaoFriendSyncedChange: (isKakaoFriendSynced: boolean) => void;
+  onFriendCountsChange: (totalCount: number, favoriteTotalCount: number) => void;
 };
 
 type FriendListRequestError = {
@@ -32,6 +33,7 @@ export default function FriendsList({
   keyword,
   onHasFriendsChange,
   onKakaoFriendSyncedChange,
+  onFriendCountsChange,
 }: FriendsListProps) {
   const router = useRouter();
   const [friends, setFriends] = useState<FriendListItem[]>([]);
@@ -84,6 +86,10 @@ export default function FriendsList({
         onHasFriendsChange(data.items.length > 0);
         setIsKakaoFriendSynced(data.isKakaoFriendSynced);
         onKakaoFriendSyncedChange(data.isKakaoFriendSynced);
+
+        if (typeof data.totalCount === "number" && typeof data.favoriteTotalCount === "number") {
+          onFriendCountsChange(data.totalCount, data.favoriteTotalCount);
+        }
       }
 
       setFriends((currentFriends) =>
@@ -126,7 +132,14 @@ export default function FriendsList({
         }
       }
     }
-  }, [isFavorite, keyword, onHasFriendsChange, onKakaoFriendSyncedChange, router]);
+  }, [
+    isFavorite,
+    keyword,
+    onFriendCountsChange,
+    onHasFriendsChange,
+    onKakaoFriendSyncedChange,
+    router,
+  ]);
 
   const handleToggleFavorite = useCallback(
     async (userId: number, currentIsFavorite: boolean) => {

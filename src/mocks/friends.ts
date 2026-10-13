@@ -80,6 +80,8 @@ export async function getMockFriendsPage({
   return {
     items: filteredFriends.slice(start, end),
     isKakaoFriendSynced: true,
+    totalCount: mockFriends.length,
+    favoriteTotalCount: mockFriends.filter((friend) => friend.isFavorite).length,
     nextCursor: hasNext
       ? JSON.stringify({ offset: end, favorite, keyword: normalizedKeyword } satisfies MockCursor)
       : null,
