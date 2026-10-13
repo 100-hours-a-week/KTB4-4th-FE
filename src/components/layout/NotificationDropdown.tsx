@@ -3,69 +3,59 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
+import { useNotificationContext } from "@/contexts/NotificationContext";
+import { formatRelativeTime } from "@/lib/formatRelativeTime";
+
 import NotificationItem from "./NotificationItem";
 
-type Notification = {
-  id: number;
-  title: string;
-  description: string;
-  createdAt: string;
-  isUnread: boolean;
-};
-
-const initialNotifications: Notification[] = [
-  {
-    id: 1,
-    title: "민준 님이 친구로 추가했어요.",
-    description: "친구의 취향을 확인해 보세요.",
-    createdAt: "방금 전",
-    isUnread: false,
-  },
-  {
-    id: 2,
-    title: "수연 님의 생일이 8일 남았어요.",
-    description: "지금 선물을 준비하면 여유 있게 도착해요.",
-    createdAt: "어제",
-    isUnread: true,
-  },
-  {
-    id: 3,
-    title: "수연 님의 생일이 8일 남았어요.",
-    description: "지금 선물을 준비하면 여유 있게 도착해요.",
-    createdAt: "어제",
-    isUnread: false,
-  },
-  {
-    id: 4,
-    title: "수연 님의 생일이 8일 남았어요.",
-    description: "지금 선물을 준비하면 여유 있게 도착해요.",
-    createdAt: "어제",
-    isUnread: true,
-  },
-];
-
 export default function NotificationDropdown() {
+  const {
+    notifications,
+    unreadCount,
+    hasNext,
+    isLoadingMore,
+    errorMessage,
+    loadMoreNotifications,
+    deleteNotification: deleteNotificationItem,
+    markAllNotificationsAsRead: markAllNotificationItemsAsRead,
+  } = useNotificationContext();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([...initialNotifications]);
   const [revealedNotificationId, setRevealedNotificationId] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const sentinelRef = useRef<HTMLLIElement>(null);
   const dropdownId = useId();
   const headingId = useId();
-  const hasUnreadNotification = notifications.some((notification) => notification.isUnread);
+  const hasUnreadNotification = unreadCount > 0;
 
   const deleteNotification = (notificationId: number) => {
-    setNotifications((currentNotifications) =>
-      currentNotifications.filter((notification) => notification.id !== notificationId),
-    );
+    deleteNotificationItem(notificationId);
     setRevealedNotificationId(null);
   };
 
   const markAllNotificationsAsRead = () => {
-    setNotifications((currentNotifications) =>
-      currentNotifications.map((notification) => ({ ...notification, isUnread: false })),
-    );
+    markAllNotificationItemsAsRead();
     setRevealedNotificationId(null);
   };
+
+  // 목록 끝에 닿으면 다음 커서의 알림을 이어서 조회함
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+
+    if (!isOpen || !sentinel || !hasNext) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          void loadMoreNotifications();
+        }
+      },
+      { root: listRef.current, rootMargin: "100px 0px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [isOpen, hasNext, loadMoreNotifications, notifications.length]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -140,18 +130,32 @@ export default function NotificationDropdown() {
           {notifications.length > 0 ? (
             <>
               <ul
+                ref={listRef}
                 className={`m-0 list-none border-t border-border p-0 ${notifications.length >= 4 ? "max-h-72 overflow-y-auto overscroll-contain" : ""}`}
               >
                 {notifications.map((notification) => (
                   <NotificationItem
-                    key={notification.id}
-                    {...notification}
-                    isDeleteRevealed={revealedNotificationId === notification.id}
+                    key={notification.notificationId}
+                    id={notification.notificationId}
+                    title={notification.title}
+                    description={notification.body}
+                    createdAt={formatRelativeTime(notification.createdAt)}
+                    isUnread={notification.readAt === null}
+                    isDeleteRevealed={revealedNotificationId === notification.notificationId}
                     onDelete={deleteNotification}
                     onRevealDelete={setRevealedNotificationId}
                   />
                 ))}
+                {hasNext && <li ref={sentinelRef} aria-hidden="true" className="h-px" />}
               </ul>
+              {(isLoadingMore || errorMessage) && (
+                <p
+                  role={errorMessage ? "alert" : "status"}
+                  className="m-0 border-t border-border px-5 py-2 text-center text-body-sm text-muted"
+                >
+                  {isLoadingMore ? "알림을 불러오는 중입니다." : errorMessage}
+                </p>
+              )}
               <div className="flex justify-end border-t border-border px-3 py-1">
                 <button
                   type="button"
@@ -167,7 +171,7 @@ export default function NotificationDropdown() {
             </>
           ) : (
             <p className="m-0 border-t border-border px-5 py-8 text-center text-body text-muted">
-              새로운 알림이 없습니다.
+              {errorMessage ?? "새로운 알림이 없습니다."}
             </p>
           )}
         </section>
