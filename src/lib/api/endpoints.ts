@@ -27,6 +27,7 @@ export const API_ENDPOINTS = {
   personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
   productCategories: `${API_V1_PREFIX}/products/categories`,
   productDetail: (productId: number) => `${API_V1_PREFIX}/products/${productId}`,
+  productFeedback: (productId: number) => `${API_V1_PREFIX}/products/${productId}/feedback`,
   users: {
     me: `${API_V1_PREFIX}/users/me`,
     consents: `${API_V1_PREFIX}/users/me/consents`,
