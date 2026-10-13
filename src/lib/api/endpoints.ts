@@ -40,6 +40,7 @@ export const API_ENDPOINTS = {
     consents: `${API_V1_PREFIX}/users/me/consents`,
     giftRecommendations: `${API_V1_PREFIX}/users/me/gift-recommendations`,
     giftPreferences: `${API_V1_PREFIX}/users/me/gift-preferences`,
+    notificationSettings: `${API_V1_PREFIX}/users/me/settings/notifications`,
     notificationSetting: (settingType: string) =>
       `${API_V1_PREFIX}/users/me/settings/notifications/${settingType}`,
     onboarding: `${API_V1_PREFIX}/users/me/onboarding`,
