@@ -1,4 +1,4 @@
-// 친구 목록 조회 API 요청과 커서 페이지네이션 응답 타입
+// 친구 목록·상세 조회, 즐겨찾기 변경, 콕 찌르기 API 요청과 응답 타입
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -69,6 +69,17 @@ interface FriendDetailResponse {
   data: FriendDetailData;
 }
 
+export interface FriendPoke {
+  friendUserId: number;
+  createdAt: string;
+  nextPokeAvailableAt: string;
+}
+
+interface FriendPokeResponse {
+  message: string;
+  data: FriendPoke;
+}
+
 interface FriendFavoriteResponse {
   message: string;
   data: FriendFavorite;
@@ -101,6 +112,15 @@ const FRIEND_FAVORITE_ERROR_MESSAGES: Partial<Record<number, string>> = {
   403: "보안 토큰을 확인하지 못했습니다. 다시 시도해 주세요.",
   404: "친구를 찾을 수 없습니다.",
   422: "입력값이 유효하지 않습니다. 입력 내용을 확인해 주세요.",
+  429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+  500: "요청을 처리하지 못했습니다.",
+  503: "일시적으로 서비스를 이용할 수 없습니다.",
+};
+const FRIEND_POKE_ERROR_MESSAGES: Partial<Record<number, string>> = {
+  400: "요청 형식이 올바르지 않습니다.",
+  401: "로그인이 필요합니다.",
+  403: "이용이 제한된 계정입니다.",
+  404: "친구를 찾을 수 없습니다.",
   429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   500: "요청을 처리하지 못했습니다.",
   503: "일시적으로 서비스를 이용할 수 없습니다.",
@@ -269,6 +289,29 @@ export async function updateFriendFavorite(userId: number, isFavorite: boolean) 
   }
 
   const { data } = (await response.json()) as FriendFavoriteResponse;
+
+  return data;
+}
+
+// 성공 시 201과 다음 콕 찌르기 가능 시각을 반환하며, 제한 시간 안의 재요청은 429와 남은 초를 반환함
+export async function pokeFriend(userId: number) {
+  const response = await apiFetch(API_ENDPOINTS.friends.pokes(userId), {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorResponse = (await response.json().catch(() => null)) as FriendsErrorResponse | null;
+
+    throw new ApiRequestError(
+      errorResponse?.message ??
+        FRIEND_POKE_ERROR_MESSAGES[response.status] ??
+        "친구를 콕 찌르지 못했습니다.",
+      response.status,
+      getRetryAfterSeconds(response, errorResponse),
+    );
+  }
+
+  const { data } = (await response.json()) as FriendPokeResponse;
 
   return data;
 }
