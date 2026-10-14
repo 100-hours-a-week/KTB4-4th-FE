@@ -98,21 +98,18 @@ export default function FriendsPage() {
     <main aria-label="친구" className="page-content flex flex-1 flex-col bg-background">
       <PageIntro
         title={pageCopy.title}
-        description={
-          hasFriends === null ? "" : hasFriends ? pageCopy.description : pageCopy.emptyDescription
-        }
+        description={hasFriends === false ? pageCopy.emptyDescription : pageCopy.description}
       />
-      {isKakaoFriendSynced === true && (
-        <div className="mt-2 flex justify-end px-1">
-          <KakaoFriendConnectButton variant="sync" />
-        </div>
-      )}
+      {/* 응답 전이나 미동기화 상태에도 버튼 높이만큼 자리를 유지해 레이아웃 이동 방지 */}
+      <div className="mt-2 flex h-touch justify-end px-1">
+        {isKakaoFriendSynced === true && <KakaoFriendConnectButton variant="sync" />}
+      </div>
       <SegmentedTabs
         items={friendsTabs}
         value={selectedTab}
         onChange={setSelectedTab}
         ariaLabel="친구 목록 유형"
-        className={isKakaoFriendSynced === true ? "mt-4" : "mt-8"}
+        className="mt-4"
       />
       <div className="mt-5">
         <FriendSearchField
