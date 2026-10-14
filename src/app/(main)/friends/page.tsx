@@ -65,6 +65,12 @@ export default function FriendsPage() {
   const [friendCounts, setFriendCounts] = useState<FriendCounts | null>(null);
   const pageCopy = FRIENDS_PAGE_COPY[selectedTab];
   const friendsTabs = createFriendsTabs(friendCounts);
+  // 빈 목록에 카카오 친구 연동 버튼이 표시되는 경우에만 상단 동기화 버튼 숨김
+  const isKakaoConnectButtonVisible =
+    isKakaoFriendSynced === false &&
+    hasFriends === false &&
+    selectedTab === "all" &&
+    !searchKeyword;
 
   const handleFriendCountsChange = useCallback((totalCount: number, favoriteTotalCount: number) => {
     setFriendCounts({ total: totalCount, favorite: favoriteTotalCount });
@@ -103,9 +109,9 @@ export default function FriendsPage() {
         title={pageCopy.title}
         description={hasFriends === false ? pageCopy.emptyDescription : pageCopy.description}
       />
-      {/* 응답 전이나 미동기화 상태에도 버튼 높이만큼 자리를 유지해 레이아웃 이동 방지 */}
+      {/* 동기화 버튼을 숨길 때도 버튼 높이만큼 자리를 유지해 레이아웃 이동 방지 */}
       <div className="mt-2 flex h-touch justify-end px-1">
-        {isKakaoFriendSynced === true && <KakaoFriendConnectButton variant="sync" />}
+        {!isKakaoConnectButtonVisible && <KakaoFriendConnectButton variant="sync" />}
       </div>
       <SegmentedTabs
         items={friendsTabs}

@@ -183,3 +183,13 @@ chore: ESLint·Prettier 코드 품질 규칙 설정 (#92)
 - 커밋할 시점이 되면, 먼저 사용자에게 커밋 시점임을 알립니다.
 - 커밋 컨벤션(예: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:` 등)에 맞춰 커밋 메시지를 작성합니다.
 - 서로 연관되거나 하나의 작업 단위로 묶을 수 있는 변경 파일들은 하나의 커밋으로 묶어서 작성합니다.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
