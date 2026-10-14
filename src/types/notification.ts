@@ -36,6 +36,11 @@ export interface NotificationListPage extends NotificationListData {
   hasNext: boolean;
 }
 
+export interface NotificationSummary {
+  hasUnread: boolean;
+  unreadCount: number;
+}
+
 export interface NotificationConnectedEvent {
   connectedAt: string;
 }

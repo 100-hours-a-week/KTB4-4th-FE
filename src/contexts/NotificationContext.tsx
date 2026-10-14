@@ -1,4 +1,4 @@
-// 로그인 확인 직후 알림 SSE 연결을 열고 알림 목록과 읽지 않은 개수를 공유하는 Context
+// 로그인 확인 직후 알림 SSE 연결을 열고 알림 목록과 미읽음 알림 상태를 공유하는 Context
 "use client";
 
 import {
@@ -14,7 +14,7 @@ import {
 
 import { ApiRequestError } from "@/lib/api/client";
 import { checkLoginValidity } from "@/lib/api/loginValidity";
-import { getNotifications } from "@/lib/api/notifications";
+import { getNotifications, getNotificationSummary } from "@/lib/api/notifications";
 import {
   closeNotificationStream,
   openNotificationStream,
@@ -31,10 +31,14 @@ const RECOVERY_PAGE_SIZE = 50;
 
 type NotificationContextValue = {
   notifications: NotificationItem[];
+  hasUnread: boolean;
   unreadCount: number;
   hasNext: boolean;
+  isListLoaded: boolean;
+  isInitialLoading: boolean;
   isLoadingMore: boolean;
   errorMessage: string | null;
+  loadNotificationsIfNeeded: () => Promise<void>;
   loadMoreNotifications: () => Promise<void>;
   deleteNotification: (notificationId: number) => void;
   markAllNotificationsAsRead: () => void;
@@ -77,28 +81,27 @@ function getRetryDelayMs(error: unknown) {
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [hasUnread, setHasUnread] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasNext, setHasNext] = useState(false);
+  const [isListLoaded, setIsListLoaded] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const retryAvailableAtRef = useRef(0);
   const retryTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
   const isMountedRef = useRef(false);
+  const summaryRequestRef = useRef<Promise<void> | null>(null);
+  const isListLoadedRef = useRef(false);
+  const initialListRequestRef = useRef<Promise<void> | null>(null);
 
-  const handleListError = useCallback((error: unknown, retry?: () => void) => {
-    if (!isMountedRef.current) return;
+  const applyUnreadCount = useCallback((count: number) => {
+    setUnreadCount(count);
+    setHasUnread(count > 0);
+  }, []);
 
-    setErrorMessage(getErrorMessage(error));
-
-    const retryDelayMs = getRetryDelayMs(error);
-
-    if (retryDelayMs === null) return;
-
-    retryAvailableAtRef.current = Date.now() + retryDelayMs;
-
-    if (!retry) return;
-
+  const scheduleRetry = useCallback((retryDelayMs: number, retry: () => void) => {
     const timer = setTimeout(() => {
       retryTimersRef.current.delete(timer);
       retry();
@@ -106,6 +109,56 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     retryTimersRef.current.add(timer);
   }, []);
+
+  const handleListError = useCallback(
+    (error: unknown, retry?: () => void) => {
+      if (!isMountedRef.current) return;
+
+      setErrorMessage(getErrorMessage(error));
+
+      const retryDelayMs = getRetryDelayMs(error);
+
+      if (retryDelayMs === null) return;
+
+      retryAvailableAtRef.current = Date.now() + retryDelayMs;
+
+      if (retry) {
+        scheduleRetry(retryDelayMs, retry);
+      }
+    },
+    [scheduleRetry],
+  );
+
+  // 상단 알림 아이콘의 표시점 노출 여부를 조회하며, 이미 진행 중인 요청이 있으면 재사용함
+  // 실패 시 기존 표시 상태를 유지하고, 429 응답이면 retryAfterSeconds 이후 다시 조회함
+  const refreshNotificationSummary = useCallback(() => {
+    const run = async () => {
+      try {
+        const summary = await getNotificationSummary();
+
+        if (!isMountedRef.current) return;
+
+        setHasUnread(summary.hasUnread);
+        setUnreadCount(summary.unreadCount);
+      } catch (error) {
+        if (!isMountedRef.current) return;
+
+        const retryDelayMs = getRetryDelayMs(error);
+
+        if (retryDelayMs !== null) {
+          scheduleRetry(retryDelayMs, () => void run());
+        }
+      }
+    };
+
+    if (!summaryRequestRef.current) {
+      summaryRequestRef.current = run().finally(() => {
+        summaryRequestRef.current = null;
+      });
+    }
+
+    return summaryRequestRef.current;
+  }, [scheduleRetry]);
 
   // 429 응답이면 retryAfterSeconds 이후 같은 요청을 다시 실행함
   const runListRequest = useCallback(
@@ -138,13 +191,33 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         () => getNotifications(),
         (page) => {
           setNotifications((currentItems) => mergeNotifications(currentItems, page.items));
-          setUnreadCount(page.unreadCount);
+          applyUnreadCount(page.unreadCount);
           setNextCursor(page.nextCursor);
           setHasNext(page.hasNext);
+          isListLoadedRef.current = true;
+          setIsListLoaded(true);
         },
       ),
-    [runListRequest],
+    [runListRequest, applyUnreadCount],
   );
+
+  // 알림 드롭다운을 처음 열 때만 첫 페이지를 조회하고, 조회 중이거나 이미 불러왔으면 생략함
+  const loadNotificationsIfNeeded = useCallback(() => {
+    if (isListLoadedRef.current) return Promise.resolve();
+
+    if (!initialListRequestRef.current) {
+      setIsInitialLoading(true);
+      initialListRequestRef.current = loadInitialNotifications().finally(() => {
+        initialListRequestRef.current = null;
+
+        if (isMountedRef.current) {
+          setIsInitialLoading(false);
+        }
+      });
+    }
+
+    return initialListRequestRef.current;
+  }, [loadInitialNotifications]);
 
   // 재연결 시 직전 기준 시각 이후 생성된 알림을 조회해 목록 상단에 병합함
   const recoverMissedNotifications = useCallback(
@@ -153,10 +226,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         () => getNotifications({ since, size: RECOVERY_PAGE_SIZE }),
         (page) => {
           setNotifications((currentItems) => mergeNotifications(currentItems, page.items));
-          setUnreadCount(page.unreadCount);
+          applyUnreadCount(page.unreadCount);
         },
       ),
-    [runListRequest],
+    [runListRequest, applyUnreadCount],
   );
 
   const loadMoreNotifications = useCallback(async () => {
@@ -171,7 +244,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (!isMountedRef.current) return;
 
       setNotifications((currentItems) => mergeNotifications(currentItems, page.items));
-      setUnreadCount(page.unreadCount);
+      applyUnreadCount(page.unreadCount);
       setNextCursor(page.nextCursor);
       setHasNext(page.hasNext);
       setErrorMessage(null);
@@ -182,7 +255,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         setIsLoadingMore(false);
       }
     }
-  }, [hasNext, nextCursor, isLoadingMore, handleListError]);
+  }, [hasNext, nextCursor, isLoadingMore, handleListError, applyUnreadCount]);
 
   // TODO: 알림 삭제 API 연동
   const deleteNotification = useCallback(
@@ -190,14 +263,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const target = notifications.find((item) => item.notificationId === notificationId);
 
       if (target?.readAt === null) {
-        setUnreadCount((count) => Math.max(0, count - 1));
+        applyUnreadCount(Math.max(0, unreadCount - 1));
       }
 
       setNotifications((currentItems) =>
         currentItems.filter((item) => item.notificationId !== notificationId),
       );
     },
-    [notifications],
+    [notifications, unreadCount, applyUnreadCount],
   );
 
   // TODO: 알림 모두 읽음 API 연동
@@ -207,8 +280,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications((currentItems) =>
       currentItems.map((item) => (item.readAt === null ? { ...item, readAt } : item)),
     );
-    setUnreadCount(0);
-  }, []);
+    applyUnreadCount(0);
+  }, [applyUnreadCount]);
 
   useEffect(() => {
     const retryTimers = retryTimersRef.current;
@@ -219,21 +292,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       .then(() => {
         if (!isMountedRef.current) return;
 
+        void refreshNotificationSummary();
+
         openNotificationStream({
           onConnected: (_event, previousServerTime) => {
-            if (previousServerTime) {
+            // 연결·재연결 직후 끊긴 동안 바뀌었을 수 있는 표시점 상태를 다시 조회함
+            void refreshNotificationSummary();
+
+            // 목록을 아직 불러오지 않았다면 드롭다운을 열 때 최신 목록을 받으므로 복구 조회를 생략함
+            if (previousServerTime && isListLoadedRef.current) {
               void recoverMissedNotifications(previousServerTime);
             }
           },
           onNotification: (event) => {
-            setNotifications((currentItems) =>
-              mergeNotifications(currentItems, [toNotificationItem(event)]),
-            );
-            setUnreadCount(event.unreadCount);
+            if (isListLoadedRef.current) {
+              setNotifications((currentItems) =>
+                mergeNotifications(currentItems, [toNotificationItem(event)]),
+              );
+            }
+
+            applyUnreadCount(event.unreadCount);
           },
         });
-
-        void loadInitialNotifications();
       })
       .catch(() => {
         // 로그인 확인 실패 시 각 페이지의 인증 처리에 맡기고 연결을 열지 않음
@@ -247,15 +327,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       retryTimers.clear();
       closeNotificationStream();
     };
-  }, [loadInitialNotifications, recoverMissedNotifications]);
+  }, [recoverMissedNotifications, refreshNotificationSummary, applyUnreadCount]);
 
   const value = useMemo(
     () => ({
       notifications,
+      hasUnread,
       unreadCount,
       hasNext,
+      isListLoaded,
+      isInitialLoading,
       isLoadingMore,
       errorMessage,
+      loadNotificationsIfNeeded,
       loadMoreNotifications,
       deleteNotification,
       markAllNotificationsAsRead,
@@ -263,10 +347,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }),
     [
       notifications,
+      hasUnread,
       unreadCount,
       hasNext,
+      isListLoaded,
+      isInitialLoading,
       isLoadingMore,
       errorMessage,
+      loadNotificationsIfNeeded,
       loadMoreNotifications,
       deleteNotification,
       markAllNotificationsAsRead,

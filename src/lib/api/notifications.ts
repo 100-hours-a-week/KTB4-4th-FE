@@ -1,4 +1,4 @@
-// 알림 목록 조회 API 요청과 커서 페이지네이션 응답 처리
+// 알림 목록 조회와 미읽음 알림 상태 조회 API 요청 및 응답 처리
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -7,6 +7,7 @@ import type {
   NotificationListData,
   NotificationListPage,
   NotificationListParams,
+  NotificationSummary,
 } from "@/types/notification";
 
 interface NotificationListResponse {
@@ -16,7 +17,12 @@ interface NotificationListResponse {
   hasNext: boolean;
 }
 
-interface NotificationListErrorResponse {
+interface NotificationSummaryResponse {
+  message: string;
+  data: NotificationSummary;
+}
+
+interface NotificationErrorResponse {
   message?: string;
   data?: {
     retryAfterSeconds?: number;
@@ -30,12 +36,10 @@ const DEFAULT_ERROR_MESSAGES: Partial<Record<number, string>> = {
   422: "입력값이 유효하지 않습니다. 입력 내용을 확인해 주세요.",
   429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   500: "요청을 처리하지 못했습니다.",
+  503: "일시적으로 서비스를 이용할 수 없습니다.",
 };
 
-function getRetryAfterSeconds(
-  response: Response,
-  errorResponse: NotificationListErrorResponse | null,
-) {
+function getRetryAfterSeconds(response: Response, errorResponse: NotificationErrorResponse | null) {
   const responseBodySeconds = errorResponse?.data?.retryAfterSeconds;
 
   if (typeof responseBodySeconds === "number") {
@@ -57,6 +61,20 @@ function getRetryAfterSeconds(
   if (Number.isNaN(retryAt)) return undefined;
 
   return Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
+}
+
+async function toApiRequestError(response: Response, fallbackMessage: string) {
+  const errorResponse = (await response
+    .json()
+    .catch(() => null)) as NotificationErrorResponse | null;
+  const message =
+    errorResponse?.message ?? DEFAULT_ERROR_MESSAGES[response.status] ?? fallbackMessage;
+
+  return new ApiRequestError(
+    message,
+    response.status,
+    getRetryAfterSeconds(response, errorResponse),
+  );
 }
 
 export async function getNotifications({
@@ -88,19 +106,7 @@ export async function getNotifications({
   );
 
   if (!response.ok) {
-    const errorResponse = (await response
-      .json()
-      .catch(() => null)) as NotificationListErrorResponse | null;
-    const message =
-      errorResponse?.message ??
-      DEFAULT_ERROR_MESSAGES[response.status] ??
-      "알림 목록을 불러오지 못했습니다.";
-
-    throw new ApiRequestError(
-      message,
-      response.status,
-      getRetryAfterSeconds(response, errorResponse),
-    );
+    throw await toApiRequestError(response, "알림 목록을 불러오지 못했습니다.");
   }
 
   const { data, nextCursor, hasNext } = (await response.json()) as NotificationListResponse;
@@ -110,4 +116,19 @@ export async function getNotifications({
     nextCursor,
     hasNext,
   } satisfies NotificationListPage;
+}
+
+export async function getNotificationSummary() {
+  const response = await apiFetch(API_ENDPOINTS.notifications.summary, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await toApiRequestError(response, "미읽음 알림 상태를 불러오지 못했습니다.");
+  }
+
+  const { data } = (await response.json()) as NotificationSummaryResponse;
+
+  return data;
 }
