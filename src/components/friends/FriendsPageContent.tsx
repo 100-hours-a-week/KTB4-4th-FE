@@ -1,15 +1,24 @@
 // 친구 목록 페이지의 탭·검색·목록 상태를 관리하는 클라이언트 화면
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 import PageIntro from "@/components/common/PageIntro";
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
 import FriendSearchField from "@/components/friends/FriendSearchField";
 import FriendsList from "@/components/friends/FriendsList";
+import FriendsListSkeleton from "@/components/friends/FriendsListSkeleton";
 import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectButton";
+import type { FriendsPage } from "@/lib/api/friends";
 
 type FriendsTab = "all" | "favorite";
+
+type FriendsPageContentProps = {
+  initialFriendsPromise: Promise<FriendsPage | null>;
+};
+
+// 서버에서 미리 조회한 첫 페이지와 같은 조건(전체 탭, 검색어 없음)의 목록 키
+const INITIAL_LIST_KEY = "all:";
 
 type FriendCounts = {
   total: number;
@@ -56,13 +65,21 @@ const FRIENDS_PAGE_COPY: Record<
   },
 };
 
-export default function FriendsPageContent() {
+export default function FriendsPageContent({ initialFriendsPromise }: FriendsPageContentProps) {
   const [selectedTab, setSelectedTab] = useState<FriendsTab>("all");
   const [searchInput, setSearchInput] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [hasFriends, setHasFriends] = useState<boolean | null>(null);
   const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
   const [friendCounts, setFriendCounts] = useState<FriendCounts | null>(null);
+  const [hasLeftInitialList, setHasLeftInitialList] = useState(false);
+  const listKey = `${selectedTab}:${searchKeyword}`;
+
+  // 탭이나 검색어를 한 번이라도 바꾸면 이후에는 서버 첫 페이지를 다시 쓰지 않고 새로 조회
+  if (!hasLeftInitialList && listKey !== INITIAL_LIST_KEY) {
+    setHasLeftInitialList(true);
+  }
+
   const pageCopy = FRIENDS_PAGE_COPY[selectedTab];
   const friendsTabs = createFriendsTabs(friendCounts);
   // 빈 목록에 카카오 친구 연동 버튼이 표시되는 경우에만 상단 동기화 버튼 숨김
@@ -146,15 +163,18 @@ export default function FriendsPageContent() {
           onSearch={() => setSearchKeyword(searchInput.trim())}
         />
       </div>
-      <FriendsList
-        key={`${selectedTab}:${searchKeyword}`}
-        isFavorite={selectedTab === "favorite"}
-        keyword={searchKeyword}
-        onHasFriendsChange={setHasFriends}
-        onKakaoFriendSyncedChange={setIsKakaoFriendSynced}
-        onFriendCountsChange={handleFriendCountsChange}
-        onFavoriteCountChange={handleFavoriteCountChange}
-      />
+      <Suspense fallback={<FriendsListSkeleton />}>
+        <FriendsList
+          key={listKey}
+          isFavorite={selectedTab === "favorite"}
+          keyword={searchKeyword}
+          initialPagePromise={hasLeftInitialList ? undefined : initialFriendsPromise}
+          onHasFriendsChange={setHasFriends}
+          onKakaoFriendSyncedChange={setIsKakaoFriendSynced}
+          onFriendCountsChange={handleFriendCountsChange}
+          onFavoriteCountChange={handleFavoriteCountChange}
+        />
+      </Suspense>
     </main>
   );
 }

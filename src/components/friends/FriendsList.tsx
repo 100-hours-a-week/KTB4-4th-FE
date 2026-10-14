@@ -2,20 +2,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 
 import EmptyFriends from "@/components/friends/EmptyFriends";
 import FriendCard from "@/components/friends/FriendCard";
-import FriendCardSkeleton from "@/components/friends/FriendCardSkeleton";
+import FriendsListSkeleton from "@/components/friends/FriendsListSkeleton";
 import { ApiRequestError } from "@/lib/api/client";
-import { getFriends, type FriendListItem, updateFriendFavorite } from "@/lib/api/friends";
+import {
+  getFriends,
+  type FriendListItem,
+  type FriendsPage,
+  updateFriendFavorite,
+} from "@/lib/api/friends";
 
 const PAGE_SIZE = 20;
-const SKELETON_COUNT = 6;
 
 type FriendsListProps = {
   isFavorite: boolean;
   keyword: string;
+  // 서버에서 미리 조회한 첫 페이지. null로 끝나면 클라이언트에서 다시 조회
+  initialPagePromise?: Promise<FriendsPage | null>;
   onHasFriendsChange: (hasFriends: boolean) => void;
   onKakaoFriendSyncedChange: (isKakaoFriendSynced: boolean) => void;
   onFriendCountsChange: (totalCount: number, favoriteTotalCount: number) => void;
@@ -34,17 +40,24 @@ type FavoriteRequestError = FriendListRequestError & {
 export default function FriendsList({
   isFavorite,
   keyword,
+  initialPagePromise,
   onHasFriendsChange,
   onKakaoFriendSyncedChange,
   onFriendCountsChange,
   onFavoriteCountChange,
 }: FriendsListProps) {
   const router = useRouter();
-  const [friends, setFriends] = useState<FriendListItem[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasNext, setHasNext] = useState(true);
+  const initialPage = initialPagePromise ? use(initialPagePromise) : null;
+  const initialHasNext = initialPage
+    ? initialPage.hasNext && Boolean(initialPage.nextCursor)
+    : true;
+  const [friends, setFriends] = useState<FriendListItem[]>(() => initialPage?.items ?? []);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialPage?.nextCursor ?? null);
+  const [hasNext, setHasNext] = useState(initialHasNext);
   const [isLoading, setIsLoading] = useState(false);
-  const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
+  const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(
+    initialPage?.isKakaoFriendSynced ?? null,
+  );
   const [requestError, setRequestError] = useState<FriendListRequestError | null>(null);
   const [pendingFavoriteUserIds, setPendingFavoriteUserIds] = useState<Set<number>>(
     () => new Set(),
@@ -55,10 +68,23 @@ export default function FriendsList({
   const sentinelRef = useRef<HTMLLIElement>(null);
   const isMountedRef = useRef(false);
   const isLoadingRef = useRef(false);
-  const hasNextRef = useRef(true);
-  const nextCursorRef = useRef<string | null>(null);
+  const hasNextRef = useRef(initialHasNext);
+  const nextCursorRef = useRef<string | null>(initialPage?.nextCursor ?? null);
+  const initialPageRef = useRef(initialPage);
   const requestControllerRef = useRef<AbortController | null>(null);
   const pendingFavoriteUserIdsRef = useRef(new Set<number>());
+
+  const notifyFirstPage = useCallback(
+    (data: FriendsPage) => {
+      onHasFriendsChange(data.items.length > 0);
+      onKakaoFriendSyncedChange(data.isKakaoFriendSynced);
+
+      if (typeof data.totalCount === "number" && typeof data.favoriteTotalCount === "number") {
+        onFriendCountsChange(data.totalCount, data.favoriteTotalCount);
+      }
+    },
+    [onFriendCountsChange, onHasFriendsChange, onKakaoFriendSyncedChange],
+  );
 
   const loadNextPage = useCallback(async () => {
     if (isLoadingRef.current || !hasNextRef.current) {
@@ -87,13 +113,8 @@ export default function FriendsList({
       }
 
       if (isFirstPage) {
-        onHasFriendsChange(data.items.length > 0);
         setIsKakaoFriendSynced(data.isKakaoFriendSynced);
-        onKakaoFriendSyncedChange(data.isKakaoFriendSynced);
-
-        if (typeof data.totalCount === "number" && typeof data.favoriteTotalCount === "number") {
-          onFriendCountsChange(data.totalCount, data.favoriteTotalCount);
-        }
+        notifyFirstPage(data);
       }
 
       setFriends((currentFriends) =>
@@ -136,14 +157,7 @@ export default function FriendsList({
         }
       }
     }
-  }, [
-    isFavorite,
-    keyword,
-    onFriendCountsChange,
-    onHasFriendsChange,
-    onKakaoFriendSyncedChange,
-    router,
-  ]);
+  }, [isFavorite, keyword, notifyFirstPage, router]);
 
   const handleToggleFavorite = useCallback(
     async (userId: number, currentIsFavorite: boolean) => {
@@ -211,7 +225,13 @@ export default function FriendsList({
 
   useEffect(() => {
     isMountedRef.current = true;
-    void loadNextPage();
+
+    // 서버에서 받은 첫 페이지가 있으면 요청 없이 페이지 상태만 전달
+    if (initialPageRef.current) {
+      notifyFirstPage(initialPageRef.current);
+    } else {
+      void loadNextPage();
+    }
 
     return () => {
       isMountedRef.current = false;
@@ -219,7 +239,7 @@ export default function FriendsList({
       requestControllerRef.current = null;
       isLoadingRef.current = false;
     };
-  }, [loadNextPage]);
+  }, [loadNextPage, notifyFirstPage]);
 
   useEffect(() => {
     if (!requestError || requestError.retryAfterSeconds <= 0) {
@@ -296,9 +316,12 @@ export default function FriendsList({
     );
   }
 
-  const visibleFriends = isFavorite ? friends.filter((friend) => friend.isFavorite) : friends;
   // 요청 시작 전 첫 렌더링부터 스켈레톤을 보여주도록 첫 페이지 수신 여부로 판단
-  const isFirstPageLoading = friends.length === 0 && hasNext && !requestError;
+  if (friends.length === 0 && hasNext && !requestError) {
+    return <FriendsListSkeleton />;
+  }
+
+  const visibleFriends = isFavorite ? friends.filter((friend) => friend.isFavorite) : friends;
 
   return (
     <ul
@@ -335,21 +358,10 @@ export default function FriendsList({
         );
       })}
 
-      {/* 첫 페이지 응답 전에는 실제 카드 자리에 스켈레톤 표시 */}
-      {isFirstPageLoading &&
-        Array.from({ length: SKELETON_COUNT }, (_, index) => (
-          <li key={`skeleton-${index}`}>
-            <FriendCardSkeleton />
-          </li>
-        ))}
-
       {hasNext && !requestError && <li ref={sentinelRef} aria-hidden="true" className="h-px" />}
 
       {isLoading && (
-        <li
-          role="status"
-          className={isFirstPageLoading ? "sr-only" : "py-4 text-center text-body-sm text-muted"}
-        >
+        <li role="status" className="py-4 text-center text-body-sm text-muted">
           친구 목록을 불러오는 중이에요.
         </li>
       )}
