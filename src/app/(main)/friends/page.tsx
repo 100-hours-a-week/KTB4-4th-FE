@@ -16,13 +16,16 @@ type FriendCounts = {
   favorite: number;
 };
 
+// 응답 전에도 세 자리 숫자 너비를 확보해 친구 수 표시 시 탭 라벨 이동 방지
+const FRIEND_COUNT_CLASS_NAME = "min-w-[3ch] text-left tabular-nums";
+
 function createFriendsTabs(counts: FriendCounts | null): readonly SegmentedTabItem<FriendsTab>[] {
   return [
     {
       value: "all",
       label: (
         <span className="inline-flex items-center gap-1">
-          전체 친구 {counts && <span>{counts.total}</span>}
+          전체 친구 <span className={FRIEND_COUNT_CLASS_NAME}>{counts?.total}</span>
         </span>
       ),
     },
@@ -30,7 +33,7 @@ function createFriendsTabs(counts: FriendCounts | null): readonly SegmentedTabIt
       value: "favorite",
       label: (
         <span className="inline-flex items-center gap-1">
-          즐겨찾는 친구 {counts && <span>{counts.favorite}</span>}
+          즐겨찾는 친구 <span className={FRIEND_COUNT_CLASS_NAME}>{counts?.favorite}</span>
         </span>
       ),
     },
