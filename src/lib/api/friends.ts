@@ -39,7 +39,7 @@ export interface FriendsPage extends FriendsData {
   hasNext: boolean;
 }
 
-interface FriendsResponse {
+export interface FriendsResponse {
   message: string;
   data: FriendsData;
   totalCount?: number;
