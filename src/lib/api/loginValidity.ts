@@ -3,23 +3,9 @@
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { isLoginSessionResponse, type LoginSessionData } from "@/lib/api/loginSession";
 
-interface LoginUser {
-  id: number;
-  nickname: string;
-  profileImageUrl: string | null;
-}
-
-export interface LoginValidityData {
-  user: LoginUser;
-  birthday?: string;
-  // TODO: 추후 API 버전에서 onboardingRequired와 currentStep이 추가되면 응답 타입과 온보딩 분기 처리를 반영합니다.
-}
-
-interface LoginValidityResponse {
-  message: string;
-  data: LoginValidityData;
-}
+export type LoginValidityData = LoginSessionData;
 
 let loginValidityRequest: Promise<LoginValidityData> | null = null;
 
@@ -33,8 +19,13 @@ async function requestLoginValidity() {
     throw new ApiRequestError("로그인 유효성을 확인하지 못했습니다.", response.status);
   }
 
-  const { data } = (await response.json()) as LoginValidityResponse;
-  return data;
+  const responseBody = (await response.json().catch(() => null)) as unknown;
+
+  if (!isLoginSessionResponse(responseBody)) {
+    throw new ApiRequestError("로그인 세션 응답 형식이 올바르지 않습니다.", 502);
+  }
+
+  return responseBody.data;
 }
 
 export function checkLoginValidity() {
@@ -46,4 +37,8 @@ export function checkLoginValidity() {
   }
 
   return loginValidityRequest;
+}
+
+export function clearLoginValidityCache() {
+  loginValidityRequest = null;
 }

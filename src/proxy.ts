@@ -2,12 +2,17 @@
 import { NextResponse } from "next/server";
 
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
-import { isOnboardingStatusResponse } from "@/lib/api/onboardingStatus";
+import {
+  isLoginSessionResponse,
+  LOGIN_SESSION_USER_ID_HEADER,
+  type LoginSessionData,
+} from "@/lib/api/loginSession";
 
 import type { NextRequest } from "next/server";
 
 const LOGIN_PATH = "/login";
 const ERROR_PATH = "/error";
+const HOME_PATH = "/";
 const ONBOARDING_PATH = "/onboarding";
 const ACCESS_TOKEN_COOKIE = "NEEDU_ACCESS_TOKEN";
 const REFRESH_TOKEN_COOKIE = "NEEDU_REFRESH_TOKEN";
@@ -19,7 +24,7 @@ interface CsrfTokenResponse {
   };
 }
 
-type AuthRequestStage = "session" | "csrf" | "refresh" | "revalidation" | "onboarding";
+type AuthRequestStage = "session" | "csrf" | "refresh" | "revalidation";
 
 function createCookieStore(cookieHeader: string | null) {
   const cookies = new Map<string, string>();
@@ -194,9 +199,13 @@ function createNextResponse(
   request: NextRequest,
   cookies: Map<string, string>,
   setCookieHeaders: string[],
+  userId: number,
 ) {
   const requestHeaders = new Headers(request.headers);
   const cookieHeader = serializeCookies(cookies);
+
+  requestHeaders.delete(LOGIN_SESSION_USER_ID_HEADER);
+  requestHeaders.set(LOGIN_SESSION_USER_ID_HEADER, String(userId));
 
   if (cookieHeader) {
     requestHeaders.set("cookie", cookieHeader);
@@ -236,53 +245,49 @@ async function fetchAuthApi(
   });
 }
 
-async function routeByOnboardingStatus(
+function routeByLoginSession(
   request: NextRequest,
   cookies: Map<string, string>,
   responseCookieHeaders: string[],
+  session: LoginSessionData,
 ) {
-  if (request.nextUrl.pathname === ONBOARDING_PATH) {
-    return createNextResponse(request, cookies, responseCookieHeaders);
+  const isOnboardingPath = request.nextUrl.pathname === ONBOARDING_PATH;
+
+  if (session.user.onboardingCompleted) {
+    return isOnboardingPath
+      ? createRedirectResponse(request, HOME_PATH, responseCookieHeaders)
+      : createNextResponse(request, cookies, responseCookieHeaders, session.user.id);
   }
 
-  const onboardingResponse = await fetchAuthApi(API_ENDPOINTS.users.onboarding, cookies);
-  collectSetCookieHeaders(onboardingResponse, cookies, responseCookieHeaders);
+  if (isOnboardingPath) {
+    return createNextResponse(request, cookies, responseCookieHeaders, session.user.id);
+  }
 
-  if (!onboardingResponse.ok) {
+  return createRedirectResponse(request, ONBOARDING_PATH, responseCookieHeaders);
+}
+
+async function routeBySessionResponse(
+  request: NextRequest,
+  cookies: Map<string, string>,
+  responseCookieHeaders: string[],
+  sessionResponse: Response,
+  stage: Extract<AuthRequestStage, "session" | "revalidation">,
+) {
+  const responseBody = (await sessionResponse.json().catch(() => null)) as unknown;
+
+  if (!isLoginSessionResponse(responseBody)) {
     logAuthApiFailure(
       request,
       cookies,
-      "onboarding",
-      API_ENDPOINTS.users.onboarding,
-      onboardingResponse.status,
-    );
-
-    const redirectPath = onboardingResponse.status === 401 ? LOGIN_PATH : ERROR_PATH;
-    return createRedirectResponse(request, redirectPath, responseCookieHeaders);
-  }
-
-  const responseBody = (await onboardingResponse.json().catch(() => null)) as unknown;
-
-  if (!isOnboardingStatusResponse(responseBody)) {
-    logAuthApiFailure(
-      request,
-      cookies,
-      "onboarding",
-      API_ENDPOINTS.users.onboarding,
-      onboardingResponse.status,
-      "invalid onboarding status response",
+      stage,
+      API_ENDPOINTS.auth.loginValidity,
+      sessionResponse.status,
+      "invalid login session response",
     );
     return createRedirectResponse(request, ERROR_PATH, responseCookieHeaders);
   }
 
-  if (responseBody.data.completed) {
-    return createNextResponse(request, cookies, responseCookieHeaders);
-  }
-
-  const onboardingUrl = new URL(ONBOARDING_PATH, request.url);
-  onboardingUrl.searchParams.set("currentStep", responseBody.data.currentStep);
-
-  return appendSetCookieHeaders(NextResponse.redirect(onboardingUrl), responseCookieHeaders);
+  return routeByLoginSession(request, cookies, responseCookieHeaders, responseBody.data);
 }
 
 export async function proxy(request: NextRequest) {
@@ -302,9 +307,13 @@ export async function proxy(request: NextRequest) {
     collectSetCookieHeaders(sessionResponse, cookies, responseCookieHeaders);
 
     if (sessionResponse.ok) {
-      authRequestStage = "onboarding";
-      authEndpoint = API_ENDPOINTS.users.onboarding;
-      return await routeByOnboardingStatus(request, cookies, responseCookieHeaders);
+      return await routeBySessionResponse(
+        request,
+        cookies,
+        responseCookieHeaders,
+        sessionResponse,
+        "session",
+      );
     }
 
     logAuthApiFailure(request, cookies, authRequestStage, authEndpoint, sessionResponse.status);
@@ -380,9 +389,13 @@ export async function proxy(request: NextRequest) {
       return createRedirectResponse(request, redirectPath, responseCookieHeaders);
     }
 
-    authRequestStage = "onboarding";
-    authEndpoint = API_ENDPOINTS.users.onboarding;
-    return await routeByOnboardingStatus(request, cookies, responseCookieHeaders);
+    return await routeBySessionResponse(
+      request,
+      cookies,
+      responseCookieHeaders,
+      revalidationResponse,
+      "revalidation",
+    );
   } catch (error) {
     logAuthRequestError(request, cookies, authRequestStage, authEndpoint, error);
     return createRedirectResponse(request, ERROR_PATH, responseCookieHeaders);

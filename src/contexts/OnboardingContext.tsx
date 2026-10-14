@@ -7,11 +7,11 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
-import type { OnboardingStatusStep } from "@/lib/api/onboardingStatus";
 import {
   isAllergyCode,
   isGiftExclusionCode,
@@ -67,9 +67,12 @@ type OnboardingContextValue = {
   resetOnboarding: () => void;
 };
 
-const STORAGE_KEY = "needu:onboarding:v1";
-const STORAGE_VERSION = 2;
+const LEGACY_STORAGE_KEY = "needu:onboarding:v1";
+const STORAGE_KEY_PREFIX = "needu:onboarding:v2";
+const STORAGE_VERSION = 3;
 const consentIds: ConsentId[] = ["collection", "purpose", "visibility", "retention", "withdrawal"];
+
+const getStorageKey = (userId: number) => `${STORAGE_KEY_PREFIX}:${userId}`;
 
 const initialState: OnboardingState = {
   phase: "privacy-consent",
@@ -88,36 +91,6 @@ const initialState: OnboardingState = {
     allergyCodes: [],
     giftExclusionCodes: [],
   },
-};
-
-const agreedPrivacyConsents: Record<ConsentId, boolean> = {
-  collection: true,
-  purpose: true,
-  visibility: true,
-  retention: true,
-  withdrawal: true,
-};
-
-const serverStepToOnboardingStep: Record<
-  Exclude<OnboardingStatusStep, "CONSENTS">,
-  OnboardingStep
-> = {
-  PROFILE: 1,
-  INTERESTING: 3,
-  UNWANTED: 4,
-};
-
-const createStateFromServerStep = (serverStep: OnboardingStatusStep): OnboardingState => {
-  if (serverStep === "CONSENTS") {
-    return initialState;
-  }
-
-  return {
-    ...initialState,
-    phase: "onboarding",
-    currentStep: serverStepToOnboardingStep[serverStep],
-    privacyConsents: agreedPrivacyConsents,
-  };
 };
 
 const isUniqueCodeArray = <T extends string>(
@@ -156,31 +129,6 @@ const isStoredOnboardingState = (value: unknown): value is OnboardingState => {
     isUniqueCodeArray(formData?.allergyCodes, isAllergyCode) &&
     isUniqueCodeArray(formData?.giftExclusionCodes, isGiftExclusionCode)
   );
-};
-
-const canRestoreStoredState = (storedState: OnboardingState, serverStep?: OnboardingStatusStep) => {
-  if (!serverStep) {
-    return true;
-  }
-
-  if (serverStep === "CONSENTS") {
-    return storedState.phase === "privacy-consent";
-  }
-
-  if (serverStep === "PROFILE") {
-    return storedState.phase !== "privacy-consent";
-  }
-
-  if (storedState.phase === "review") {
-    return true;
-  }
-
-  if (storedState.phase !== "onboarding") {
-    return false;
-  }
-
-  const minimumStep = serverStepToOnboardingStep[serverStep];
-  return storedState.currentStep >= minimumStep;
 };
 
 const onboardingReducer = (state: OnboardingState, action: OnboardingAction): OnboardingState => {
@@ -229,57 +177,52 @@ const onboardingReducer = (state: OnboardingState, action: OnboardingAction): On
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
-export function OnboardingProvider({
-  children,
-  serverStep,
-}: {
-  children: ReactNode;
-  serverStep?: OnboardingStatusStep;
-}) {
+export function OnboardingProvider({ children, userId }: { children: ReactNode; userId: number }) {
   const [state, dispatch] = useReducer(onboardingReducer, initialState);
   const [isHydrated, setIsHydrated] = useState(false);
+  const isPersistenceEnabledRef = useRef(true);
+  const storageKey = getStorageKey(userId);
 
   useEffect(() => {
     try {
-      const storedValue = window.sessionStorage.getItem(STORAGE_KEY);
+      window.sessionStorage.removeItem(LEGACY_STORAGE_KEY);
+
+      const storedValue = window.sessionStorage.getItem(storageKey);
 
       if (storedValue) {
-        const parsedValue = JSON.parse(storedValue) as { version?: unknown; state?: unknown };
+        const parsedValue = JSON.parse(storedValue) as {
+          version?: unknown;
+          userId?: unknown;
+          state?: unknown;
+        };
 
         if (
           parsedValue.version === STORAGE_VERSION &&
-          isStoredOnboardingState(parsedValue.state) &&
-          canRestoreStoredState(parsedValue.state, serverStep)
+          parsedValue.userId === userId &&
+          isStoredOnboardingState(parsedValue.state)
         ) {
           dispatch({ type: "HYDRATE", state: parsedValue.state });
         } else {
-          window.sessionStorage.removeItem(STORAGE_KEY);
-
-          if (serverStep) {
-            dispatch({ type: "HYDRATE", state: createStateFromServerStep(serverStep) });
-          }
+          window.sessionStorage.removeItem(storageKey);
         }
-      } else if (serverStep) {
-        dispatch({ type: "HYDRATE", state: createStateFromServerStep(serverStep) });
       }
     } catch {
-      window.sessionStorage.removeItem(STORAGE_KEY);
-
-      if (serverStep) {
-        dispatch({ type: "HYDRATE", state: createStateFromServerStep(serverStep) });
-      }
+      window.sessionStorage.removeItem(storageKey);
     } finally {
       setIsHydrated(true);
     }
-  }, [serverStep]);
+  }, [storageKey, userId]);
 
   useEffect(() => {
-    if (!isHydrated) {
+    if (!isHydrated || !isPersistenceEnabledRef.current) {
       return;
     }
 
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, state }));
-  }, [isHydrated, state]);
+    window.sessionStorage.setItem(
+      storageKey,
+      JSON.stringify({ version: STORAGE_VERSION, userId, state }),
+    );
+  }, [isHydrated, state, storageKey, userId]);
 
   const value = useMemo<OnboardingContextValue>(
     () => ({
@@ -293,11 +236,12 @@ export function OnboardingProvider({
       toggleInterest: (interest) => dispatch({ type: "TOGGLE_INTEREST", interest }),
       toggleAvoidance: (category, item) => dispatch({ type: "TOGGLE_AVOIDANCE", category, item }),
       resetOnboarding: () => {
-        window.sessionStorage.removeItem(STORAGE_KEY);
+        isPersistenceEnabledRef.current = false;
+        window.sessionStorage.removeItem(storageKey);
         dispatch({ type: "RESET" });
       },
     }),
-    [isHydrated, state],
+    [isHydrated, state, storageKey],
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
