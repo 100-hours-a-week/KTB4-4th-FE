@@ -187,6 +187,14 @@ export default function Header() {
   const friendDetailMatch = pathname.match(friendDetailPathPattern);
   const friendUserId = friendDetailMatch ? Number(pathname.split("/")[2]) : null;
   const showBackButton = !pathsWithoutBackButton.has(pathname);
+  const handleBack = () => {
+    if (pathname === "/products") {
+      router.push("/");
+      return;
+    }
+
+    router.back();
+  };
 
   return (
     <header className="relative flex h-[60px] shrink-0 items-center justify-center bg-surface px-page">
@@ -199,7 +207,7 @@ export default function Header() {
           type="button"
           aria-label="뒤로 가기"
           className="touch-target absolute left-page flex items-center justify-start border-0 bg-transparent p-0 text-foreground"
-          onClick={() => router.back()}
+          onClick={handleBack}
         >
           <Image src="/icons/arrow-left.svg" alt="" width={24} height={24} priority />
         </button>
