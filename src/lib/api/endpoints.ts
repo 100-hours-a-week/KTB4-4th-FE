@@ -32,6 +32,7 @@ export const API_ENDPOINTS = {
     list: `${API_V1_PREFIX}/notifications`,
     stream: `${API_V1_PREFIX}/notifications/stream`,
     summary: `${API_V1_PREFIX}/notifications/summary`,
+    detail: (notificationId: number) => `${API_V1_PREFIX}/notifications/${notificationId}`,
   },
   personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
   productCategories: `${API_V1_PREFIX}/products/categories`,

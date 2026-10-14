@@ -14,7 +14,11 @@ import {
 
 import { ApiRequestError } from "@/lib/api/client";
 import { checkLoginValidity } from "@/lib/api/loginValidity";
-import { getNotifications, getNotificationSummary } from "@/lib/api/notifications";
+import {
+  getNotifications,
+  getNotificationSummary,
+  markNotificationAsRead,
+} from "@/lib/api/notifications";
 import {
   closeNotificationStream,
   openNotificationStream,
@@ -40,6 +44,7 @@ type NotificationContextValue = {
   errorMessage: string | null;
   loadNotificationsIfNeeded: () => Promise<void>;
   loadMoreNotifications: () => Promise<void>;
+  readNotification: (notificationId: number) => Promise<void>;
   deleteNotification: (notificationId: number) => void;
   markAllNotificationsAsRead: () => void;
   closeStream: () => void;
@@ -71,6 +76,11 @@ function getErrorMessage(error: unknown) {
   return error instanceof ApiRequestError ? error.message : "알림을 불러오지 못했습니다.";
 }
 
+// 다른 사용자 알림의 존재 여부를 드러내지 않도록 403(CSRF 제외)도 404와 같이 없는 알림으로 처리함
+function isMissingNotificationError(error: unknown) {
+  return error instanceof ApiRequestError && (error.status === 404 || error.status === 403);
+}
+
 function getRetryDelayMs(error: unknown) {
   if (error instanceof ApiRequestError && error.status === 429) {
     return (error.retryAfterSeconds ?? 0) * 1000;
@@ -95,6 +105,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const summaryRequestRef = useRef<Promise<void> | null>(null);
   const isListLoadedRef = useRef(false);
   const initialListRequestRef = useRef<Promise<void> | null>(null);
+  const readingNotificationIdsRef = useRef(new Set<number>());
 
   const applyUnreadCount = useCallback((count: number) => {
     setUnreadCount(count);
@@ -257,6 +268,58 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [hasNext, nextCursor, isLoadingMore, handleListError, applyUnreadCount]);
 
+  // 누르는 즉시 읽음 상태를 반영하고, 응답의 readAt·unreadCount로 서버 상태에 맞춤
+  // 이미 읽은 알림은 호출하지 않으며, 실패 시 미읽음 상태로 되돌리거나 없는 알림이면 목록에서 제거함
+  const readNotification = useCallback(
+    async (notificationId: number) => {
+      const target = notifications.find((item) => item.notificationId === notificationId);
+
+      if (!target || target.readAt !== null) return;
+      if (readingNotificationIdsRef.current.has(notificationId)) return;
+
+      const previousUnreadCount = unreadCount;
+      const optimisticReadAt = new Date().toISOString();
+      const updateReadAt = (readAt: string | null) =>
+        setNotifications((currentItems) =>
+          currentItems.map((item) =>
+            item.notificationId === notificationId ? { ...item, readAt } : item,
+          ),
+        );
+
+      readingNotificationIdsRef.current.add(notificationId);
+      updateReadAt(optimisticReadAt);
+      applyUnreadCount(Math.max(0, previousUnreadCount - 1));
+
+      try {
+        const result = await markNotificationAsRead(notificationId);
+
+        if (!isMountedRef.current) return;
+
+        updateReadAt(result.readAt);
+        applyUnreadCount(result.unreadCount);
+      } catch (error) {
+        if (!isMountedRef.current) return;
+
+        if (isMissingNotificationError(error)) {
+          setNotifications((currentItems) =>
+            currentItems.filter((item) => item.notificationId !== notificationId),
+          );
+          void refreshNotificationSummary();
+          return;
+        }
+
+        updateReadAt(null);
+        applyUnreadCount(previousUnreadCount);
+        setErrorMessage(
+          error instanceof ApiRequestError ? error.message : "알림을 읽음 처리하지 못했습니다.",
+        );
+      } finally {
+        readingNotificationIdsRef.current.delete(notificationId);
+      }
+    },
+    [notifications, unreadCount, applyUnreadCount, refreshNotificationSummary],
+  );
+
   // TODO: 알림 삭제 API 연동
   const deleteNotification = useCallback(
     (notificationId: number) => {
@@ -341,6 +404,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       errorMessage,
       loadNotificationsIfNeeded,
       loadMoreNotifications,
+      readNotification,
       deleteNotification,
       markAllNotificationsAsRead,
       closeStream: closeNotificationStream,
@@ -356,6 +420,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       errorMessage,
       loadNotificationsIfNeeded,
       loadMoreNotifications,
+      readNotification,
       deleteNotification,
       markAllNotificationsAsRead,
     ],

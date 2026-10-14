@@ -1,4 +1,4 @@
-// 스와이프로 삭제 동작을 제공하는 개별 알림 항목
+// 누르면 알림을 확인하고, 스와이프로 삭제 동작을 제공하는 개별 알림 항목
 "use client";
 
 import { useRef, useState } from "react";
@@ -7,6 +7,8 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 
 const DELETE_ACTION_WIDTH = 72;
 const SWIPE_THRESHOLD = DELETE_ACTION_WIDTH / 2;
+// 이 거리 이상 움직였으면 스와이프로 보고 누르기로 처리하지 않음
+const TAP_MOVE_TOLERANCE = 5;
 
 type NotificationItemProps = {
   id: number;
@@ -15,6 +17,7 @@ type NotificationItemProps = {
   createdAt: string;
   isUnread: boolean;
   isDeleteRevealed: boolean;
+  onSelect: (id: number) => void;
   onDelete: (id: number) => void;
   onRevealDelete: (id: number | null) => void;
 };
@@ -26,12 +29,14 @@ export default function NotificationItem({
   createdAt,
   isUnread,
   isDeleteRevealed,
+  onSelect,
   onDelete,
   onRevealDelete,
 }: NotificationItemProps) {
   const [dragOffset, setDragOffset] = useState<number | null>(null);
   const pointerStartXRef = useRef<number | null>(null);
   const currentOffsetRef = useRef(0);
+  const hasMovedRef = useRef(false);
   const instructionId = `notification-swipe-instruction-${id}`;
   const restingOffset = isDeleteRevealed ? -DELETE_ACTION_WIDTH : 0;
   const translateX = dragOffset ?? restingOffset;
@@ -39,6 +44,7 @@ export default function NotificationItem({
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     pointerStartXRef.current = event.clientX;
     currentOffsetRef.current = restingOffset;
+    hasMovedRef.current = false;
     setDragOffset(restingOffset);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -47,6 +53,11 @@ export default function NotificationItem({
     if (pointerStartXRef.current === null) return;
 
     const distance = event.clientX - pointerStartXRef.current;
+
+    if (Math.abs(distance) >= TAP_MOVE_TOLERANCE) {
+      hasMovedRef.current = true;
+    }
+
     const nextOffset = Math.max(-DELETE_ACTION_WIDTH, Math.min(0, restingOffset + distance));
 
     currentOffsetRef.current = nextOffset;
@@ -66,6 +77,25 @@ export default function NotificationItem({
     setDragOffset(null);
   };
 
+  // 삭제 버튼이 열려 있으면 알림을 열지 않고 삭제 버튼만 닫음
+  const selectNotification = () => {
+    if (isDeleteRevealed) {
+      onRevealDelete(null);
+      return;
+    }
+
+    onSelect(id);
+  };
+
+  const handleClick = () => {
+    if (hasMovedRef.current) {
+      hasMovedRef.current = false;
+      return;
+    }
+
+    selectNotification();
+  };
+
   return (
     <li className="relative overflow-hidden border-b border-border last:border-b-0">
       <button
@@ -80,12 +110,18 @@ export default function NotificationItem({
       </button>
 
       <div
-        role="group"
+        role="button"
         tabIndex={0}
         aria-describedby={instructionId}
-        className={`relative touch-pan-y select-none px-5 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-info ${isUnread ? "bg-warning-subtle" : "bg-surface"} ${dragOffset === null ? "transition-transform duration-200 ease-standard" : ""}`}
+        className={`relative cursor-pointer touch-pan-y select-none px-5 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-info ${isUnread ? "bg-warning-subtle" : "bg-surface"} ${dragOffset === null ? "transition-transform duration-200 ease-standard" : ""}`}
         style={{ transform: `translateX(${translateX}px)` }}
+        onClick={handleClick}
         onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            selectNotification();
+          }
+
           if (event.key === "ArrowLeft") {
             event.preventDefault();
             onRevealDelete(id);
@@ -102,7 +138,7 @@ export default function NotificationItem({
         onPointerCancel={handlePointerCancel}
       >
         <span id={instructionId} className="sr-only">
-          왼쪽으로 밀거나 왼쪽 방향키를 눌러 삭제 버튼 표시
+          눌러서 알림 확인, 왼쪽으로 밀거나 왼쪽 방향키를 눌러 삭제 버튼 표시
         </span>
         <div>
           <p className="m-0 text-body-lg font-bold text-foreground">{title}</p>

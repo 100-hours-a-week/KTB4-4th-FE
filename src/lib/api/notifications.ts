@@ -1,4 +1,4 @@
-// 알림 목록 조회와 미읽음 알림 상태 조회 API 요청 및 응답 처리
+// 알림 목록 조회, 미읽음 알림 상태 조회, 알림 읽음 처리 API 요청 및 응답 처리
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -7,6 +7,7 @@ import type {
   NotificationListData,
   NotificationListPage,
   NotificationListParams,
+  NotificationReadResult,
   NotificationSummary,
 } from "@/types/notification";
 
@@ -22,6 +23,11 @@ interface NotificationSummaryResponse {
   data: NotificationSummary;
 }
 
+interface NotificationReadResponse {
+  message: string;
+  data: NotificationReadResult;
+}
+
 interface NotificationErrorResponse {
   message?: string;
   data?: {
@@ -33,6 +39,7 @@ const DEFAULT_ERROR_MESSAGES: Partial<Record<number, string>> = {
   400: "요청 형식이 올바르지 않습니다.",
   401: "로그인이 필요합니다.",
   403: "이용이 제한된 계정입니다.",
+  404: "알림을 찾을 수 없습니다.",
   422: "입력값이 유효하지 않습니다. 입력 내용을 확인해 주세요.",
   429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   500: "요청을 처리하지 못했습니다.",
@@ -129,6 +136,22 @@ export async function getNotificationSummary() {
   }
 
   const { data } = (await response.json()) as NotificationSummaryResponse;
+
+  return data;
+}
+
+// 본문 없이 호출하며, 이미 읽은 알림도 200과 처음 readAt을 반환함
+export async function markNotificationAsRead(notificationId: number) {
+  const response = await apiFetch(API_ENDPOINTS.notifications.detail(notificationId), {
+    method: "PATCH",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await toApiRequestError(response, "알림을 읽음 처리하지 못했습니다.");
+  }
+
+  const { data } = (await response.json()) as NotificationReadResponse;
 
   return data;
 }

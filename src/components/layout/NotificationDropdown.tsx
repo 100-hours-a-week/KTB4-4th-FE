@@ -1,10 +1,12 @@
 // 헤더의 알림 버튼과 알림 목록 드롭다운
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { useNotificationContext } from "@/contexts/NotificationContext";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
+import { getNotificationTargetPath } from "@/lib/notificationTarget";
 
 import NotificationItem from "./NotificationItem";
 
@@ -19,9 +21,11 @@ export default function NotificationDropdown() {
     errorMessage,
     loadNotificationsIfNeeded,
     loadMoreNotifications,
+    readNotification,
     deleteNotification: deleteNotificationItem,
     markAllNotificationsAsRead: markAllNotificationItemsAsRead,
   } = useNotificationContext();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [revealedNotificationId, setRevealedNotificationId] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,6 +39,23 @@ export default function NotificationDropdown() {
   const deleteNotification = (notificationId: number) => {
     deleteNotificationItem(notificationId);
     setRevealedNotificationId(null);
+  };
+
+  // 읽지 않은 알림이면 읽음 처리하고, 이동할 화면이 있으면 드롭다운을 닫고 이동함
+  const selectNotification = (notificationId: number) => {
+    const notification = notifications.find((item) => item.notificationId === notificationId);
+
+    if (!notification) return;
+
+    void readNotification(notificationId);
+
+    const targetPath = getNotificationTargetPath(notification);
+
+    if (!targetPath) return;
+
+    setIsOpen(false);
+    setRevealedNotificationId(null);
+    router.push(targetPath);
   };
 
   const markAllNotificationsAsRead = () => {
@@ -153,6 +174,7 @@ export default function NotificationDropdown() {
                     createdAt={formatRelativeTime(notification.createdAt)}
                     isUnread={notification.readAt === null}
                     isDeleteRevealed={revealedNotificationId === notification.notificationId}
+                    onSelect={selectNotification}
                     onDelete={deleteNotification}
                     onRevealDelete={setRevealedNotificationId}
                   />
