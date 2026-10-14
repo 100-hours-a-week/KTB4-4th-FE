@@ -99,7 +99,7 @@ export default function FriendDetailContent({ userId }: FriendDetailContentProps
         </div>
       ) : (
         <div className="mt-8 flex w-full max-w-[360px] justify-center">
-          <FriendPokeButton nickname={friend.nickname} />
+          <FriendPokeButton userId={userId} nickname={friend.nickname} />
         </div>
       )}
     </section>

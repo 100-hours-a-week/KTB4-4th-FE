@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
     list: `${API_V1_PREFIX}/friends`,
     detail: (userId: number) => `${API_V1_PREFIX}/friends/${userId}`,
     favorite: (userId: number) => `${API_V1_PREFIX}/friends/${userId}/favorite`,
+    pokes: (userId: number) => `${API_V1_PREFIX}/friends/${userId}/pokes`,
     kakaoAuthorize: `${API_V1_PREFIX}/friends/kakao/authorize`,
   },
   guidance: `${API_V1_PREFIX}/guidance`,
