@@ -16,13 +16,16 @@ type FriendCounts = {
   favorite: number;
 };
 
+// 응답 전에도 세 자리 숫자 너비를 확보해 친구 수 표시 시 탭 라벨 이동 방지
+const FRIEND_COUNT_CLASS_NAME = "min-w-[3ch] text-left tabular-nums";
+
 function createFriendsTabs(counts: FriendCounts | null): readonly SegmentedTabItem<FriendsTab>[] {
   return [
     {
       value: "all",
       label: (
         <span className="inline-flex items-center gap-1">
-          전체 친구 {counts && <span>{counts.total}</span>}
+          전체 친구 <span className={FRIEND_COUNT_CLASS_NAME}>{counts?.total}</span>
         </span>
       ),
     },
@@ -30,7 +33,7 @@ function createFriendsTabs(counts: FriendCounts | null): readonly SegmentedTabIt
       value: "favorite",
       label: (
         <span className="inline-flex items-center gap-1">
-          즐겨찾는 친구 {counts && <span>{counts.favorite}</span>}
+          즐겨찾는 친구 <span className={FRIEND_COUNT_CLASS_NAME}>{counts?.favorite}</span>
         </span>
       ),
     },
@@ -62,6 +65,12 @@ export default function FriendsPage() {
   const [friendCounts, setFriendCounts] = useState<FriendCounts | null>(null);
   const pageCopy = FRIENDS_PAGE_COPY[selectedTab];
   const friendsTabs = createFriendsTabs(friendCounts);
+  // 빈 목록에 카카오 친구 연동 버튼이 표시되는 경우에만 상단 동기화 버튼 숨김
+  const isKakaoConnectButtonVisible =
+    isKakaoFriendSynced === false &&
+    hasFriends === false &&
+    selectedTab === "all" &&
+    !searchKeyword;
 
   const handleFriendCountsChange = useCallback((totalCount: number, favoriteTotalCount: number) => {
     setFriendCounts({ total: totalCount, favorite: favoriteTotalCount });
@@ -116,21 +125,18 @@ export default function FriendsPage() {
     <main aria-label="친구" className="page-content flex flex-1 flex-col bg-background">
       <PageIntro
         title={pageCopy.title}
-        description={
-          hasFriends === null ? "" : hasFriends ? pageCopy.description : pageCopy.emptyDescription
-        }
+        description={hasFriends === false ? pageCopy.emptyDescription : pageCopy.description}
       />
-      {isKakaoFriendSynced === true && (
-        <div className="mt-2 flex justify-end px-1">
-          <KakaoFriendConnectButton variant="sync" />
-        </div>
-      )}
+      {/* 동기화 버튼을 숨길 때도 버튼 높이만큼 자리를 유지해 레이아웃 이동 방지 */}
+      <div className="mt-2 flex h-touch justify-end px-1">
+        {!isKakaoConnectButtonVisible && <KakaoFriendConnectButton variant="sync" />}
+      </div>
       <SegmentedTabs
         items={friendsTabs}
         value={selectedTab}
         onChange={setSelectedTab}
         ariaLabel="친구 목록 유형"
-        className={isKakaoFriendSynced === true ? "mt-4" : "mt-8"}
+        className="mt-4"
       />
       <div className="mt-5">
         <FriendSearchField
