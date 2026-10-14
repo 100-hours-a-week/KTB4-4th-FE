@@ -19,6 +19,9 @@ export interface FriendDetail {
   profileImageUrl: string | null;
   tasteAnalysisCompleted: boolean;
   birthDate: string;
+  tasteKeywords: string[];
+  interestKeywords: string[];
+  interestSummary: string;
   isFavorite: boolean;
 }
 
@@ -61,6 +64,9 @@ interface FriendDetailData {
   profileImageUrl: string | null;
   tasteAnalysisCompleted: boolean;
   birthDate: string;
+  tasteKeywords: string[];
+  interestKeywords: string[];
+  interestSummary: string;
   isFavorite: boolean;
 }
 
@@ -112,6 +118,15 @@ const FRIEND_FAVORITE_ERROR_MESSAGES: Partial<Record<number, string>> = {
   403: "보안 토큰을 확인하지 못했습니다. 다시 시도해 주세요.",
   404: "친구를 찾을 수 없습니다.",
   422: "입력값이 유효하지 않습니다. 입력 내용을 확인해 주세요.",
+  429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+  500: "요청을 처리하지 못했습니다.",
+  503: "일시적으로 서비스를 이용할 수 없습니다.",
+};
+const FRIEND_DETAIL_ERROR_MESSAGES: Partial<Record<number, string>> = {
+  400: "요청 형식이 올바르지 않습니다.",
+  401: "로그인이 필요합니다.",
+  403: "이용이 제한된 계정입니다.",
+  404: "친구를 찾을 수 없습니다.",
   429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   500: "요청을 처리하지 못했습니다.",
   503: "일시적으로 서비스를 이용할 수 없습니다.",
@@ -246,7 +261,15 @@ export async function getFriendDetail(userId: number) {
   });
 
   if (!response.ok) {
-    throw new ApiRequestError("친구 상세 정보를 불러오지 못했습니다.", response.status);
+    const errorResponse = (await response.json().catch(() => null)) as FriendsErrorResponse | null;
+
+    throw new ApiRequestError(
+      errorResponse?.message ??
+        FRIEND_DETAIL_ERROR_MESSAGES[response.status] ??
+        "친구 상세 정보를 불러오지 못했습니다.",
+      response.status,
+      getRetryAfterSeconds(response, errorResponse),
+    );
   }
 
   const { data } = (await response.json()) as FriendDetailResponse;
@@ -257,6 +280,9 @@ export async function getFriendDetail(userId: number) {
     profileImageUrl: data.profileImageUrl,
     tasteAnalysisCompleted: data.tasteAnalysisCompleted,
     birthDate: data.birthDate,
+    tasteKeywords: data.tasteKeywords,
+    interestKeywords: data.interestKeywords,
+    interestSummary: data.interestSummary,
     isFavorite: data.isFavorite,
   } satisfies FriendDetail;
 }
