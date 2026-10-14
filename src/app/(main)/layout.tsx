@@ -2,6 +2,7 @@
 import BottomNavigation from "@/components/layout/BottomNavigation";
 import Header from "@/components/layout/Header";
 import { AiConversationProvider } from "@/contexts/AiConversationContext";
+import { FriendDetailProvider } from "@/contexts/FriendDetailContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 
 import type { ReactNode } from "react";
@@ -10,9 +11,11 @@ export default function MainLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <NotificationProvider>
       <AiConversationProvider>
-        <Header />
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
-        <BottomNavigation />
+        <FriendDetailProvider>
+          <Header />
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
+          <BottomNavigation />
+        </FriendDetailProvider>
       </AiConversationProvider>
     </NotificationProvider>
   );
