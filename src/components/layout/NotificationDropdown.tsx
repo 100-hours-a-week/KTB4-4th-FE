@@ -38,7 +38,7 @@ export default function NotificationDropdown() {
   const isWaitingInitialList = isInitialLoading || (!isListLoaded && !errorMessage);
 
   const deleteNotification = (notificationId: number) => {
-    deleteNotificationItem(notificationId);
+    void deleteNotificationItem(notificationId);
     setRevealedNotificationId(null);
   };
 

@@ -1,4 +1,4 @@
-// 알림 목록 조회, 미읽음 알림 상태 조회, 알림 읽음·모두 읽음 처리 API 요청 및 응답 처리
+// 알림 목록 조회, 미읽음 알림 상태 조회, 알림 읽음·모두 읽음·삭제 처리 API 요청 및 응답 처리
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -176,4 +176,16 @@ export async function markAllNotificationsAsReadRequest() {
   const { data } = (await response.json()) as NotificationReadAllResponse;
 
   return data;
+}
+
+// 성공 시 204(본문 없음)를 반환하므로 응답 본문을 읽지 않음
+export async function deleteNotificationRequest(notificationId: number) {
+  const response = await apiFetch(API_ENDPOINTS.notifications.detail(notificationId), {
+    method: "DELETE",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await toApiRequestError(response, "알림을 삭제하지 못했습니다.");
+  }
 }

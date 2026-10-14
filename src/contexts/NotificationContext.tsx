@@ -15,6 +15,7 @@ import {
 import { ApiRequestError } from "@/lib/api/client";
 import { checkLoginValidity } from "@/lib/api/loginValidity";
 import {
+  deleteNotificationRequest,
   getNotifications,
   getNotificationSummary,
   markAllNotificationsAsReadRequest,
@@ -47,7 +48,7 @@ type NotificationContextValue = {
   loadNotificationsIfNeeded: () => Promise<void>;
   loadMoreNotifications: () => Promise<void>;
   readNotification: (notificationId: number) => Promise<void>;
-  deleteNotification: (notificationId: number) => void;
+  deleteNotification: (notificationId: number) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   closeStream: () => void;
 };
@@ -109,6 +110,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const isListLoadedRef = useRef(false);
   const initialListRequestRef = useRef<Promise<void> | null>(null);
   const readingNotificationIdsRef = useRef(new Set<number>());
+  const deletingNotificationIdsRef = useRef(new Set<number>());
   const isMarkingAllAsReadRef = useRef(false);
 
   const applyUnreadCount = useCallback((count: number) => {
@@ -324,18 +326,45 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [notifications, unreadCount, applyUnreadCount, refreshNotificationSummary],
   );
 
-  // TODO: 알림 삭제 API 연동
+  // 누르는 즉시 목록에서 제거하고, 미읽음 알림이면 미읽음 개수를 줄임
+  // 없는 알림이면 제거 상태를 유지하고, 그 외 실패 시 원래 순서로 되돌린 뒤 다시 삭제할 수 있도록 함
   const deleteNotification = useCallback(
-    (notificationId: number) => {
+    async (notificationId: number) => {
       const target = notifications.find((item) => item.notificationId === notificationId);
 
-      if (target?.readAt === null) {
-        applyUnreadCount(Math.max(0, unreadCount - 1));
-      }
+      if (!target) return;
+      if (deletingNotificationIdsRef.current.has(notificationId)) return;
 
+      const isUnreadTarget = target.readAt === null;
+
+      deletingNotificationIdsRef.current.add(notificationId);
       setNotifications((currentItems) =>
         currentItems.filter((item) => item.notificationId !== notificationId),
       );
+
+      if (isUnreadTarget) {
+        applyUnreadCount(Math.max(0, unreadCount - 1));
+      }
+
+      try {
+        await deleteNotificationRequest(notificationId);
+      } catch (error) {
+        if (!isMountedRef.current || isMissingNotificationError(error)) return;
+
+        // 요청 중 도착한 알림 개수를 덮어쓰지 않도록 현재 개수에서 1만 되돌림
+        setNotifications((currentItems) => mergeNotifications(currentItems, [target]));
+
+        if (isUnreadTarget) {
+          setUnreadCount((count) => count + 1);
+          setHasUnread(true);
+        }
+
+        setErrorMessage(
+          error instanceof ApiRequestError ? error.message : "알림을 삭제하지 못했습니다.",
+        );
+      } finally {
+        deletingNotificationIdsRef.current.delete(notificationId);
+      }
     },
     [notifications, unreadCount, applyUnreadCount],
   );
