@@ -104,6 +104,7 @@ export async function getMockFriendDetail(userId: number) {
     profileImageUrl: friend.profileImageUrl,
     tasteAnalysisCompleted: true,
     birthDate: friend.birthDate ?? "2000-01-01",
+    isFavorite: friend.isFavorite,
   } satisfies FriendDetail;
 }
 

@@ -3,14 +3,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 
 import AiSummarySection from "@/components/common/AiSummarySection";
 import KeywordSection from "@/components/common/KeywordSection";
 import FriendPokeButton from "@/components/friends/FriendPokeButton";
-import { ApiRequestError } from "@/lib/api/client";
-import { getFriendDetail, type FriendDetail } from "@/lib/api/friends";
+import { useFriendDetailContext } from "@/contexts/FriendDetailContext";
 import { friendPreferenceMock } from "@/mocks/friendDetail";
 
 type FriendDetailContentProps = {
@@ -36,41 +33,9 @@ function getDaysUntilBirthday(month: number, day: number) {
 }
 
 export default function FriendDetailContent({ userId }: FriendDetailContentProps) {
-  const router = useRouter();
-  const [friend, setFriend] = useState<FriendDetail | null>(null);
-  const isMountedRef = useRef(false);
-  const requestedUserIdRef = useRef<number | null>(null);
+  const { friend: friendDetail } = useFriendDetailContext();
+  const friend = friendDetail?.id === userId ? friendDetail : null;
   const daysUntilBirthday = getDaysUntilBirthday(TEMPORARY_BIRTHDAY.month, TEMPORARY_BIRTHDAY.day);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    const loadFriendDetail = async () => {
-      try {
-        const data = await getFriendDetail(userId);
-
-        if (isMountedRef.current && requestedUserIdRef.current === userId) {
-          setFriend(data);
-        }
-      } catch (error) {
-        if (isMountedRef.current && requestedUserIdRef.current === userId) {
-          router.replace(
-            error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
-          );
-        }
-      }
-    };
-
-    if (requestedUserIdRef.current !== userId) {
-      requestedUserIdRef.current = userId;
-      setFriend(null);
-      void loadFriendDetail();
-    }
-
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, [router, userId]);
 
   if (!friend) {
     return (

@@ -19,6 +19,7 @@ export interface FriendDetail {
   profileImageUrl: string | null;
   tasteAnalysisCompleted: boolean;
   birthDate: string;
+  isFavorite: boolean;
 }
 
 export interface FriendFavorite {
@@ -60,6 +61,7 @@ interface FriendDetailData {
   profileImageUrl: string | null;
   tasteAnalysisCompleted: boolean;
   birthDate: string;
+  isFavorite: boolean;
 }
 
 interface FriendDetailResponse {
@@ -235,6 +237,7 @@ export async function getFriendDetail(userId: number) {
     profileImageUrl: data.profileImageUrl,
     tasteAnalysisCompleted: data.tasteAnalysisCompleted,
     birthDate: data.birthDate,
+    isFavorite: data.isFavorite,
   } satisfies FriendDetail;
 }
 
