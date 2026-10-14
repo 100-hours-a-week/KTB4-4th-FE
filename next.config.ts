@@ -51,6 +51,16 @@ function createNextConfig(phase: string): NextConfig {
             },
           ],
         },
+        // 파일 내용 해시가 주소에 붙는 파비콘의 재요청을 캐시로 처리
+        {
+          source: "/:file(icon|apple-icon).png",
+          headers: [
+            {
+              key: "Cache-Control",
+              value: "public, max-age=31536000, immutable",
+            },
+          ],
+        },
       ];
     },
     async rewrites() {

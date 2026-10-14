@@ -404,6 +404,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|login|error|_next/static|_next/image|favicon.ico|icon.png|sitemap.xml|robots.txt|images|icons).*)",
+    "/((?!api|login|error|_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|sitemap.xml|robots.txt|images|icons).*)",
   ],
 };
