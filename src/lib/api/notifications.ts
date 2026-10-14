@@ -1,4 +1,4 @@
-// 알림 목록 조회, 미읽음 알림 상태 조회, 알림 읽음 처리 API 요청 및 응답 처리
+// 알림 목록 조회, 미읽음 알림 상태 조회, 알림 읽음·모두 읽음 처리 API 요청 및 응답 처리
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -7,6 +7,7 @@ import type {
   NotificationListData,
   NotificationListPage,
   NotificationListParams,
+  NotificationReadAllResult,
   NotificationReadResult,
   NotificationSummary,
 } from "@/types/notification";
@@ -26,6 +27,11 @@ interface NotificationSummaryResponse {
 interface NotificationReadResponse {
   message: string;
   data: NotificationReadResult;
+}
+
+interface NotificationReadAllResponse {
+  message: string;
+  data: NotificationReadAllResult;
 }
 
 interface NotificationErrorResponse {
@@ -152,6 +158,22 @@ export async function markNotificationAsRead(notificationId: number) {
   }
 
   const { data } = (await response.json()) as NotificationReadResponse;
+
+  return data;
+}
+
+// 본문 없이 호출하며, 내 미읽음 알림 전체를 읽음 처리함
+export async function markAllNotificationsAsReadRequest() {
+  const response = await apiFetch(API_ENDPOINTS.notifications.readAll, {
+    method: "PATCH",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await toApiRequestError(response, "알림을 모두 읽음 처리하지 못했습니다.");
+  }
+
+  const { data } = (await response.json()) as NotificationReadAllResponse;
 
   return data;
 }

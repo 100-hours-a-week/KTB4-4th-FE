@@ -17,6 +17,7 @@ import { checkLoginValidity } from "@/lib/api/loginValidity";
 import {
   getNotifications,
   getNotificationSummary,
+  markAllNotificationsAsReadRequest,
   markNotificationAsRead,
 } from "@/lib/api/notifications";
 import {
@@ -41,12 +42,13 @@ type NotificationContextValue = {
   isListLoaded: boolean;
   isInitialLoading: boolean;
   isLoadingMore: boolean;
+  isMarkingAllAsRead: boolean;
   errorMessage: string | null;
   loadNotificationsIfNeeded: () => Promise<void>;
   loadMoreNotifications: () => Promise<void>;
   readNotification: (notificationId: number) => Promise<void>;
   deleteNotification: (notificationId: number) => void;
-  markAllNotificationsAsRead: () => void;
+  markAllNotificationsAsRead: () => Promise<void>;
   closeStream: () => void;
 };
 
@@ -98,6 +100,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [isListLoaded, setIsListLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const retryAvailableAtRef = useRef(0);
   const retryTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
@@ -106,6 +109,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const isListLoadedRef = useRef(false);
   const initialListRequestRef = useRef<Promise<void> | null>(null);
   const readingNotificationIdsRef = useRef(new Set<number>());
+  const isMarkingAllAsReadRef = useRef(false);
 
   const applyUnreadCount = useCallback((count: number) => {
     setUnreadCount(count);
@@ -336,15 +340,57 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [notifications, unreadCount, applyUnreadCount],
   );
 
-  // TODO: 알림 모두 읽음 API 연동
-  const markAllNotificationsAsRead = useCallback(() => {
-    const readAt = new Date().toISOString();
+  // 누르는 즉시 불러온 알림을 모두 읽음으로 표시하고, 응답의 unreadCount로 표시점을 맞춤
+  // 실패 시 이번 요청으로 읽음 처리한 알림만 미읽음으로 되돌려 요청 중 새로 도착한 알림은 유지함
+  const markAllNotificationsAsRead = useCallback(async () => {
+    if (isMarkingAllAsReadRef.current) return;
 
+    const previousUnreadCount = unreadCount;
+    const optimisticReadAt = new Date().toISOString();
+    const markedNotificationIds = new Set(
+      notifications.filter((item) => item.readAt === null).map((item) => item.notificationId),
+    );
+
+    isMarkingAllAsReadRef.current = true;
+    setIsMarkingAllAsRead(true);
     setNotifications((currentItems) =>
-      currentItems.map((item) => (item.readAt === null ? { ...item, readAt } : item)),
+      currentItems.map((item) =>
+        markedNotificationIds.has(item.notificationId)
+          ? { ...item, readAt: optimisticReadAt }
+          : item,
+      ),
     );
     applyUnreadCount(0);
-  }, [applyUnreadCount]);
+
+    try {
+      // TODO: 모두 읽음 처리 결과(updatedCount) 안내 추후 구현
+      const result = await markAllNotificationsAsReadRequest();
+
+      if (!isMountedRef.current) return;
+
+      applyUnreadCount(result.unreadCount);
+    } catch (error) {
+      if (!isMountedRef.current) return;
+
+      setNotifications((currentItems) =>
+        currentItems.map((item) =>
+          markedNotificationIds.has(item.notificationId) && item.readAt === optimisticReadAt
+            ? { ...item, readAt: null }
+            : item,
+        ),
+      );
+      applyUnreadCount(previousUnreadCount);
+      setErrorMessage(
+        error instanceof ApiRequestError ? error.message : "알림을 모두 읽음 처리하지 못했습니다.",
+      );
+    } finally {
+      isMarkingAllAsReadRef.current = false;
+
+      if (isMountedRef.current) {
+        setIsMarkingAllAsRead(false);
+      }
+    }
+  }, [notifications, unreadCount, applyUnreadCount]);
 
   useEffect(() => {
     const retryTimers = retryTimersRef.current;
@@ -401,6 +447,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       isListLoaded,
       isInitialLoading,
       isLoadingMore,
+      isMarkingAllAsRead,
       errorMessage,
       loadNotificationsIfNeeded,
       loadMoreNotifications,
@@ -417,6 +464,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       isListLoaded,
       isInitialLoading,
       isLoadingMore,
+      isMarkingAllAsRead,
       errorMessage,
       loadNotificationsIfNeeded,
       loadMoreNotifications,

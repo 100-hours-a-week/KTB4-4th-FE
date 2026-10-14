@@ -18,6 +18,7 @@ export default function NotificationDropdown() {
     isListLoaded,
     isInitialLoading,
     isLoadingMore,
+    isMarkingAllAsRead,
     errorMessage,
     loadNotificationsIfNeeded,
     loadMoreNotifications,
@@ -59,7 +60,7 @@ export default function NotificationDropdown() {
   };
 
   const markAllNotificationsAsRead = () => {
-    markAllNotificationItemsAsRead();
+    void markAllNotificationItemsAsRead();
     setRevealedNotificationId(null);
   };
 
@@ -192,7 +193,8 @@ export default function NotificationDropdown() {
               <div className="flex justify-end border-t border-border px-3 py-1">
                 <button
                   type="button"
-                  disabled={!hasUnread}
+                  disabled={!hasUnread || isMarkingAllAsRead}
+                  aria-busy={isMarkingAllAsRead}
                   className="group touch-target flex items-center justify-center border-0 bg-transparent p-0 disabled:cursor-not-allowed"
                   onClick={markAllNotificationsAsRead}
                 >

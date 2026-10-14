@@ -1,4 +1,4 @@
-// 알림 목록·미읽음 상태·읽음 처리 응답과 알림 SSE 스트림 이벤트 데이터 타입
+// 알림 목록·미읽음 상태·읽음 처리·모두 읽음 처리 응답과 알림 SSE 스트림 이벤트 데이터 타입
 
 export type NotificationCategory = "CHAT" | "POKE" | "EVENT" | "FRIEND_JOINED";
 
@@ -48,6 +48,11 @@ export interface NotificationReadResult {
   resourceType: string;
   resourceId: number | null;
   targetAvailable: boolean;
+  unreadCount: number;
+}
+
+export interface NotificationReadAllResult {
+  updatedCount: number;
   unreadCount: number;
 }
 
