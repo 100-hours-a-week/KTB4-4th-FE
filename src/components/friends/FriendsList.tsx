@@ -17,6 +17,7 @@ type FriendsListProps = {
   onHasFriendsChange: (hasFriends: boolean) => void;
   onKakaoFriendSyncedChange: (isKakaoFriendSynced: boolean) => void;
   onFriendCountsChange: (totalCount: number, favoriteTotalCount: number) => void;
+  onFavoriteCountChange: (previousIsFavorite: boolean, nextIsFavorite: boolean) => void;
 };
 
 type FriendListRequestError = {
@@ -34,6 +35,7 @@ export default function FriendsList({
   onHasFriendsChange,
   onKakaoFriendSyncedChange,
   onFriendCountsChange,
+  onFavoriteCountChange,
 }: FriendsListProps) {
   const router = useRouter();
   const [friends, setFriends] = useState<FriendListItem[]>([]);
@@ -155,23 +157,24 @@ export default function FriendsList({
       setFavoriteRequestError(null);
 
       try {
-        await updateFriendFavorite(userId, !currentIsFavorite);
+        const updatedFavorite = await updateFriendFavorite(userId, !currentIsFavorite);
 
         if (!isMountedRef.current) {
           return;
         }
 
-        requestControllerRef.current?.abort();
-        requestControllerRef.current = null;
-        isLoadingRef.current = false;
-        nextCursorRef.current = null;
-        hasNextRef.current = true;
-        setFriends([]);
-        setNextCursor(null);
-        setHasNext(true);
-        setRequestError(null);
+        setFriends((currentFriends) => {
+          const updatedFriends = currentFriends.map((friend) =>
+            friend.userId === updatedFavorite.userId
+              ? { ...friend, isFavorite: updatedFavorite.isFavorite }
+              : friend,
+          );
 
-        await loadNextPage();
+          return isFavorite && !updatedFavorite.isFavorite
+            ? updatedFriends.filter((friend) => friend.userId !== updatedFavorite.userId)
+            : updatedFriends;
+        });
+        onFavoriteCountChange(currentIsFavorite, updatedFavorite.isFavorite);
       } catch (error) {
         if (!isMountedRef.current) {
           return;
@@ -201,7 +204,7 @@ export default function FriendsList({
         }
       }
     },
-    [favoriteRequestError, loadNextPage, router],
+    [favoriteRequestError, isFavorite, onFavoriteCountChange, router],
   );
 
   useEffect(() => {

@@ -67,6 +67,24 @@ export default function FriendsPage() {
     setFriendCounts({ total: totalCount, favorite: favoriteTotalCount });
   }, []);
 
+  const handleFavoriteCountChange = useCallback(
+    (previousIsFavorite: boolean, nextIsFavorite: boolean) => {
+      if (previousIsFavorite === nextIsFavorite) {
+        return;
+      }
+
+      setFriendCounts((currentCounts) =>
+        currentCounts
+          ? {
+              ...currentCounts,
+              favorite: Math.max(0, currentCounts.favorite + (nextIsFavorite ? 1 : -1)),
+            }
+          : currentCounts,
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setSearchKeyword(searchInput.trim());
@@ -129,6 +147,7 @@ export default function FriendsPage() {
         onHasFriendsChange={setHasFriends}
         onKakaoFriendSyncedChange={setIsKakaoFriendSynced}
         onFriendCountsChange={handleFriendCountsChange}
+        onFavoriteCountChange={handleFavoriteCountChange}
       />
     </main>
   );
