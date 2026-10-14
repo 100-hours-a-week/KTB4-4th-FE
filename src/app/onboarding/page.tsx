@@ -1,24 +1,15 @@
 // 단일 경로에서 개인정보 동의와 온보딩 단계를 제공하는 페이지
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { getConsents } from "@/lib/api/consents";
-import { isOnboardingStatusStep, type OnboardingStatusStep } from "@/lib/api/onboardingStatus";
+import { LOGIN_SESSION_USER_ID_HEADER } from "@/lib/api/loginSession";
 import { ServerApiError } from "@/lib/api/serverClient";
 
-interface OnboardingPageProps {
-  searchParams: Promise<{
-    currentStep?: string | string[];
-  }>;
-}
-
-async function getConsentsOrRedirect(serverStep?: OnboardingStatusStep) {
-  if (serverStep && serverStep !== "CONSENTS") {
-    return [];
-  }
-
+async function getConsentsOrRedirect() {
   try {
     return await getConsents();
   } catch (error) {
@@ -30,13 +21,17 @@ async function getConsentsOrRedirect(serverStep?: OnboardingStatusStep) {
   }
 }
 
-export default async function OnboardingPage({ searchParams }: OnboardingPageProps) {
-  const currentStepParam = (await searchParams).currentStep;
-  const serverStep = isOnboardingStatusStep(currentStepParam) ? currentStepParam : undefined;
-  const consents = await getConsentsOrRedirect(serverStep);
+export default async function OnboardingPage() {
+  const userId = Number((await headers()).get(LOGIN_SESSION_USER_ID_HEADER));
+
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    redirect("/error");
+  }
+
+  const consents = await getConsentsOrRedirect();
 
   return (
-    <OnboardingProvider serverStep={serverStep}>
+    <OnboardingProvider userId={userId}>
       <OnboardingFlow consents={consents} />
     </OnboardingProvider>
   );

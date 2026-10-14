@@ -9,6 +9,7 @@ import PageIntro from "@/components/common/PageIntro";
 import { useOnboarding, type OnboardingStep } from "@/contexts/OnboardingContext";
 import { ApiRequestError } from "@/lib/api/client";
 import { completeOnboarding } from "@/lib/api/completeOnboarding";
+import { clearLoginValidityCache } from "@/lib/api/loginValidity";
 
 import type { ReactNode } from "react";
 
@@ -84,6 +85,7 @@ export default function OnboardingReview() {
         giftExclusionCodes,
       });
       resetOnboarding();
+      clearLoginValidityCache();
       router.replace("/");
     } catch (error) {
       router.replace(
