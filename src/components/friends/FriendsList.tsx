@@ -6,10 +6,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import EmptyFriends from "@/components/friends/EmptyFriends";
 import FriendCard from "@/components/friends/FriendCard";
+import FriendCardSkeleton from "@/components/friends/FriendCardSkeleton";
 import { ApiRequestError } from "@/lib/api/client";
 import { getFriends, type FriendListItem, updateFriendFavorite } from "@/lib/api/friends";
 
 const PAGE_SIZE = 20;
+const SKELETON_COUNT = 6;
 
 type FriendsListProps = {
   isFavorite: boolean;
@@ -295,6 +297,8 @@ export default function FriendsList({
   }
 
   const visibleFriends = isFavorite ? friends.filter((friend) => friend.isFavorite) : friends;
+  // 요청 시작 전 첫 렌더링부터 스켈레톤을 보여주도록 첫 페이지 수신 여부로 판단
+  const isFirstPageLoading = friends.length === 0 && hasNext && !requestError;
 
   return (
     <ul
@@ -331,10 +335,21 @@ export default function FriendsList({
         );
       })}
 
+      {/* 첫 페이지 응답 전에는 실제 카드 자리에 스켈레톤 표시 */}
+      {isFirstPageLoading &&
+        Array.from({ length: SKELETON_COUNT }, (_, index) => (
+          <li key={`skeleton-${index}`}>
+            <FriendCardSkeleton />
+          </li>
+        ))}
+
       {hasNext && !requestError && <li ref={sentinelRef} aria-hidden="true" className="h-px" />}
 
       {isLoading && (
-        <li role="status" className="py-4 text-center text-body-sm text-muted">
+        <li
+          role="status"
+          className={isFirstPageLoading ? "sr-only" : "py-4 text-center text-body-sm text-muted"}
+        >
           친구 목록을 불러오는 중이에요.
         </li>
       )}
