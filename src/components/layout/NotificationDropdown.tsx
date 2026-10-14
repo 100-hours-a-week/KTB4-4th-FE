@@ -11,10 +11,13 @@ import NotificationItem from "./NotificationItem";
 export default function NotificationDropdown() {
   const {
     notifications,
-    unreadCount,
+    hasUnread,
     hasNext,
+    isListLoaded,
+    isInitialLoading,
     isLoadingMore,
     errorMessage,
+    loadNotificationsIfNeeded,
     loadMoreNotifications,
     deleteNotification: deleteNotificationItem,
     markAllNotificationsAsRead: markAllNotificationItemsAsRead,
@@ -26,7 +29,8 @@ export default function NotificationDropdown() {
   const sentinelRef = useRef<HTMLLIElement>(null);
   const dropdownId = useId();
   const headingId = useId();
-  const hasUnreadNotification = unreadCount > 0;
+  // 첫 조회 결과를 받기 전에는 빈 목록 문구 대신 로딩 문구를 보여줌
+  const isWaitingInitialList = isInitialLoading || (!isListLoaded && !errorMessage);
 
   const deleteNotification = (notificationId: number) => {
     deleteNotificationItem(notificationId);
@@ -37,6 +41,13 @@ export default function NotificationDropdown() {
     markAllNotificationItemsAsRead();
     setRevealedNotificationId(null);
   };
+
+  // 드롭다운을 처음 열 때 알림 목록 첫 페이지를 조회함
+  useEffect(() => {
+    if (isOpen) {
+      void loadNotificationsIfNeeded();
+    }
+  }, [isOpen, loadNotificationsIfNeeded]);
 
   // 목록 끝에 닿으면 다음 커서의 알림을 이어서 조회함
   useEffect(() => {
@@ -109,7 +120,7 @@ export default function NotificationDropdown() {
             strokeLinejoin="round"
           />
         </svg>
-        {hasUnreadNotification && (
+        {hasUnread && (
           <span
             aria-hidden="true"
             className="absolute top-2.5 left-[22px] size-1.5 rounded-full bg-danger"
@@ -159,7 +170,7 @@ export default function NotificationDropdown() {
               <div className="flex justify-end border-t border-border px-3 py-1">
                 <button
                   type="button"
-                  disabled={!hasUnreadNotification}
+                  disabled={!hasUnread}
                   className="group touch-target flex items-center justify-center border-0 bg-transparent p-0 disabled:cursor-not-allowed"
                   onClick={markAllNotificationsAsRead}
                 >
@@ -170,8 +181,13 @@ export default function NotificationDropdown() {
               </div>
             </>
           ) : (
-            <p className="m-0 border-t border-border px-5 py-8 text-center text-body text-muted">
-              {errorMessage ?? "새로운 알림이 없습니다."}
+            <p
+              role={isWaitingInitialList ? "status" : undefined}
+              className="m-0 border-t border-border px-5 py-8 text-center text-body text-muted"
+            >
+              {isWaitingInitialList
+                ? "알림을 불러오는 중입니다."
+                : (errorMessage ?? "새로운 알림이 없습니다.")}
             </p>
           )}
         </section>
