@@ -4,9 +4,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
+import PurchaseCheckModal from "@/components/products/PurchaseCheckModal";
 import { useNotificationContext } from "@/contexts/NotificationContext";
+import { ApiRequestError } from "@/lib/api/client";
+import { getPurchaseCheck, type PurchaseCheck } from "@/lib/api/purchaseChecks";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
-import { getNotificationTargetPath } from "@/lib/notificationTarget";
+import { getNotificationTargetPath, getPurchaseCheckTargetId } from "@/lib/notificationTarget";
 
 import NotificationItem from "./NotificationItem";
 
@@ -29,6 +32,9 @@ export default function NotificationDropdown() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [revealedNotificationId, setRevealedNotificationId] = useState<number | null>(null);
+  const [purchaseCheck, setPurchaseCheck] = useState<PurchaseCheck | null>(null);
+  const [isLoadingPurchaseCheck, setIsLoadingPurchaseCheck] = useState(false);
+  const [purchaseCheckErrorMessage, setPurchaseCheckErrorMessage] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const sentinelRef = useRef<HTMLLIElement>(null);
@@ -42,13 +48,43 @@ export default function NotificationDropdown() {
     setRevealedNotificationId(null);
   };
 
-  // 읽지 않은 알림이면 읽음 처리하고, 이동할 화면이 있으면 드롭다운을 닫고 이동함
+  // 구매 확인 정보를 먼저 조회하고, 성공했을 때만 드롭다운을 닫고 모달을 염
+  const openPurchaseCheck = async (purchaseCheckId: number) => {
+    if (isLoadingPurchaseCheck) return;
+
+    setIsLoadingPurchaseCheck(true);
+    setPurchaseCheckErrorMessage(null);
+
+    try {
+      const nextPurchaseCheck = await getPurchaseCheck(purchaseCheckId);
+
+      setIsOpen(false);
+      setRevealedNotificationId(null);
+      setPurchaseCheck(nextPurchaseCheck);
+    } catch (error) {
+      // 404 등 조회에 실패하면 모달을 띄우지 않고 드롭다운에 메시지만 표시함
+      setPurchaseCheckErrorMessage(
+        error instanceof ApiRequestError ? error.message : "구매 확인 정보를 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoadingPurchaseCheck(false);
+    }
+  };
+
+  // 읽지 않은 알림이면 읽음 처리하고, 이동할 화면이나 열 모달이 있으면 드롭다운을 닫고 이동함
   const selectNotification = (notificationId: number) => {
     const notification = notifications.find((item) => item.notificationId === notificationId);
 
     if (!notification) return;
 
     void readNotification(notificationId);
+
+    const purchaseCheckId = getPurchaseCheckTargetId(notification);
+
+    if (purchaseCheckId !== null) {
+      void openPurchaseCheck(purchaseCheckId);
+      return;
+    }
 
     const targetPath = getNotificationTargetPath(notification);
 
@@ -97,6 +133,7 @@ export default function NotificationDropdown() {
       if (!containerRef.current?.contains(event.target as Node)) {
         setIsOpen(false);
         setRevealedNotificationId(null);
+        setPurchaseCheckErrorMessage(null);
       }
     };
 
@@ -104,6 +141,7 @@ export default function NotificationDropdown() {
       if (event.key === "Escape") {
         setIsOpen(false);
         setRevealedNotificationId(null);
+        setPurchaseCheckErrorMessage(null);
       }
     };
 
@@ -124,7 +162,10 @@ export default function NotificationDropdown() {
         aria-controls={dropdownId}
         aria-expanded={isOpen}
         className="touch-target relative flex items-center justify-start border-0 bg-transparent p-0 text-foreground"
-        onClick={() => setIsOpen((currentIsOpen) => !currentIsOpen)}
+        onClick={() => {
+          setIsOpen((currentIsOpen) => !currentIsOpen);
+          setPurchaseCheckErrorMessage(null);
+        }}
       >
         <svg
           aria-hidden="true"
@@ -182,6 +223,16 @@ export default function NotificationDropdown() {
                 ))}
                 {hasNext && <li ref={sentinelRef} aria-hidden="true" className="h-px" />}
               </ul>
+              {(isLoadingPurchaseCheck || purchaseCheckErrorMessage) && (
+                <p
+                  role={purchaseCheckErrorMessage ? "alert" : "status"}
+                  className="m-0 border-t border-border px-5 py-2 text-center text-body-sm text-muted"
+                >
+                  {isLoadingPurchaseCheck
+                    ? "구매 확인 정보를 불러오는 중입니다."
+                    : purchaseCheckErrorMessage}
+                </p>
+              )}
               {(isLoadingMore || errorMessage) && (
                 <p
                   role={errorMessage ? "alert" : "status"}
@@ -215,6 +266,14 @@ export default function NotificationDropdown() {
             </p>
           )}
         </section>
+      )}
+
+      {purchaseCheck && (
+        <PurchaseCheckModal
+          open
+          purchaseCheck={purchaseCheck}
+          onClose={() => setPurchaseCheck(null)}
+        />
       )}
     </div>
   );

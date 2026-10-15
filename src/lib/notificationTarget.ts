@@ -1,4 +1,4 @@
-// 알림을 눌렀을 때 알림 종류와 연결된 리소스에 맞춰 이동할 화면 경로를 결정하는 유틸 함수
+// 알림을 눌렀을 때 알림 종류와 연결된 리소스에 맞춰 이동할 화면 경로나 열 모달 대상을 결정하는 유틸 함수
 import type { NotificationItem } from "@/types/notification";
 
 type NotificationTarget = Pick<
@@ -22,7 +22,7 @@ export function getNotificationTargetPath({
     case "USER":
       return resourceId === null ? null : `/friends/${resourceId}`;
     case "PURCHASE_CHECK":
-      // TODO: 상품 관련 알림 모달 구현 후 알림 클릭 시 모달 열기 연결
+      // 화면 이동 없이 구매 확인 모달을 열므로 getPurchaseCheckTargetId로 처리함
       return null;
     case "AI_CONVERSATION":
       // TODO: 콕 찌르기 외 AI 대화 알림의 이동 화면 확정 후 연결
@@ -30,4 +30,15 @@ export function getNotificationTargetPath({
     default:
       return null;
   }
+}
+
+// 구매 여부 알림이면 모달 조회에 사용할 구매 확인 ID를, 아니면 null을 반환함
+export function getPurchaseCheckTargetId({
+  resourceType,
+  resourceId,
+  targetAvailable,
+}: NotificationTarget) {
+  if (!targetAvailable || resourceType !== "PURCHASE_CHECK") return null;
+
+  return resourceId;
 }
