@@ -13,7 +13,11 @@ type FriendDetailContentProps = {
   userId: number;
 };
 
-function parseBirthday(birthDate: string) {
+function parseBirthday(birthDate: string | null) {
+  if (!birthDate) {
+    return null;
+  }
+
   const match = birthDate.match(/^\d{4}-(\d{2})-(\d{2})$/);
 
   if (!match) {
