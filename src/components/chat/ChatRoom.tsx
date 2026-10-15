@@ -16,6 +16,7 @@ import PreferenceDataInsufficientModal from "@/components/chat/PreferenceDataIns
 import ActionButton from "@/components/common/ActionButton";
 import AutoFitSingleLineText from "@/components/common/AutoFitSingleLineText";
 import useAiConversationStart from "@/hooks/useAiConversationStart";
+import useAiConversationStream from "@/hooks/useAiConversationStream";
 import {
   confirmAiPreferenceAnalysis,
   requestAiPreferenceAnalysis,
@@ -25,10 +26,11 @@ import {
 } from "@/lib/api/aiConversationAnalysis";
 import {
   sendAiConversationMessage,
-  type SendAiConversationMessageData,
+  type SendAiConversationMessageResult,
 } from "@/lib/api/aiConversationMessageSend";
 import { ApiRequestError } from "@/lib/api/client";
 import type {
+  AiConversationCompletedEvent,
   ChatMessage,
   ChatMessageId,
   PreferenceAnalysisResult,
@@ -43,7 +45,7 @@ type ChatRoomProps = {
   isReadOnly?: boolean;
   nextConversationAvailableAt?: string;
   conversationId?: number;
-  onMessageSent?: (response: SendAiConversationMessageData) => void;
+  onMessageSent?: (response: AiConversationCompletedEvent) => void;
 };
 
 type PendingMessage = {
@@ -51,7 +53,6 @@ type PendingMessage = {
   content: string;
 };
 
-const MIN_AI_RESPONSE_DELAY_MS = 600;
 const MOCK_MESSAGE_RETRY_DELAY_MS = 1000;
 
 function delay(milliseconds: number) {
@@ -88,7 +89,7 @@ export default function ChatRoom({
   onMessageSent,
 }: ChatRoomProps) {
   const router = useRouter();
-  const [{ messages, isAwaitingResponse, sendError }, dispatch] = useReducer(
+  const [{ messages, isAwaitingResponse, sendError, turn }, dispatch] = useReducer(
     chatRoomReducer,
     initialMessages,
     createChatRoomState,
@@ -240,7 +241,9 @@ export default function ChatRoom({
       conversationId === undefined ||
       isReadOnly ||
       isConversationExpiredRef.current ||
-      isMessageSendingRef.current
+      isMessageSendingRef.current ||
+      !isStreamConnected ||
+      turn !== null
     ) {
       return;
     }
@@ -253,31 +256,25 @@ export default function ChatRoom({
         : { clientMessageId: crypto.randomUUID(), content };
     pendingMessageRef.current = pendingMessage;
 
-    const optimisticUserMessage: ChatMessage = {
-      id: pendingMessage.clientMessageId,
-      role: "USER",
-      senderName: "나",
+    dispatch({
+      type: "SEND_STARTED",
+      clientMessageId: pendingMessage.clientMessageId,
       content: pendingMessage.content,
-      deliveryStatus: "SENT",
-    };
+    });
 
-    dispatch({ type: "SEND_STARTED", message: optimisticUserMessage });
-
-    let response: SendAiConversationMessageData;
+    let result: SendAiConversationMessageResult;
 
     try {
-      [response] = await Promise.all([
-        sendAiConversationMessage({
-          conversationId,
-          clientMessageId: pendingMessage.clientMessageId,
-          content: pendingMessage.content,
-        }),
-        delay(MIN_AI_RESPONSE_DELAY_MS),
-      ]);
+      result = await sendAiConversationMessage({
+        conversationId,
+        clientMessageId: pendingMessage.clientMessageId,
+        content: pendingMessage.content,
+      });
     } catch (error) {
       pendingMessageRef.current = null;
 
       if (error instanceof ApiRequestError && error.status === 401) {
+        dispatch({ type: "TURN_ABORTED" });
         router.replace("/login");
         throw error;
       }
@@ -285,6 +282,7 @@ export default function ChatRoom({
       if (error instanceof ApiRequestError && error.status === 410) {
         isConversationExpiredRef.current = true;
         setIsConversationExpired(true);
+        dispatch({ type: "TURN_ABORTED" });
         dispatch({ type: "SEND_ERROR_CLEARED" });
         throw error;
       }
@@ -305,34 +303,58 @@ export default function ChatRoom({
       throw error;
     } finally {
       isMessageSendingRef.current = false;
-      dispatch({ type: "RESPONSE_WAIT_ENDED" });
     }
 
-    const assistantMessage: ChatMessage = {
-      id: response.messageId,
-      role: "ASSISTANT",
-      senderName: "니쥬",
-      content: response.content,
-      deliveryStatus: "SENT",
-    };
-
-    dispatch({
-      type: "SEND_SUCCEEDED",
-      clientMessageId: pendingMessage.clientMessageId,
-      userMessageId: response.userMessageId,
-      assistantMessage,
-    });
     pendingMessageRef.current = null;
+    dispatch({
+      type: "SEND_ACCEPTED",
+      clientMessageId: pendingMessage.clientMessageId,
+      userMessageId: result.data.userMessageId,
+    });
 
-    if (response.inputLocked) {
+    // 이미 답변이 완료된 메시지를 재전송한 경우라 스트림 이벤트 없이 턴을 끝냄
+    if (result.type === "COMPLETED") {
+      handleTurnCompleted(result.data);
+      dispatch({ type: "TURN_DONE", userMessageId: result.data.userMessageId });
+    }
+  };
+
+  const handleTurnCompleted = (event: AiConversationCompletedEvent) => {
+    dispatch({
+      type: "TURN_COMPLETED",
+      userMessageId: event.userMessageId,
+      messageId: event.messageId,
+      content: event.content,
+    });
+
+    if (event.inputLocked) {
       setIsResponseInputLocked(true);
       void handleAnalysisRequest();
     } else {
       setIsResponseInputLocked(false);
     }
 
-    onMessageSent?.(response);
+    onMessageSent?.(event);
   };
+
+  // 스트림은 ACTIVE 대화에서만 열리며 입력이 잠기거나 만료되면 닫힘
+  const { status: streamStatus } = useAiConversationStream({
+    conversationId:
+      isReadOnly || isInputLocked || isResponseInputLocked || isConversationExpired
+        ? undefined
+        : conversationId,
+    onAccepted: ({ clientMessageId, userMessageId }) => {
+      dispatch({ type: "SEND_ACCEPTED", clientMessageId, userMessageId });
+    },
+    onDelta: ({ userMessageId, index, text }) => {
+      dispatch({ type: "DELTA_RECEIVED", userMessageId, index, text });
+    },
+    onCompleted: handleTurnCompleted,
+    onDone: ({ userMessageId }) => {
+      dispatch({ type: "TURN_DONE", userMessageId });
+    },
+  });
+  const isStreamConnected = streamStatus === "connected";
 
   const handleRetryMessage = async (messageId: ChatMessageId) => {
     if (retryingMessageIdsRef.current.has(messageId)) return;
@@ -526,6 +548,8 @@ export default function ChatRoom({
           isReadOnly ||
           isConversationExpired ||
           conversationId === undefined ||
+          !isStreamConnected ||
+          turn !== null ||
           (sendError?.status === 429 && sendError.retryAfterSeconds > 0)
         }
       />

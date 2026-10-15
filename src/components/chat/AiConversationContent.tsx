@@ -12,11 +12,14 @@ import {
   getAiConversationMessages,
   type AiConversationMessage,
 } from "@/lib/api/aiConversationMessages";
-import type { SendAiConversationMessageData } from "@/lib/api/aiConversationMessageSend";
 import { startAiConversation, type AiConversationStatus } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
 import { getPreferenceAnalysisDescription } from "@/mocks/chat";
-import type { ChatMessage, PreferenceAnalysisResult } from "@/types/chat";
+import type {
+  AiConversationCompletedEvent,
+  ChatMessage,
+  PreferenceAnalysisResult,
+} from "@/types/chat";
 
 type AiConversationContentProps = {
   conversationId?: string;
@@ -198,7 +201,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
     setRequestVersion((version) => version + 1);
   };
 
-  const handleMessageSent = (response: SendAiConversationMessageData) => {
+  const handleMessageSent = (response: AiConversationCompletedEvent) => {
     setAnalysisProgress(response.progress);
 
     if (response.inputLocked && conversation !== null) {
