@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import Modal from "@/components/common/Modal";
+import WebPushSettingItem from "@/components/settings/WebPushSettingItem";
 import WithdrawalModal from "@/components/settings/WithdrawalModal";
 import { ApiRequestError } from "@/lib/api/client";
 import {
@@ -167,6 +168,7 @@ export default function SettingsContent({
 
         <div className="mt-3">
           <ul className="m-0 list-none p-0">
+            <WebPushSettingItem />
             {notificationItems.map(({ type, label }) => {
               const isEnabled = notificationSettings[type];
               const isPending = pendingSettingTypes.has(type);
