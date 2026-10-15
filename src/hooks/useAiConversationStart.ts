@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAiConversationContext } from "@/contexts/AiConversationContext";
+import { AI_CONSENT_SETTINGS_PATH, isAiConsentRequiredError } from "@/lib/api/aiConversationErrors";
 import { startAiConversation } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
 
@@ -68,6 +69,11 @@ export default function useAiConversationStart() {
         if (error instanceof ApiRequestError) {
           if (error.status === 401) {
             router.replace("/login");
+            return;
+          }
+
+          if (isAiConsentRequiredError(error)) {
+            router.push(AI_CONSENT_SETTINGS_PATH);
             return;
           }
 

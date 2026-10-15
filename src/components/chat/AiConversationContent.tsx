@@ -5,18 +5,20 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import ChatRoom from "@/components/chat/ChatRoom";
+import { toChatMessage } from "@/components/chat/chatRoomReducer";
 import PreferenceAnalysisBar from "@/components/chat/PreferenceAnalysisBar";
 import ActionButton from "@/components/common/ActionButton";
 import { useAiConversationContext } from "@/contexts/AiConversationContext";
-import {
-  getAiConversationMessages,
-  type AiConversationMessage,
-} from "@/lib/api/aiConversationMessages";
-import type { SendAiConversationMessageData } from "@/lib/api/aiConversationMessageSend";
+import { AI_CONSENT_SETTINGS_PATH, isAiConsentRequiredError } from "@/lib/api/aiConversationErrors";
+import { getAiConversationMessages } from "@/lib/api/aiConversationMessages";
 import { startAiConversation, type AiConversationStatus } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
 import { getPreferenceAnalysisDescription } from "@/mocks/chat";
-import type { ChatMessage, PreferenceAnalysisResult } from "@/types/chat";
+import type {
+  AiConversationCompletedEvent,
+  ChatMessage,
+  PreferenceAnalysisResult,
+} from "@/types/chat";
 
 type AiConversationContentProps = {
   conversationId?: string;
@@ -40,18 +42,6 @@ const EMPTY_PREFERENCE_ANALYSIS_RESULT: PreferenceAnalysisResult = {
   summary: null,
   correctionAvailable: false,
 };
-
-function toChatMessage(message: AiConversationMessage): ChatMessage {
-  const isAiMessage = message.role === "AI";
-
-  return {
-    id: message.messageId,
-    role: isAiMessage ? "ASSISTANT" : "USER",
-    senderName: isAiMessage ? "니쥬" : "나",
-    content: message.content,
-    deliveryStatus: "SENT",
-  };
-}
 
 function isMessageHistoryAvailable(status: AiConversationStatus) {
   // TODO: 메시지 조회를 지원하는 대화 상태가 추가되면 이 조건에 반영
@@ -133,6 +123,12 @@ export default function AiConversationContent({ conversationId }: AiConversation
           return;
         }
 
+        // 동의 없이는 대화 화면을 쓸 수 없어 뒤로 가기로 다시 오지 않도록 기록을 바꿈
+        if (isAiConsentRequiredError(error)) {
+          router.replace(AI_CONSENT_SETTINGS_PATH);
+          return;
+        }
+
         setConversationRestoreError(
           error instanceof ApiRequestError ? error.message : "AI 대화를 불러오지 못했습니다.",
         );
@@ -198,7 +194,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
     setRequestVersion((version) => version + 1);
   };
 
-  const handleMessageSent = (response: SendAiConversationMessageData) => {
+  const handleMessageSent = (response: AiConversationCompletedEvent) => {
     setAnalysisProgress(response.progress);
 
     if (response.inputLocked && conversation !== null) {

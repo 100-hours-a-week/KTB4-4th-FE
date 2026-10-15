@@ -3,18 +3,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import AiConversationExpiredModal from "@/components/chat/AiConversationExpiredModal";
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
+import {
+  chatRoomReducer,
+  createChatRoomState,
+  toChatMessage,
+} from "@/components/chat/chatRoomReducer";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
 import PreferenceDataInsufficientModal from "@/components/chat/PreferenceDataInsufficientModal";
 import ActionButton from "@/components/common/ActionButton";
 import AutoFitSingleLineText from "@/components/common/AutoFitSingleLineText";
+import { useAiConversationContext } from "@/contexts/AiConversationContext";
 import useAiConversationStart from "@/hooks/useAiConversationStart";
+import useAiConversationStream, {
+  type AiConversationStreamRecovery,
+} from "@/hooks/useAiConversationStream";
 import {
   confirmAiPreferenceAnalysis,
   requestAiPreferenceAnalysis,
@@ -22,12 +31,16 @@ import {
   type AiPreferenceAnalysisData,
   RequestAiPreferenceAnalysisError,
 } from "@/lib/api/aiConversationAnalysis";
+import { AI_CONSENT_SETTINGS_PATH, isAiConsentRequiredError } from "@/lib/api/aiConversationErrors";
+import { getAiConversationMessages } from "@/lib/api/aiConversationMessages";
 import {
   sendAiConversationMessage,
-  type SendAiConversationMessageData,
+  type SendAiConversationMessageResult,
 } from "@/lib/api/aiConversationMessageSend";
+import { startAiConversation, type AiConversation } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
 import type {
+  AiConversationCompletedEvent,
   ChatMessage,
   ChatMessageId,
   PreferenceAnalysisResult,
@@ -42,28 +55,8 @@ type ChatRoomProps = {
   isReadOnly?: boolean;
   nextConversationAvailableAt?: string;
   conversationId?: number;
-  onMessageSent?: (response: SendAiConversationMessageData) => void;
+  onMessageSent?: (response: AiConversationCompletedEvent) => void;
 };
-
-type PendingMessage = {
-  clientMessageId: string;
-  content: string;
-};
-
-type MessageSendError = {
-  messageId: ChatMessageId;
-  status: number;
-  retryAfterSeconds: number;
-};
-
-const MIN_AI_RESPONSE_DELAY_MS = 600;
-const MOCK_MESSAGE_RETRY_DELAY_MS = 1000;
-
-function delay(milliseconds: number) {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, milliseconds);
-  });
-}
 
 function toPreferenceAnalysisResult(response: AiPreferenceAnalysisData): PreferenceAnalysisResult {
   return {
@@ -93,15 +86,19 @@ export default function ChatRoom({
   onMessageSent,
 }: ChatRoomProps) {
   const router = useRouter();
-  const [messages, setMessages] = useState(initialMessages);
+  const { setConversation } = useAiConversationContext();
+  const [
+    { messages, isAwaitingResponse, sendError, turnErrorMessage, turn, needsMessageSync },
+    dispatch,
+  ] = useReducer(chatRoomReducer, initialMessages, createChatRoomState);
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
   const [analysisResult, setAnalysisResult] = useState(initialAnalysisResult);
-  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
   const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
   const [isConversationExpired, setIsConversationExpired] = useState(false);
-  const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const [analysisRequestError, setAnalysisRequestError] = useState("");
+  // 대화에 접근할 수 없어 입력창을 막고 입력창 위에 표시하는 문구
+  const [conversationBlockedMessage, setConversationBlockedMessage] = useState("");
   const [isRestartRequired, setIsRestartRequired] = useState(false);
   const [hasRequestedNextConversation, setHasRequestedNextConversation] = useState(false);
   const [remainingConversationSeconds, setRemainingConversationSeconds] = useState<number | null>(
@@ -111,10 +108,8 @@ export default function ChatRoom({
   const isInitialRender = useRef(true);
   const isAnalysisRequestingRef = useRef(false);
   const isMessageSendingRef = useRef(false);
-  const retryingMessageIdsRef = useRef(new Set<ChatMessageId>());
   const isConversationExpiredRef = useRef(false);
   const hasStartedNextConversationRef = useRef(false);
-  const pendingMessageRef = useRef<PendingMessage | null>(null);
   const {
     errorMessage: conversationStartError,
     isStartingConversation,
@@ -163,16 +158,13 @@ export default function ChatRoom({
     if (sendError?.status !== 429 || sendError.retryAfterSeconds <= 0) return;
 
     const timer = window.setTimeout(() => {
-      setSendError((error) =>
-        error?.status === 429
-          ? { ...error, retryAfterSeconds: Math.max(0, error.retryAfterSeconds - 1) }
-          : error,
-      );
+      dispatch({ type: "SEND_ERROR_RETRY_TICKED" });
     }, 1000);
 
     return () => window.clearTimeout(timer);
   }, [sendError]);
 
+  // 생성 중인 대화에 들어오면 메시지 변화 없이 타이핑 표시만 나타나므로 그때도 맨 아래로 스크롤함
   useEffect(() => {
     if (isInitialRender.current) {
       isInitialRender.current = false;
@@ -181,7 +173,36 @@ export default function ChatRoom({
 
     const messageList = messageListRef.current;
     messageList?.scrollTo({ top: messageList.scrollHeight, behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isAwaitingResponse]);
+
+  // 재연결이나 다른 탭의 턴으로 놓친 메시지를 진행 중인 턴이 없을 때 목록으로 다시 받아옴
+  useEffect(() => {
+    if (!needsMessageSync || turn !== null || conversationId === undefined) return;
+
+    let isActive = true;
+
+    // TODO: nextCursor와 hasNext를 활용한 대화 메시지 추가 페이지 조회 연동
+    getAiConversationMessages({ conversationId, size: 20 })
+      .then(({ items }) => {
+        if (isActive) {
+          dispatch({ type: "MESSAGES_SYNCED", messages: items.map(toChatMessage) });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isActive) return;
+
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        dispatch({ type: "MESSAGES_SYNC_FAILED" });
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [conversationId, needsMessageSync, router, turn]);
 
   const handleAnalysisRequest = useCallback(async () => {
     if (conversationId === undefined || isAnalysisRequestingRef.current) return;
@@ -242,70 +263,139 @@ export default function ChatRoom({
     }
   }, [conversationId, handleAnalysisRequest, isInputLocked, isReadOnly]);
 
-  const handleSend = async (content: string) => {
-    if (
-      conversationId === undefined ||
-      isReadOnly ||
-      isConversationExpiredRef.current ||
-      isMessageSendingRef.current
-    ) {
+  const canSendMessage = () =>
+    conversationId !== undefined &&
+    !isReadOnly &&
+    !isConversationExpiredRef.current &&
+    !isMessageSendingRef.current &&
+    isStreamConnected &&
+    turn === null &&
+    !conversationBlockedMessage;
+
+  const expireConversation = () => {
+    isConversationExpiredRef.current = true;
+    setIsConversationExpired(true);
+    dispatch({ type: "TURN_ABORTED" });
+    dispatch({ type: "SEND_ERROR_CLEARED" });
+  };
+
+  // 대화 시작 API로 다시 확인한 대화 상태에 맞춰 화면을 바꿈
+  const handleConversationChanged = (nextConversation: AiConversation) => {
+    // 만료된 대화가 새 대화로 바뀐 경우라 만료 모달에서 새 대화로 이동하게 함
+    if (nextConversation.conversationId !== conversationId) {
+      expireConversation();
       return;
     }
 
+    if (nextConversation.status === "ANALYZING") {
+      dispatch({ type: "TURN_ABORTED" });
+      setIsResponseInputLocked(true);
+      void handleAnalysisRequest();
+      return;
+    }
+
+    // 완료된 대화 등은 부모가 상태에 맞는 화면으로 다시 그림
+    setConversation(nextConversation);
+  };
+
+  const handleConversationUnavailable = (error: ApiRequestError) => {
+    dispatch({ type: "TURN_ABORTED" });
+
+    if (isAiConsentRequiredError(error)) {
+      router.push(AI_CONSENT_SETTINGS_PATH);
+      return;
+    }
+
+    if (error.status === 403) {
+      setConversationBlockedMessage(error.message);
+      return;
+    }
+
+    router.replace("/error");
+  };
+
+  // 대화를 찾을 수 없으면 완료·만료 여부를 대화 시작 API로 다시 확인함
+  const recheckConversation = async () => {
+    try {
+      handleConversationChanged(await startAiConversation());
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      if (error instanceof ApiRequestError) {
+        handleConversationUnavailable(error);
+        return;
+      }
+
+      router.replace("/error");
+    }
+  };
+
+  // 새 메시지와 재전송이 함께 쓰는 전송 요청이며 재전송은 같은 clientMessageId를 사용함
+  const submitMessage = async (
+    targetConversationId: number,
+    clientMessageId: string,
+    content: string,
+  ) => {
     isMessageSendingRef.current = true;
 
-    const pendingMessage =
-      pendingMessageRef.current?.content === content
-        ? pendingMessageRef.current
-        : { clientMessageId: crypto.randomUUID(), content };
-    pendingMessageRef.current = pendingMessage;
-
-    const optimisticUserMessage: ChatMessage = {
-      id: pendingMessage.clientMessageId,
-      role: "USER",
-      senderName: "나",
-      content: pendingMessage.content,
-      deliveryStatus: "SENT",
-    };
-
-    setMessages((currentMessages) => [...currentMessages, optimisticUserMessage]);
-    setIsAwaitingResponse(true);
-
-    let response: SendAiConversationMessageData;
+    let result: SendAiConversationMessageResult;
 
     try {
-      [response] = await Promise.all([
-        sendAiConversationMessage({
-          conversationId,
-          clientMessageId: pendingMessage.clientMessageId,
-          content: pendingMessage.content,
-        }),
-        delay(MIN_AI_RESPONSE_DELAY_MS),
-      ]);
+      result = await sendAiConversationMessage({
+        conversationId: targetConversationId,
+        clientMessageId,
+        content,
+      });
     } catch (error) {
-      pendingMessageRef.current = null;
-
       if (error instanceof ApiRequestError && error.status === 401) {
+        dispatch({ type: "TURN_ABORTED" });
         router.replace("/login");
         throw error;
       }
 
       if (error instanceof ApiRequestError && error.status === 410) {
-        isConversationExpiredRef.current = true;
-        setIsConversationExpired(true);
-        setSendError(null);
+        expireConversation();
         throw error;
       }
 
-      setMessages((currentMessages) =>
-        currentMessages.map((message) =>
-          message.id === pendingMessage.clientMessageId
-            ? { ...message, deliveryStatus: "FAILED" }
-            : message,
-        ),
-      );
-      setSendError({
-        messageId: pendingMessage.clientMessageId,
+      // 재전송해도 해결되지 않는 오류는 저장되지 않은 메시지를 지우고 상황에 맞게 안내함
+      if (isAiConsentRequiredError(error)) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: null });
+        router.push(AI_CONSENT_SETTINGS_PATH);
+        throw error;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 409) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: null });
+        setIsResponseInputLocked(true);
+        void handleAnalysisRequest();
+        throw error;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 403) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: null });
+        setConversationBlockedMessage(error.message);
+        throw error;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 404) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: null });
+        void recheckConversation();
+        throw error;
+      }
+
+      if (error instanceof ApiRequestError && (error.status === 400 || error.status === 422)) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: error.message });
+        throw error;
+      }
+
+      // 429, 5xx, 네트워크 오류는 같은 clientMessageId로 다시 보낼 수 있게 재전송 버튼을 표시함
+      dispatch({
+        type: "SEND_FAILED",
+        clientMessageId,
         status: error instanceof ApiRequestError ? error.status : 0,
         retryAfterSeconds:
           error instanceof ApiRequestError && error.status === 429
@@ -316,74 +406,105 @@ export default function ChatRoom({
       throw error;
     } finally {
       isMessageSendingRef.current = false;
-      setIsAwaitingResponse(false);
     }
 
-    const assistantMessage: ChatMessage = {
-      id: response.messageId,
-      role: "ASSISTANT",
-      senderName: "니쥬",
-      content: response.content,
-      deliveryStatus: "SENT",
-    };
+    dispatch({ type: "SEND_ACCEPTED", clientMessageId, userMessageId: result.data.userMessageId });
 
-    setMessages((currentMessages) => [
-      ...currentMessages.map((message) =>
-        message.id === pendingMessage.clientMessageId
-          ? { ...message, id: response.userMessageId }
-          : message,
-      ),
-      assistantMessage,
-    ]);
-    pendingMessageRef.current = null;
-    setSendError(null);
+    // 이미 답변이 완료된 메시지를 재전송한 경우라 스트림 이벤트 없이 턴을 끝냄
+    if (result.type === "COMPLETED") {
+      handleTurnCompleted(result.data);
+      dispatch({ type: "TURN_DONE", userMessageId: result.data.userMessageId });
+    }
+  };
 
-    if (response.inputLocked) {
+  const handleSend = async (content: string) => {
+    if (conversationId === undefined || !canSendMessage()) return;
+
+    const clientMessageId = crypto.randomUUID();
+
+    dispatch({ type: "SEND_STARTED", clientMessageId, content });
+    await submitMessage(conversationId, clientMessageId, content);
+  };
+
+  const handleTurnCompleted = (event: AiConversationCompletedEvent) => {
+    dispatch({
+      type: "TURN_COMPLETED",
+      userMessageId: event.userMessageId,
+      messageId: event.messageId,
+      content: event.content,
+    });
+
+    if (event.inputLocked) {
       setIsResponseInputLocked(true);
       void handleAnalysisRequest();
     } else {
       setIsResponseInputLocked(false);
     }
 
-    onMessageSent?.(response);
+    onMessageSent?.(event);
   };
+
+  // 스트림은 ACTIVE 대화에서만 열리며 입력이 잠기거나 만료되면 닫힘
+  const { status: streamStatus } = useAiConversationStream({
+    conversationId:
+      isReadOnly || isInputLocked || isResponseInputLocked || isConversationExpired
+        ? undefined
+        : conversationId,
+    onConnected: ({ generating, pendingUserMessageId }, isReconnected) => {
+      dispatch({ type: "STREAM_CONNECTED", generating, pendingUserMessageId, isReconnected });
+    },
+    onAccepted: ({ clientMessageId, userMessageId }) => {
+      dispatch({ type: "SEND_ACCEPTED", clientMessageId, userMessageId });
+    },
+    onDelta: ({ userMessageId, index, text }) => {
+      dispatch({ type: "DELTA_RECEIVED", userMessageId, index, text });
+    },
+    onCompleted: handleTurnCompleted,
+    onError: ({ userMessageId, message, retryable, restartRequired }) => {
+      // AI 세션이 사라진 대화라 어느 탭의 턴이든 새 대화 시작으로 안내함
+      if (restartRequired) {
+        expireConversation();
+        return;
+      }
+
+      dispatch({ type: "TURN_FAILED", userMessageId, message, retryable });
+    },
+    onDone: ({ userMessageId }) => {
+      dispatch({ type: "TURN_DONE", userMessageId });
+    },
+    // 연결이 닫혀 대화 시작 API로 다시 확인했는데 같은 대화로 재연결할 수 없는 경우
+    onRecovery: (result: AiConversationStreamRecovery) => {
+      if (result.type === "CONVERSATION_CHANGED") {
+        handleConversationChanged(result.conversation);
+        return;
+      }
+
+      handleConversationUnavailable(result.error);
+    },
+  });
+  const isStreamConnected = streamStatus === "connected";
 
   const handleRetryMessage = async (messageId: ChatMessageId) => {
-    if (retryingMessageIdsRef.current.has(messageId)) return;
-
-    retryingMessageIdsRef.current.add(messageId);
-    setMessages((currentMessages) =>
-      currentMessages.map((message) =>
-        message.id === messageId && message.deliveryStatus === "FAILED"
-          ? { ...message, deliveryStatus: "RETRYING" }
-          : message,
-      ),
+    const failedMessage = messages.find(
+      (message) => message.id === messageId && message.deliveryStatus === "FAILED",
     );
 
-    // TODO: 메시지 재전송 API 연동 후 임시 지연 및 성공 상태 전환 교체
-    await delay(MOCK_MESSAGE_RETRY_DELAY_MS);
+    if (conversationId === undefined || !failedMessage?.clientMessageId || !canSendMessage()) {
+      return;
+    }
 
-    setMessages((currentMessages) =>
-      currentMessages.map((message) =>
-        message.id === messageId && message.deliveryStatus === "RETRYING"
-          ? { ...message, deliveryStatus: "SENT" }
-          : message,
-      ),
-    );
-    setSendError((error) => (error?.messageId === messageId ? null : error));
-    retryingMessageIdsRef.current.delete(messageId);
+    dispatch({ type: "RETRY_STARTED", clientMessageId: failedMessage.clientMessageId });
+
+    try {
+      await submitMessage(conversationId, failedMessage.clientMessageId, failedMessage.content);
+    } catch {
+      // 실패 상태와 재전송 버튼은 submitMessage에서 다시 표시함
+    }
   };
 
+  // 메시지 전송 취소 API가 없어 화면에서만 취소 상태로 표시함
   const handleCancelMessage = (messageId: ChatMessageId) => {
-    // TODO: 메시지 전송 취소 API 연동 후 서버 응답에 따라 취소 상태 반영
-    setMessages((currentMessages) =>
-      currentMessages.map((message) =>
-        message.id === messageId && message.deliveryStatus === "FAILED"
-          ? { ...message, deliveryStatus: "CANCELED" }
-          : message,
-      ),
-    );
-    setSendError((error) => (error?.messageId === messageId ? null : error));
+    dispatch({ type: "MESSAGE_CANCELED", messageId });
   };
 
   const handleReturnToChat = () => {
@@ -551,6 +672,22 @@ export default function ChatRoom({
           {analysisRequestError}
         </AutoFitSingleLineText>
       )}
+      {turnErrorMessage && (
+        <AutoFitSingleLineText
+          role="alert"
+          className="mb-2 w-full min-w-0 text-center text-body-sm text-danger"
+        >
+          {turnErrorMessage}
+        </AutoFitSingleLineText>
+      )}
+      {conversationBlockedMessage && (
+        <AutoFitSingleLineText
+          role="alert"
+          className="mb-2 w-full min-w-0 text-center text-body-sm text-danger"
+        >
+          {conversationBlockedMessage}
+        </AutoFitSingleLineText>
+      )}
       <ChatComposer
         onSend={handleSend}
         placeholder={isReadOnly ? "취향분석이 완료된 대화예요" : "메시지 입력"}
@@ -560,6 +697,9 @@ export default function ChatRoom({
           isReadOnly ||
           isConversationExpired ||
           conversationId === undefined ||
+          !isStreamConnected ||
+          turn !== null ||
+          conversationBlockedMessage !== "" ||
           (sendError?.status === 429 && sendError.retryAfterSeconds > 0)
         }
       />
