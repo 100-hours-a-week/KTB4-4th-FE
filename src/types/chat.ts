@@ -31,6 +31,8 @@ export interface ChatMessage {
   senderName: string;
   content: string;
   deliveryStatus: ChatMessageDeliveryStatus;
+  // 이 화면에서 보낸 사용자 메시지만 가지며 재전송할 때 같은 값을 사용함
+  clientMessageId?: string;
 }
 
 export interface AiConversationConnectedEvent {

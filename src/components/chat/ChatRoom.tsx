@@ -48,19 +48,6 @@ type ChatRoomProps = {
   onMessageSent?: (response: AiConversationCompletedEvent) => void;
 };
 
-type PendingMessage = {
-  clientMessageId: string;
-  content: string;
-};
-
-const MOCK_MESSAGE_RETRY_DELAY_MS = 1000;
-
-function delay(milliseconds: number) {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, milliseconds);
-  });
-}
-
 function toPreferenceAnalysisResult(response: AiPreferenceAnalysisData): PreferenceAnalysisResult {
   return {
     interests: response.keywords.interest,
@@ -89,11 +76,8 @@ export default function ChatRoom({
   onMessageSent,
 }: ChatRoomProps) {
   const router = useRouter();
-  const [{ messages, isAwaitingResponse, sendError, turn }, dispatch] = useReducer(
-    chatRoomReducer,
-    initialMessages,
-    createChatRoomState,
-  );
+  const [{ messages, isAwaitingResponse, sendError, turnErrorMessage, turn }, dispatch] =
+    useReducer(chatRoomReducer, initialMessages, createChatRoomState);
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
   const [analysisResult, setAnalysisResult] = useState(initialAnalysisResult);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
@@ -109,10 +93,8 @@ export default function ChatRoom({
   const isInitialRender = useRef(true);
   const isAnalysisRequestingRef = useRef(false);
   const isMessageSendingRef = useRef(false);
-  const retryingMessageIdsRef = useRef(new Set<ChatMessageId>());
   const isConversationExpiredRef = useRef(false);
   const hasStartedNextConversationRef = useRef(false);
-  const pendingMessageRef = useRef<PendingMessage | null>(null);
   const {
     errorMessage: conversationStartError,
     isStartingConversation,
@@ -236,43 +218,38 @@ export default function ChatRoom({
     }
   }, [conversationId, handleAnalysisRequest, isInputLocked, isReadOnly]);
 
-  const handleSend = async (content: string) => {
-    if (
-      conversationId === undefined ||
-      isReadOnly ||
-      isConversationExpiredRef.current ||
-      isMessageSendingRef.current ||
-      !isStreamConnected ||
-      turn !== null
-    ) {
-      return;
-    }
+  const canSendMessage = () =>
+    conversationId !== undefined &&
+    !isReadOnly &&
+    !isConversationExpiredRef.current &&
+    !isMessageSendingRef.current &&
+    isStreamConnected &&
+    turn === null;
 
+  const expireConversation = () => {
+    isConversationExpiredRef.current = true;
+    setIsConversationExpired(true);
+    dispatch({ type: "TURN_ABORTED" });
+    dispatch({ type: "SEND_ERROR_CLEARED" });
+  };
+
+  // 새 메시지와 재전송이 함께 쓰는 전송 요청이며 재전송은 같은 clientMessageId를 사용함
+  const submitMessage = async (
+    targetConversationId: number,
+    clientMessageId: string,
+    content: string,
+  ) => {
     isMessageSendingRef.current = true;
-
-    const pendingMessage =
-      pendingMessageRef.current?.content === content
-        ? pendingMessageRef.current
-        : { clientMessageId: crypto.randomUUID(), content };
-    pendingMessageRef.current = pendingMessage;
-
-    dispatch({
-      type: "SEND_STARTED",
-      clientMessageId: pendingMessage.clientMessageId,
-      content: pendingMessage.content,
-    });
 
     let result: SendAiConversationMessageResult;
 
     try {
       result = await sendAiConversationMessage({
-        conversationId,
-        clientMessageId: pendingMessage.clientMessageId,
-        content: pendingMessage.content,
+        conversationId: targetConversationId,
+        clientMessageId,
+        content,
       });
     } catch (error) {
-      pendingMessageRef.current = null;
-
       if (error instanceof ApiRequestError && error.status === 401) {
         dispatch({ type: "TURN_ABORTED" });
         router.replace("/login");
@@ -280,24 +257,18 @@ export default function ChatRoom({
       }
 
       if (error instanceof ApiRequestError && error.status === 410) {
-        isConversationExpiredRef.current = true;
-        setIsConversationExpired(true);
-        dispatch({ type: "TURN_ABORTED" });
-        dispatch({ type: "SEND_ERROR_CLEARED" });
+        expireConversation();
         throw error;
       }
 
       dispatch({
         type: "SEND_FAILED",
-        clientMessageId: pendingMessage.clientMessageId,
-        error: {
-          messageId: pendingMessage.clientMessageId,
-          status: error instanceof ApiRequestError ? error.status : 0,
-          retryAfterSeconds:
-            error instanceof ApiRequestError && error.status === 429
-              ? (error.retryAfterSeconds ?? 0)
-              : 0,
-        },
+        clientMessageId,
+        status: error instanceof ApiRequestError ? error.status : 0,
+        retryAfterSeconds:
+          error instanceof ApiRequestError && error.status === 429
+            ? (error.retryAfterSeconds ?? 0)
+            : 0,
       });
 
       throw error;
@@ -305,18 +276,22 @@ export default function ChatRoom({
       isMessageSendingRef.current = false;
     }
 
-    pendingMessageRef.current = null;
-    dispatch({
-      type: "SEND_ACCEPTED",
-      clientMessageId: pendingMessage.clientMessageId,
-      userMessageId: result.data.userMessageId,
-    });
+    dispatch({ type: "SEND_ACCEPTED", clientMessageId, userMessageId: result.data.userMessageId });
 
     // 이미 답변이 완료된 메시지를 재전송한 경우라 스트림 이벤트 없이 턴을 끝냄
     if (result.type === "COMPLETED") {
       handleTurnCompleted(result.data);
       dispatch({ type: "TURN_DONE", userMessageId: result.data.userMessageId });
     }
+  };
+
+  const handleSend = async (content: string) => {
+    if (conversationId === undefined || !canSendMessage()) return;
+
+    const clientMessageId = crypto.randomUUID();
+
+    dispatch({ type: "SEND_STARTED", clientMessageId, content });
+    await submitMessage(conversationId, clientMessageId, content);
   };
 
   const handleTurnCompleted = (event: AiConversationCompletedEvent) => {
@@ -350,6 +325,15 @@ export default function ChatRoom({
       dispatch({ type: "DELTA_RECEIVED", userMessageId, index, text });
     },
     onCompleted: handleTurnCompleted,
+    onError: ({ userMessageId, message, retryable, restartRequired }) => {
+      // AI 세션이 사라진 대화라 어느 탭의 턴이든 새 대화 시작으로 안내함
+      if (restartRequired) {
+        expireConversation();
+        return;
+      }
+
+      dispatch({ type: "TURN_FAILED", userMessageId, message, retryable });
+    },
     onDone: ({ userMessageId }) => {
       dispatch({ type: "TURN_DONE", userMessageId });
     },
@@ -357,20 +341,25 @@ export default function ChatRoom({
   const isStreamConnected = streamStatus === "connected";
 
   const handleRetryMessage = async (messageId: ChatMessageId) => {
-    if (retryingMessageIdsRef.current.has(messageId)) return;
+    const failedMessage = messages.find(
+      (message) => message.id === messageId && message.deliveryStatus === "FAILED",
+    );
 
-    retryingMessageIdsRef.current.add(messageId);
-    dispatch({ type: "RETRY_STARTED", messageId });
+    if (conversationId === undefined || !failedMessage?.clientMessageId || !canSendMessage()) {
+      return;
+    }
 
-    // TODO: 메시지 재전송 API 연동 후 임시 지연 및 성공 상태 전환 교체
-    await delay(MOCK_MESSAGE_RETRY_DELAY_MS);
+    dispatch({ type: "RETRY_STARTED", clientMessageId: failedMessage.clientMessageId });
 
-    dispatch({ type: "RETRY_SUCCEEDED", messageId });
-    retryingMessageIdsRef.current.delete(messageId);
+    try {
+      await submitMessage(conversationId, failedMessage.clientMessageId, failedMessage.content);
+    } catch {
+      // 실패 상태와 재전송 버튼은 submitMessage에서 다시 표시함
+    }
   };
 
+  // 메시지 전송 취소 API가 없어 화면에서만 취소 상태로 표시함
   const handleCancelMessage = (messageId: ChatMessageId) => {
-    // TODO: 메시지 전송 취소 API 연동 후 서버 응답에 따라 취소 상태 반영
     dispatch({ type: "MESSAGE_CANCELED", messageId });
   };
 
@@ -537,6 +526,14 @@ export default function ChatRoom({
           className="mb-2 w-full min-w-0 text-center text-body-sm text-danger"
         >
           {analysisRequestError}
+        </AutoFitSingleLineText>
+      )}
+      {turnErrorMessage && (
+        <AutoFitSingleLineText
+          role="alert"
+          className="mb-2 w-full min-w-0 text-center text-body-sm text-danger"
+        >
+          {turnErrorMessage}
         </AutoFitSingleLineText>
       )}
       <ChatComposer
