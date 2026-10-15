@@ -8,7 +8,11 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import AiConversationExpiredModal from "@/components/chat/AiConversationExpiredModal";
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
-import { chatRoomReducer, createChatRoomState } from "@/components/chat/chatRoomReducer";
+import {
+  chatRoomReducer,
+  createChatRoomState,
+  toChatMessage,
+} from "@/components/chat/chatRoomReducer";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
@@ -24,6 +28,7 @@ import {
   type AiPreferenceAnalysisData,
   RequestAiPreferenceAnalysisError,
 } from "@/lib/api/aiConversationAnalysis";
+import { getAiConversationMessages } from "@/lib/api/aiConversationMessages";
 import {
   sendAiConversationMessage,
   type SendAiConversationMessageResult,
@@ -76,8 +81,10 @@ export default function ChatRoom({
   onMessageSent,
 }: ChatRoomProps) {
   const router = useRouter();
-  const [{ messages, isAwaitingResponse, sendError, turnErrorMessage, turn }, dispatch] =
-    useReducer(chatRoomReducer, initialMessages, createChatRoomState);
+  const [
+    { messages, isAwaitingResponse, sendError, turnErrorMessage, turn, needsMessageSync },
+    dispatch,
+  ] = useReducer(chatRoomReducer, initialMessages, createChatRoomState);
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
   const [analysisResult, setAnalysisResult] = useState(initialAnalysisResult);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
@@ -149,6 +156,7 @@ export default function ChatRoom({
     return () => window.clearTimeout(timer);
   }, [sendError]);
 
+  // 생성 중인 대화에 들어오면 메시지 변화 없이 타이핑 표시만 나타나므로 그때도 맨 아래로 스크롤함
   useEffect(() => {
     if (isInitialRender.current) {
       isInitialRender.current = false;
@@ -157,7 +165,36 @@ export default function ChatRoom({
 
     const messageList = messageListRef.current;
     messageList?.scrollTo({ top: messageList.scrollHeight, behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isAwaitingResponse]);
+
+  // 재연결이나 다른 탭의 턴으로 놓친 메시지를 진행 중인 턴이 없을 때 목록으로 다시 받아옴
+  useEffect(() => {
+    if (!needsMessageSync || turn !== null || conversationId === undefined) return;
+
+    let isActive = true;
+
+    // TODO: nextCursor와 hasNext를 활용한 대화 메시지 추가 페이지 조회 연동
+    getAiConversationMessages({ conversationId, size: 20 })
+      .then(({ items }) => {
+        if (isActive) {
+          dispatch({ type: "MESSAGES_SYNCED", messages: items.map(toChatMessage) });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isActive) return;
+
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        dispatch({ type: "MESSAGES_SYNC_FAILED" });
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [conversationId, needsMessageSync, router, turn]);
 
   const handleAnalysisRequest = useCallback(async () => {
     if (conversationId === undefined || isAnalysisRequestingRef.current) return;
@@ -318,6 +355,9 @@ export default function ChatRoom({
       isReadOnly || isInputLocked || isResponseInputLocked || isConversationExpired
         ? undefined
         : conversationId,
+    onConnected: ({ generating, pendingUserMessageId }, isReconnected) => {
+      dispatch({ type: "STREAM_CONNECTED", generating, pendingUserMessageId, isReconnected });
+    },
     onAccepted: ({ clientMessageId, userMessageId }) => {
       dispatch({ type: "SEND_ACCEPTED", clientMessageId, userMessageId });
     },
