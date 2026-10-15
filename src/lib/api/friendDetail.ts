@@ -2,25 +2,8 @@
 import "server-only";
 
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
-import type { FriendDetail } from "@/lib/api/friends";
+import { mapFriendDetail, type FriendDetailResponse } from "@/lib/api/friendDetailModel";
 import { serverApiRequest } from "@/lib/api/serverClient";
-
-interface FriendDetailData {
-  userId: number;
-  name: string;
-  profileImageUrl: string | null;
-  tasteAnalysisCompleted: boolean;
-  birthDate: string | null;
-  tasteKeywords: string[];
-  interestKeywords: string[];
-  interestSummary: string;
-  isFavorite: boolean;
-}
-
-interface FriendDetailResponse {
-  message: string;
-  data: FriendDetailData;
-}
 
 export async function getServerFriendDetail(userId: number) {
   const { data } = await serverApiRequest<FriendDetailResponse>(
@@ -31,15 +14,5 @@ export async function getServerFriendDetail(userId: number) {
     },
   );
 
-  return {
-    id: data.userId,
-    nickname: data.name,
-    profileImageUrl: data.profileImageUrl,
-    tasteAnalysisCompleted: data.tasteAnalysisCompleted,
-    birthDate: data.birthDate,
-    tasteKeywords: data.tasteKeywords,
-    interestKeywords: data.interestKeywords,
-    interestSummary: data.interestSummary,
-    isFavorite: data.isFavorite,
-  } satisfies FriendDetail;
+  return mapFriendDetail(data);
 }

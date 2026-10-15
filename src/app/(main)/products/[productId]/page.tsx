@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import PersonalProductDetailContent from "@/components/products/PersonalProductDetailContent";
 import { getProductDetail, type ProductDetailContext } from "@/lib/api/productDetail";
-import { ServerApiError } from "@/lib/api/serverClient";
+import { handleServerPageError } from "@/lib/serverPageError";
 
 type ProductDetailPageProps = {
   params: Promise<{ productId: string }>;
@@ -36,17 +36,7 @@ async function getProductDetailOrRedirect(
 
     return await getProductDetail({ productId, context });
   } catch (error) {
-    if (error instanceof ServerApiError) {
-      if (error.status === 401) {
-        redirect("/login");
-      }
-
-      if (error.status === 404) {
-        notFound();
-      }
-    }
-
-    redirect("/error");
+    handleServerPageError(error, { notFoundStatuses: [404] });
   }
 }
 

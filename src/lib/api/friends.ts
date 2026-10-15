@@ -3,25 +3,16 @@
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { mapFriendDetail, type FriendDetailResponse } from "@/lib/api/friendDetailModel";
 import { USE_MOCK_DATA } from "@/mocks/config";
+
+export type { FriendDetail } from "@/lib/api/friendDetailModel";
 
 export interface FriendListItem {
   userId: number;
   name: string;
   profileImageUrl: string | null;
   birthDate: string | null;
-  isFavorite: boolean;
-}
-
-export interface FriendDetail {
-  id: number;
-  nickname: string;
-  profileImageUrl: string | null;
-  tasteAnalysisCompleted: boolean;
-  birthDate: string | null;
-  tasteKeywords: string[];
-  interestKeywords: string[];
-  interestSummary: string;
   isFavorite: boolean;
 }
 
@@ -56,23 +47,6 @@ interface FriendsErrorResponse {
   data?: {
     retryAfterSeconds?: number;
   } | null;
-}
-
-interface FriendDetailData {
-  userId: number;
-  name: string;
-  profileImageUrl: string | null;
-  tasteAnalysisCompleted: boolean;
-  birthDate: string | null;
-  tasteKeywords: string[];
-  interestKeywords: string[];
-  interestSummary: string;
-  isFavorite: boolean;
-}
-
-interface FriendDetailResponse {
-  message: string;
-  data: FriendDetailData;
 }
 
 export interface FriendPoke {
@@ -274,17 +248,7 @@ export async function getFriendDetail(userId: number) {
 
   const { data } = (await response.json()) as FriendDetailResponse;
 
-  return {
-    id: data.userId,
-    nickname: data.name,
-    profileImageUrl: data.profileImageUrl,
-    tasteAnalysisCompleted: data.tasteAnalysisCompleted,
-    birthDate: data.birthDate,
-    tasteKeywords: data.tasteKeywords,
-    interestKeywords: data.interestKeywords,
-    interestSummary: data.interestSummary,
-    isFavorite: data.isFavorite,
-  } satisfies FriendDetail;
+  return mapFriendDetail(data);
 }
 
 export async function updateFriendFavorite(userId: number, isFavorite: boolean) {
