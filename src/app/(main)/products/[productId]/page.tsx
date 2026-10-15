@@ -1,10 +1,10 @@
 // 상품 문맥에 맞는 상세 정보를 서버에서 조회해 표시하는 페이지
 
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import PersonalProductDetailContent from "@/components/products/PersonalProductDetailContent";
 import { getProductDetail, type ProductDetailContext } from "@/lib/api/productDetail";
-import { ServerApiError } from "@/lib/api/serverClient";
+import { handleServerPageError } from "@/lib/serverPageError";
 
 type ProductDetailPageProps = {
   params: Promise<{ productId: string }>;
@@ -36,11 +36,7 @@ async function getProductDetailOrRedirect(
 
     return await getProductDetail({ productId, context });
   } catch (error) {
-    if (error instanceof ServerApiError && error.status === 401) {
-      redirect("/login");
-    }
-
-    redirect("/error");
+    handleServerPageError(error, { notFoundStatuses: [404] });
   }
 }
 
@@ -48,21 +44,24 @@ export default async function ProductDetailPage({ params, searchParams }: Produc
   const [{ productId }, { context, userId }] = await Promise.all([params, searchParams]);
   const parsedProductId = Number(productId);
 
-  if (
-    !Number.isSafeInteger(parsedProductId) ||
-    parsedProductId <= 0 ||
-    !isProductDetailContext(context)
-  ) {
+  if (!Number.isSafeInteger(parsedProductId) || parsedProductId <= 0) {
+    notFound();
+  }
+
+  if (!isProductDetailContext(context)) {
     redirect("/error");
   }
 
   const parsedUserId = userId === undefined ? undefined : Number(userId);
 
   if (
-    (context === "FRIEND_GIFT" &&
-      (!Number.isSafeInteger(parsedUserId) || (parsedUserId as number) <= 0)) ||
-    (context !== "FRIEND_GIFT" && userId !== undefined)
+    context === "FRIEND_GIFT" &&
+    (!Number.isSafeInteger(parsedUserId) || (parsedUserId as number) <= 0)
   ) {
+    notFound();
+  }
+
+  if (context !== "FRIEND_GIFT" && userId !== undefined) {
     redirect("/error");
   }
 

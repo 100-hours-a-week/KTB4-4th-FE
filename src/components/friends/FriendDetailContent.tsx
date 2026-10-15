@@ -3,14 +3,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect } from "react";
 
 import AiSummarySection from "@/components/common/AiSummarySection";
 import KeywordSection from "@/components/common/KeywordSection";
 import FriendPokeButton from "@/components/friends/FriendPokeButton";
 import { useFriendDetailContext } from "@/contexts/FriendDetailContext";
+import type { FriendDetail } from "@/lib/api/friends";
 
 type FriendDetailContentProps = {
   userId: number;
+  initialFriend: FriendDetail;
 };
 
 function parseBirthday(birthDate: string | null) {
@@ -47,19 +50,15 @@ function getDaysUntilBirthday(month: number, day: number) {
   return Math.round((birthdayAtUtc - todayAtUtc) / (1000 * 60 * 60 * 24));
 }
 
-export default function FriendDetailContent({ userId }: FriendDetailContentProps) {
-  const { friend: friendDetail } = useFriendDetailContext();
-  const friend = friendDetail?.id === userId ? friendDetail : null;
+export default function FriendDetailContent({ userId, initialFriend }: FriendDetailContentProps) {
+  const { friend: friendDetail, initializeFriend } = useFriendDetailContext();
+  const friend = friendDetail?.id === userId ? friendDetail : initialFriend;
   const birthday = friend ? parseBirthday(friend.birthDate) : null;
   const daysUntilBirthday = birthday ? getDaysUntilBirthday(birthday.month, birthday.day) : null;
 
-  if (!friend) {
-    return (
-      <p role="status" className="pt-12 text-center text-body-sm text-muted">
-        친구 정보를 불러오는 중이에요.
-      </p>
-    );
-  }
+  useEffect(() => {
+    initializeFriend(initialFriend);
+  }, [initialFriend, initializeFriend]);
 
   return (
     <section
