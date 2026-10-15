@@ -104,6 +104,9 @@ export async function getMockFriendDetail(userId: number) {
     profileImageUrl: friend.profileImageUrl,
     tasteAnalysisCompleted: true,
     birthDate: friend.birthDate ?? "2000-01-01",
+    tasteKeywords: ["실용적인", "감성적인", "새로운"],
+    interestKeywords: ["여행", "인테리어", "커피"],
+    interestSummary: "최근 여행과 인테리어에 관심이 많고, 새로운 카페를 찾아다니는 것을 좋아해요.",
     isFavorite: friend.isFavorite,
   } satisfies FriendDetail;
 }
