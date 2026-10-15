@@ -1,20 +1,24 @@
-// 현재 기기의 웹 푸시 구독 등록 API 요청과 응답 타입
+// 현재 기기의 웹 푸시 구독 등록과 구독 상태 조회 API 요청과 응답 타입
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 
-export interface PushSubscriptionStatus {
+export interface RegisterPushSubscriptionResult {
   enabled: boolean;
   updatedAt: string;
 }
 
-interface RegisterPushSubscriptionResponse {
-  message: string;
-  data: PushSubscriptionStatus;
+export interface PushSubscriptionStatus {
+  subscribed: boolean;
 }
 
-interface RegisterPushSubscriptionErrorResponse {
+interface PushSubscriptionApiResponse<T> {
+  message: string;
+  data: T;
+}
+
+interface PushSubscriptionErrorResponse {
   message?: string;
   data?: {
     retryAfterSeconds?: number;
@@ -33,7 +37,7 @@ const DEFAULT_ERROR_MESSAGES: Partial<Record<number, string>> = {
 
 function getRetryAfterSeconds(
   response: Response,
-  errorResponse: RegisterPushSubscriptionErrorResponse | null,
+  errorResponse: PushSubscriptionErrorResponse | null,
 ) {
   const responseBodySeconds = errorResponse?.data?.retryAfterSeconds;
 
@@ -47,6 +51,18 @@ function getRetryAfterSeconds(
   return Number.isFinite(retryAfterSeconds) ? Math.max(0, Math.ceil(retryAfterSeconds)) : undefined;
 }
 
+async function createPushSubscriptionError(response: Response, fallbackMessage: string) {
+  const errorResponse = (await response
+    .json()
+    .catch(() => null)) as PushSubscriptionErrorResponse | null;
+
+  return new ApiRequestError(
+    errorResponse?.message ?? DEFAULT_ERROR_MESSAGES[response.status] ?? fallbackMessage,
+    response.status,
+    getRetryAfterSeconds(response, errorResponse),
+  );
+}
+
 // 구독 정보는 인증 정보이므로 가공하거나 로그에 남기지 않고 toJSON() 결과를 그대로 전달함
 export async function registerPushSubscription(subscription: PushSubscription) {
   const response = await apiFetch(API_ENDPOINTS.users.pushSubscriptions, {
@@ -58,19 +74,28 @@ export async function registerPushSubscription(subscription: PushSubscription) {
   });
 
   if (!response.ok) {
-    const errorResponse = (await response
-      .json()
-      .catch(() => null)) as RegisterPushSubscriptionErrorResponse | null;
-
-    throw new ApiRequestError(
-      errorResponse?.message ??
-        DEFAULT_ERROR_MESSAGES[response.status] ??
-        "웹 푸시 알림을 켜지 못했습니다.",
-      response.status,
-      getRetryAfterSeconds(response, errorResponse),
-    );
+    throw await createPushSubscriptionError(response, "웹 푸시 알림을 켜지 못했습니다.");
   }
 
-  const { data } = (await response.json()) as RegisterPushSubscriptionResponse;
+  const { data } =
+    (await response.json()) as PushSubscriptionApiResponse<RegisterPushSubscriptionResult>;
+  return data;
+}
+
+// endpoint가 쿼리스트링과 접근 로그에 남지 않도록 조회지만 POST 본문으로 전달함
+export async function getPushSubscriptionStatus(endpoint: string) {
+  const response = await apiFetch(API_ENDPOINTS.users.pushSubscriptionStatus, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ endpoint }),
+  });
+
+  if (!response.ok) {
+    throw await createPushSubscriptionError(response, "웹 푸시 알림 상태를 확인하지 못했습니다.");
+  }
+
+  const { data } = (await response.json()) as PushSubscriptionApiResponse<PushSubscriptionStatus>;
   return data;
 }

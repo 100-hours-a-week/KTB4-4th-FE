@@ -53,6 +53,7 @@ export const API_ENDPOINTS = {
       `${API_V1_PREFIX}/users/me/settings/notifications/${settingType}`,
     onboarding: `${API_V1_PREFIX}/users/me/onboarding`,
     pushSubscriptions: `${API_V1_PREFIX}/users/me/push-subscriptions`,
+    pushSubscriptionStatus: `${API_V1_PREFIX}/users/me/push-subscriptions/status`,
   },
   friendGiftRecommendations: (userId: number) =>
     `${API_V1_PREFIX}/users/${userId}/gift-recommendations`,
