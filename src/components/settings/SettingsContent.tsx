@@ -22,7 +22,6 @@ type SettingsContentProps = {
 };
 
 const notificationItems: { type: NotificationSettingType; label: string }[] = [
-  { type: "WEB_PUSH", label: "웹 푸시 알림" },
   { type: "FRIEND_BIRTHDAY", label: "친구 생일 알림" },
   { type: "FRIEND_JOINED", label: "친구 가입 알림" },
   { type: "PURCHASE_FEEDBACK", label: "피드백 알림" },
@@ -130,8 +129,6 @@ export default function SettingsContent({
       pendingSettingTypesRef.current.delete(settingType);
       setPendingSettingTypes(new Set(pendingSettingTypesRef.current));
     }
-
-    // TODO: 웹 푸시 구현 시 WEB_PUSH 설정을 브라우저 알림 권한 요청 및 구독 API와 연동
   };
 
   const handleWithdrawalClick = () => {
