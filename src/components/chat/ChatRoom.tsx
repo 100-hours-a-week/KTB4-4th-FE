@@ -3,11 +3,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import AiConversationExpiredModal from "@/components/chat/AiConversationExpiredModal";
 import ChatComposer from "@/components/chat/ChatComposer";
 import ChatMessageList from "@/components/chat/ChatMessageList";
+import { chatRoomReducer, createChatRoomState } from "@/components/chat/chatRoomReducer";
 import PreferenceAnalysisLoadingModal from "@/components/chat/PreferenceAnalysisLoadingModal";
 import PreferenceAnalysisResultModal from "@/components/chat/PreferenceAnalysisResultModal";
 import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysisTimeoutModal";
@@ -50,12 +51,6 @@ type PendingMessage = {
   content: string;
 };
 
-type MessageSendError = {
-  messageId: ChatMessageId;
-  status: number;
-  retryAfterSeconds: number;
-};
-
 const MIN_AI_RESPONSE_DELAY_MS = 600;
 const MOCK_MESSAGE_RETRY_DELAY_MS = 1000;
 
@@ -93,14 +88,16 @@ export default function ChatRoom({
   onMessageSent,
 }: ChatRoomProps) {
   const router = useRouter();
-  const [messages, setMessages] = useState(initialMessages);
+  const [{ messages, isAwaitingResponse, sendError }, dispatch] = useReducer(
+    chatRoomReducer,
+    initialMessages,
+    createChatRoomState,
+  );
   const [analysisStatus, setAnalysisStatus] = useState(initialAnalysisStatus);
   const [analysisResult, setAnalysisResult] = useState(initialAnalysisResult);
-  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [isResponseInputLocked, setIsResponseInputLocked] = useState(false);
   const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
   const [isConversationExpired, setIsConversationExpired] = useState(false);
-  const [sendError, setSendError] = useState<MessageSendError | null>(null);
   const [analysisRequestError, setAnalysisRequestError] = useState("");
   const [isRestartRequired, setIsRestartRequired] = useState(false);
   const [hasRequestedNextConversation, setHasRequestedNextConversation] = useState(false);
@@ -163,11 +160,7 @@ export default function ChatRoom({
     if (sendError?.status !== 429 || sendError.retryAfterSeconds <= 0) return;
 
     const timer = window.setTimeout(() => {
-      setSendError((error) =>
-        error?.status === 429
-          ? { ...error, retryAfterSeconds: Math.max(0, error.retryAfterSeconds - 1) }
-          : error,
-      );
+      dispatch({ type: "SEND_ERROR_RETRY_TICKED" });
     }, 1000);
 
     return () => window.clearTimeout(timer);
@@ -268,8 +261,7 @@ export default function ChatRoom({
       deliveryStatus: "SENT",
     };
 
-    setMessages((currentMessages) => [...currentMessages, optimisticUserMessage]);
-    setIsAwaitingResponse(true);
+    dispatch({ type: "SEND_STARTED", message: optimisticUserMessage });
 
     let response: SendAiConversationMessageData;
 
@@ -293,30 +285,27 @@ export default function ChatRoom({
       if (error instanceof ApiRequestError && error.status === 410) {
         isConversationExpiredRef.current = true;
         setIsConversationExpired(true);
-        setSendError(null);
+        dispatch({ type: "SEND_ERROR_CLEARED" });
         throw error;
       }
 
-      setMessages((currentMessages) =>
-        currentMessages.map((message) =>
-          message.id === pendingMessage.clientMessageId
-            ? { ...message, deliveryStatus: "FAILED" }
-            : message,
-        ),
-      );
-      setSendError({
-        messageId: pendingMessage.clientMessageId,
-        status: error instanceof ApiRequestError ? error.status : 0,
-        retryAfterSeconds:
-          error instanceof ApiRequestError && error.status === 429
-            ? (error.retryAfterSeconds ?? 0)
-            : 0,
+      dispatch({
+        type: "SEND_FAILED",
+        clientMessageId: pendingMessage.clientMessageId,
+        error: {
+          messageId: pendingMessage.clientMessageId,
+          status: error instanceof ApiRequestError ? error.status : 0,
+          retryAfterSeconds:
+            error instanceof ApiRequestError && error.status === 429
+              ? (error.retryAfterSeconds ?? 0)
+              : 0,
+        },
       });
 
       throw error;
     } finally {
       isMessageSendingRef.current = false;
-      setIsAwaitingResponse(false);
+      dispatch({ type: "RESPONSE_WAIT_ENDED" });
     }
 
     const assistantMessage: ChatMessage = {
@@ -327,16 +316,13 @@ export default function ChatRoom({
       deliveryStatus: "SENT",
     };
 
-    setMessages((currentMessages) => [
-      ...currentMessages.map((message) =>
-        message.id === pendingMessage.clientMessageId
-          ? { ...message, id: response.userMessageId }
-          : message,
-      ),
+    dispatch({
+      type: "SEND_SUCCEEDED",
+      clientMessageId: pendingMessage.clientMessageId,
+      userMessageId: response.userMessageId,
       assistantMessage,
-    ]);
+    });
     pendingMessageRef.current = null;
-    setSendError(null);
 
     if (response.inputLocked) {
       setIsResponseInputLocked(true);
@@ -352,38 +338,18 @@ export default function ChatRoom({
     if (retryingMessageIdsRef.current.has(messageId)) return;
 
     retryingMessageIdsRef.current.add(messageId);
-    setMessages((currentMessages) =>
-      currentMessages.map((message) =>
-        message.id === messageId && message.deliveryStatus === "FAILED"
-          ? { ...message, deliveryStatus: "RETRYING" }
-          : message,
-      ),
-    );
+    dispatch({ type: "RETRY_STARTED", messageId });
 
     // TODO: 메시지 재전송 API 연동 후 임시 지연 및 성공 상태 전환 교체
     await delay(MOCK_MESSAGE_RETRY_DELAY_MS);
 
-    setMessages((currentMessages) =>
-      currentMessages.map((message) =>
-        message.id === messageId && message.deliveryStatus === "RETRYING"
-          ? { ...message, deliveryStatus: "SENT" }
-          : message,
-      ),
-    );
-    setSendError((error) => (error?.messageId === messageId ? null : error));
+    dispatch({ type: "RETRY_SUCCEEDED", messageId });
     retryingMessageIdsRef.current.delete(messageId);
   };
 
   const handleCancelMessage = (messageId: ChatMessageId) => {
     // TODO: 메시지 전송 취소 API 연동 후 서버 응답에 따라 취소 상태 반영
-    setMessages((currentMessages) =>
-      currentMessages.map((message) =>
-        message.id === messageId && message.deliveryStatus === "FAILED"
-          ? { ...message, deliveryStatus: "CANCELED" }
-          : message,
-      ),
-    );
-    setSendError((error) => (error?.messageId === messageId ? null : error));
+    dispatch({ type: "MESSAGE_CANCELED", messageId });
   };
 
   const handleReturnToChat = () => {
