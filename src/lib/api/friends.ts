@@ -18,7 +18,7 @@ export interface FriendDetail {
   nickname: string;
   profileImageUrl: string | null;
   tasteAnalysisCompleted: boolean;
-  birthDate: string;
+  birthDate: string | null;
   tasteKeywords: string[];
   interestKeywords: string[];
   interestSummary: string;
@@ -63,7 +63,7 @@ interface FriendDetailData {
   name: string;
   profileImageUrl: string | null;
   tasteAnalysisCompleted: boolean;
-  birthDate: string;
+  birthDate: string | null;
   tasteKeywords: string[];
   interestKeywords: string[];
   interestSummary: string;

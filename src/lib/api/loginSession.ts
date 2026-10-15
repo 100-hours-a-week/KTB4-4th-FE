@@ -11,7 +11,7 @@ export interface LoginUser {
 
 export interface LoginSessionData {
   user: LoginUser;
-  birthday?: string;
+  birthday?: string | null;
 }
 
 export interface LoginSessionResponse {
@@ -41,6 +41,6 @@ export function isLoginSessionResponse(value: unknown): value is LoginSessionRes
     typeof user.nickname === "string" &&
     (typeof user.profileImageUrl === "string" || user.profileImageUrl === null) &&
     typeof user.onboardingCompleted === "boolean" &&
-    (birthday === undefined || typeof birthday === "string")
+    (birthday === undefined || birthday === null || typeof birthday === "string")
   );
 }

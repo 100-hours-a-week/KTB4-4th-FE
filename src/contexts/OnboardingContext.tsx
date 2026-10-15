@@ -51,8 +51,7 @@ type OnboardingAction =
   | { type: "SET_GENDER"; gender: Gender }
   | { type: "SET_BIRTH_DATE"; birthDateDigits: string }
   | { type: "TOGGLE_INTEREST"; interest: InterestCategoryCode }
-  | { type: "TOGGLE_AVOIDANCE"; category: AvoidanceCategory; item: AvoidanceCode }
-  | { type: "RESET" };
+  | { type: "TOGGLE_AVOIDANCE"; category: AvoidanceCategory; item: AvoidanceCode };
 
 type OnboardingContextValue = {
   state: OnboardingState;
@@ -64,7 +63,7 @@ type OnboardingContextValue = {
   setBirthDate: (birthDateDigits: string) => void;
   toggleInterest: (interest: InterestCategoryCode) => void;
   toggleAvoidance: (category: AvoidanceCategory, item: AvoidanceCode) => void;
-  resetOnboarding: () => void;
+  clearSavedOnboarding: () => void;
 };
 
 const LEGACY_STORAGE_KEY = "needu:onboarding:v1";
@@ -168,8 +167,6 @@ const onboardingReducer = (state: OnboardingState, action: OnboardingAction): On
         formData: { ...state.formData, [action.category]: nextItems },
       };
     }
-    case "RESET":
-      return initialState;
     default:
       return state;
   }
@@ -235,10 +232,10 @@ export function OnboardingProvider({ children, userId }: { children: ReactNode; 
       setBirthDate: (birthDateDigits) => dispatch({ type: "SET_BIRTH_DATE", birthDateDigits }),
       toggleInterest: (interest) => dispatch({ type: "TOGGLE_INTEREST", interest }),
       toggleAvoidance: (category, item) => dispatch({ type: "TOGGLE_AVOIDANCE", category, item }),
-      resetOnboarding: () => {
+      // 완료 후 메인 이동 전까지 현재 화면을 유지하도록 상태는 두고 저장값만 삭제
+      clearSavedOnboarding: () => {
         isPersistenceEnabledRef.current = false;
         window.sessionStorage.removeItem(storageKey);
-        dispatch({ type: "RESET" });
       },
     }),
     [isHydrated, state, storageKey],
