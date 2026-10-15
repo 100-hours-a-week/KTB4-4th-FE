@@ -26,6 +26,11 @@ function parsePushPayload(event) {
   }
 }
 
+// 등록 직후에도 이미 열린 탭을 제어해 알림 클릭 시 해당 탭에서 화면을 이동할 수 있게 함
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
@@ -72,13 +77,18 @@ self.addEventListener("notificationclick", (event) => {
         client.url.startsWith(self.location.origin),
       );
 
+      // 브라우저는 알림 클릭 한 번에 focus와 openWindow 중 하나만 허용하므로
+      // 이동을 먼저 시도하고, 실패하면 focus 대신 새 창을 엶
       if (existingClient) {
-        await existingClient.focus();
-
-        if (!targetUrl) return;
+        if (!targetUrl) {
+          await existingClient.focus();
+          return;
+        }
 
         try {
-          await existingClient.navigate(targetUrl);
+          const navigatedClient = await existingClient.navigate(targetUrl);
+          // 이동은 이미 끝났으므로 focus가 거부돼도 새 창을 열지 않음
+          await (navigatedClient ?? existingClient).focus().catch(() => {});
           return;
         } catch {
           // 서비스 워커가 제어하지 않는 탭은 navigate가 실패하므로 새 창으로 엶
