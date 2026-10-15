@@ -19,8 +19,11 @@ import PreferenceAnalysisTimeoutModal from "@/components/chat/PreferenceAnalysis
 import PreferenceDataInsufficientModal from "@/components/chat/PreferenceDataInsufficientModal";
 import ActionButton from "@/components/common/ActionButton";
 import AutoFitSingleLineText from "@/components/common/AutoFitSingleLineText";
+import { useAiConversationContext } from "@/contexts/AiConversationContext";
 import useAiConversationStart from "@/hooks/useAiConversationStart";
-import useAiConversationStream from "@/hooks/useAiConversationStream";
+import useAiConversationStream, {
+  type AiConversationStreamRecovery,
+} from "@/hooks/useAiConversationStream";
 import {
   confirmAiPreferenceAnalysis,
   requestAiPreferenceAnalysis,
@@ -28,11 +31,13 @@ import {
   type AiPreferenceAnalysisData,
   RequestAiPreferenceAnalysisError,
 } from "@/lib/api/aiConversationAnalysis";
+import { AI_CONSENT_SETTINGS_PATH, isAiConsentRequiredError } from "@/lib/api/aiConversationErrors";
 import { getAiConversationMessages } from "@/lib/api/aiConversationMessages";
 import {
   sendAiConversationMessage,
   type SendAiConversationMessageResult,
 } from "@/lib/api/aiConversationMessageSend";
+import { startAiConversation, type AiConversation } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
 import type {
   AiConversationCompletedEvent,
@@ -81,6 +86,7 @@ export default function ChatRoom({
   onMessageSent,
 }: ChatRoomProps) {
   const router = useRouter();
+  const { setConversation } = useAiConversationContext();
   const [
     { messages, isAwaitingResponse, sendError, turnErrorMessage, turn, needsMessageSync },
     dispatch,
@@ -91,6 +97,8 @@ export default function ChatRoom({
   const [isConfirmingAnalysis, setIsConfirmingAnalysis] = useState(false);
   const [isConversationExpired, setIsConversationExpired] = useState(false);
   const [analysisRequestError, setAnalysisRequestError] = useState("");
+  // 대화에 접근할 수 없어 입력창을 막고 입력창 위에 표시하는 문구
+  const [conversationBlockedMessage, setConversationBlockedMessage] = useState("");
   const [isRestartRequired, setIsRestartRequired] = useState(false);
   const [hasRequestedNextConversation, setHasRequestedNextConversation] = useState(false);
   const [remainingConversationSeconds, setRemainingConversationSeconds] = useState<number | null>(
@@ -261,13 +269,68 @@ export default function ChatRoom({
     !isConversationExpiredRef.current &&
     !isMessageSendingRef.current &&
     isStreamConnected &&
-    turn === null;
+    turn === null &&
+    !conversationBlockedMessage;
 
   const expireConversation = () => {
     isConversationExpiredRef.current = true;
     setIsConversationExpired(true);
     dispatch({ type: "TURN_ABORTED" });
     dispatch({ type: "SEND_ERROR_CLEARED" });
+  };
+
+  // 대화 시작 API로 다시 확인한 대화 상태에 맞춰 화면을 바꿈
+  const handleConversationChanged = (nextConversation: AiConversation) => {
+    // 만료된 대화가 새 대화로 바뀐 경우라 만료 모달에서 새 대화로 이동하게 함
+    if (nextConversation.conversationId !== conversationId) {
+      expireConversation();
+      return;
+    }
+
+    if (nextConversation.status === "ANALYZING") {
+      dispatch({ type: "TURN_ABORTED" });
+      setIsResponseInputLocked(true);
+      void handleAnalysisRequest();
+      return;
+    }
+
+    // 완료된 대화 등은 부모가 상태에 맞는 화면으로 다시 그림
+    setConversation(nextConversation);
+  };
+
+  const handleConversationUnavailable = (error: ApiRequestError) => {
+    dispatch({ type: "TURN_ABORTED" });
+
+    if (isAiConsentRequiredError(error)) {
+      router.push(AI_CONSENT_SETTINGS_PATH);
+      return;
+    }
+
+    if (error.status === 403) {
+      setConversationBlockedMessage(error.message);
+      return;
+    }
+
+    router.replace("/error");
+  };
+
+  // 대화를 찾을 수 없으면 완료·만료 여부를 대화 시작 API로 다시 확인함
+  const recheckConversation = async () => {
+    try {
+      handleConversationChanged(await startAiConversation());
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      if (error instanceof ApiRequestError) {
+        handleConversationUnavailable(error);
+        return;
+      }
+
+      router.replace("/error");
+    }
   };
 
   // 새 메시지와 재전송이 함께 쓰는 전송 요청이며 재전송은 같은 clientMessageId를 사용함
@@ -298,6 +361,38 @@ export default function ChatRoom({
         throw error;
       }
 
+      // 재전송해도 해결되지 않는 오류는 저장되지 않은 메시지를 지우고 상황에 맞게 안내함
+      if (isAiConsentRequiredError(error)) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: null });
+        router.push(AI_CONSENT_SETTINGS_PATH);
+        throw error;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 409) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: null });
+        setIsResponseInputLocked(true);
+        void handleAnalysisRequest();
+        throw error;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 403) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: null });
+        setConversationBlockedMessage(error.message);
+        throw error;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 404) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: null });
+        void recheckConversation();
+        throw error;
+      }
+
+      if (error instanceof ApiRequestError && (error.status === 400 || error.status === 422)) {
+        dispatch({ type: "SEND_REJECTED", clientMessageId, message: error.message });
+        throw error;
+      }
+
+      // 429, 5xx, 네트워크 오류는 같은 clientMessageId로 다시 보낼 수 있게 재전송 버튼을 표시함
       dispatch({
         type: "SEND_FAILED",
         clientMessageId,
@@ -376,6 +471,15 @@ export default function ChatRoom({
     },
     onDone: ({ userMessageId }) => {
       dispatch({ type: "TURN_DONE", userMessageId });
+    },
+    // 연결이 닫혀 대화 시작 API로 다시 확인했는데 같은 대화로 재연결할 수 없는 경우
+    onRecovery: (result: AiConversationStreamRecovery) => {
+      if (result.type === "CONVERSATION_CHANGED") {
+        handleConversationChanged(result.conversation);
+        return;
+      }
+
+      handleConversationUnavailable(result.error);
     },
   });
   const isStreamConnected = streamStatus === "connected";
@@ -576,6 +680,14 @@ export default function ChatRoom({
           {turnErrorMessage}
         </AutoFitSingleLineText>
       )}
+      {conversationBlockedMessage && (
+        <AutoFitSingleLineText
+          role="alert"
+          className="mb-2 w-full min-w-0 text-center text-body-sm text-danger"
+        >
+          {conversationBlockedMessage}
+        </AutoFitSingleLineText>
+      )}
       <ChatComposer
         onSend={handleSend}
         placeholder={isReadOnly ? "취향분석이 완료된 대화예요" : "메시지 입력"}
@@ -587,6 +699,7 @@ export default function ChatRoom({
           conversationId === undefined ||
           !isStreamConnected ||
           turn !== null ||
+          conversationBlockedMessage !== "" ||
           (sendError?.status === 429 && sendError.retryAfterSeconds > 0)
         }
       />

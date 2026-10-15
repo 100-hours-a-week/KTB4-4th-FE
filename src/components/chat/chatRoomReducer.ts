@@ -45,6 +45,7 @@ export type ChatRoomAction =
   | { type: "RETRY_STARTED"; clientMessageId: string }
   | { type: "SEND_ACCEPTED"; clientMessageId: string; userMessageId: number }
   | { type: "SEND_FAILED"; clientMessageId: string; status: number; retryAfterSeconds: number }
+  | { type: "SEND_REJECTED"; clientMessageId: string; message: string | null }
   | { type: "DELTA_RECEIVED"; userMessageId: number; index: number; text: string }
   | { type: "TURN_COMPLETED"; userMessageId: number; messageId: number; content: string }
   | { type: "TURN_FAILED"; userMessageId: number; message: string; retryable: boolean }
@@ -208,6 +209,17 @@ export const chatRoomReducer = (state: ChatRoomState, action: ChatRoomAction): C
         turn: null,
       };
     }
+    case "SEND_REJECTED":
+      // 서버가 저장하지 않은 메시지라 말풍선을 지우고, 입력창에 되돌아간 내용으로 다시 보내게 함
+      return {
+        ...state,
+        messages: state.messages.filter(
+          (message) => message.clientMessageId !== action.clientMessageId,
+        ),
+        isAwaitingResponse: false,
+        turnErrorMessage: action.message,
+        turn: null,
+      };
     case "DELTA_RECEIVED": {
       const { turn } = state;
 
