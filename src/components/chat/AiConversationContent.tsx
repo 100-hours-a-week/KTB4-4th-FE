@@ -9,6 +9,7 @@ import { toChatMessage } from "@/components/chat/chatRoomReducer";
 import PreferenceAnalysisBar from "@/components/chat/PreferenceAnalysisBar";
 import ActionButton from "@/components/common/ActionButton";
 import { useAiConversationContext } from "@/contexts/AiConversationContext";
+import { AI_CONSENT_SETTINGS_PATH, isAiConsentRequiredError } from "@/lib/api/aiConversationErrors";
 import { getAiConversationMessages } from "@/lib/api/aiConversationMessages";
 import { startAiConversation, type AiConversationStatus } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
@@ -119,6 +120,12 @@ export default function AiConversationContent({ conversationId }: AiConversation
 
         if (error instanceof ApiRequestError && error.status === 401) {
           router.replace("/login");
+          return;
+        }
+
+        // 동의 없이는 대화 화면을 쓸 수 없어 뒤로 가기로 다시 오지 않도록 기록을 바꿈
+        if (isAiConsentRequiredError(error)) {
+          router.replace(AI_CONSENT_SETTINGS_PATH);
           return;
         }
 

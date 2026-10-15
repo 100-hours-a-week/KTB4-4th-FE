@@ -12,11 +12,13 @@ import {
   updateNotificationSetting,
 } from "@/lib/api/notificationSettings";
 
-type PolicyModalType = "aiConsent" | "privacyPolicy" | "terms";
+export type PolicyModalType = "aiConsent" | "privacyPolicy" | "terms";
 type PrivacyItemType = "preferences" | PolicyModalType;
 
 type SettingsContentProps = {
   initialNotificationSettings: Readonly<Record<NotificationSettingType, boolean>>;
+  // AI 대화에서 정보 활용 동의가 필요해 이동한 경우처럼 쿼리로 처음부터 열 모달
+  initialPolicyModal?: PolicyModalType | null;
 };
 
 const notificationItems: { type: NotificationSettingType; label: string }[] = [
@@ -33,6 +35,7 @@ const privacyItems: { id: PrivacyItemType; label: string }[] = [
 ];
 
 // TODO: 각 정책의 최종 원문 확정 후 임시 안내문을 실제 내용으로 교체
+// TODO: AI 대화 정보 활용 동의 API 연동 시 동의 모달에 동의 버튼과 현재 동의 상태 반영
 const policyModalContent: Record<PolicyModalType, { title: string; body: string }> = {
   aiConsent: {
     title: "AI 대화 정보 활용 동의",
@@ -60,7 +63,10 @@ const getNotificationErrorMessage = (error: unknown) => {
   return error.message;
 };
 
-export default function SettingsContent({ initialNotificationSettings }: SettingsContentProps) {
+export default function SettingsContent({
+  initialNotificationSettings,
+  initialPolicyModal = null,
+}: SettingsContentProps) {
   const router = useRouter();
   const pendingSettingTypesRef = useRef(new Set<NotificationSettingType>());
   const [notificationSettings, setNotificationSettings] = useState<
@@ -72,7 +78,10 @@ export default function SettingsContent({ initialNotificationSettings }: Setting
   const [notificationErrors, setNotificationErrors] = useState<
     Partial<Record<NotificationSettingType, string>>
   >({});
-  const [openPolicyModal, setOpenPolicyModal] = useState<PolicyModalType | null>(null);
+  const [openPolicyModal, setOpenPolicyModal] = useState<PolicyModalType | null>(
+    initialPolicyModal,
+  );
+  const hasPolicyModalQueryRef = useRef(initialPolicyModal !== null);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
   const activePolicyModal = openPolicyModal ? policyModalContent[openPolicyModal] : null;
 
@@ -131,6 +140,16 @@ export default function SettingsContent({ initialNotificationSettings }: Setting
 
   const handleWithdrawalConfirm = () => {
     // TODO: 회원 탈퇴 API 연동 후 성공 시 로그아웃 및 로그인 페이지 이동 처리
+  };
+
+  // 쿼리로 연 모달은 닫을 때 쿼리를 지워 새로고침이나 뒤로 가기로 다시 열리지 않게 함
+  const handlePolicyModalClose = () => {
+    setOpenPolicyModal(null);
+
+    if (hasPolicyModalQueryRef.current) {
+      hasPolicyModalQueryRef.current = false;
+      router.replace("/settings", { scroll: false });
+    }
   };
 
   const handlePrivacyItemClick = (item: PrivacyItemType) => {
@@ -249,9 +268,9 @@ export default function SettingsContent({ initialNotificationSettings }: Setting
 
       <Modal
         open={activePolicyModal !== null}
-        onClose={() => setOpenPolicyModal(null)}
+        onClose={handlePolicyModalClose}
         title={activePolicyModal?.title ?? ""}
-        secondAction={{ label: "확인", onClick: () => setOpenPolicyModal(null) }}
+        secondAction={{ label: "확인", onClick: handlePolicyModalClose }}
       >
         <p className="m-0 whitespace-pre-wrap text-body-sm leading-relaxed text-foreground-secondary">
           {activePolicyModal?.body}

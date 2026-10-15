@@ -1,4 +1,4 @@
-// 사용자 설정 화면의 서버 컴포넌트 진입점
+// 알림 설정과 쿼리로 처음부터 열 정책 모달을 전달하는 사용자 설정 화면의 서버 컴포넌트 진입점
 
 import { redirect } from "next/navigation";
 
@@ -46,8 +46,22 @@ async function getInitialNotificationSettingsOrRedirect() {
   }
 }
 
-export default async function SettingsPage() {
-  const initialNotificationSettings = await getInitialNotificationSettingsOrRedirect();
+type SettingsPageProps = {
+  searchParams: Promise<{
+    modal?: string;
+  }>;
+};
 
-  return <SettingsContent initialNotificationSettings={initialNotificationSettings} />;
+export default async function SettingsPage({ searchParams }: SettingsPageProps) {
+  const [initialNotificationSettings, { modal }] = await Promise.all([
+    getInitialNotificationSettingsOrRedirect(),
+    searchParams,
+  ]);
+
+  return (
+    <SettingsContent
+      initialNotificationSettings={initialNotificationSettings}
+      initialPolicyModal={modal === "aiConsent" ? "aiConsent" : null}
+    />
+  );
 }
