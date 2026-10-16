@@ -9,6 +9,7 @@ import { useNotificationContext } from "@/contexts/NotificationContext";
 import { ApiRequestError } from "@/lib/api/client";
 import { getPurchaseCheck, type PurchaseCheck } from "@/lib/api/purchaseChecks";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
+import { getNotificationDisplay } from "@/lib/notificationDisplay";
 import { getNotificationTargetPath, getPurchaseCheckTargetId } from "@/lib/notificationTarget";
 
 import NotificationItem from "./NotificationItem";
@@ -207,20 +208,27 @@ export default function NotificationDropdown() {
                 ref={listRef}
                 className={`m-0 list-none border-t border-border p-0 ${notifications.length >= 4 ? "max-h-72 overflow-y-auto overscroll-contain" : ""}`}
               >
-                {notifications.map((notification) => (
-                  <NotificationItem
-                    key={notification.notificationId}
-                    id={notification.notificationId}
-                    title={notification.title}
-                    description={notification.body}
-                    createdAt={formatRelativeTime(notification.createdAt)}
-                    isUnread={notification.readAt === null}
-                    isDeleteRevealed={revealedNotificationId === notification.notificationId}
-                    onSelect={selectNotification}
-                    onDelete={deleteNotification}
-                    onRevealDelete={setRevealedNotificationId}
-                  />
-                ))}
+                {notifications.map((notification) => {
+                  const { title, titleParts, description, thumbnail } =
+                    getNotificationDisplay(notification);
+
+                  return (
+                    <NotificationItem
+                      key={notification.notificationId}
+                      id={notification.notificationId}
+                      title={title}
+                      titleParts={titleParts}
+                      description={description}
+                      thumbnail={thumbnail}
+                      createdAt={formatRelativeTime(notification.createdAt)}
+                      isUnread={notification.readAt === null}
+                      isDeleteRevealed={revealedNotificationId === notification.notificationId}
+                      onSelect={selectNotification}
+                      onDelete={deleteNotification}
+                      onRevealDelete={setRevealedNotificationId}
+                    />
+                  );
+                })}
                 {hasNext && <li ref={sentinelRef} aria-hidden="true" className="h-px" />}
               </ul>
               {(isLoadingPurchaseCheck || purchaseCheckErrorMessage) && (
