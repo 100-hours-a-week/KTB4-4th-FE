@@ -62,7 +62,7 @@ export default function PrivacyConsentStep({ consents }: PrivacyConsentStepProps
   };
 
   return (
-    <main className="page-content flex min-h-0 flex-1 flex-col overflow-hidden bg-background pb-[max(16px,env(safe-area-inset-bottom))] text-foreground">
+    <main className="page-content flex min-h-0 flex-1 flex-col overflow-y-auto bg-background text-foreground">
       <header className="shrink-0 pt-6">
         <h1 className="text-[24px] leading-[30px] font-bold text-foreground">
           개인정보 활용에 관한
@@ -74,10 +74,7 @@ export default function PrivacyConsentStep({ consents }: PrivacyConsentStepProps
         </p>
       </header>
 
-      <section
-        aria-label="개인정보 활용 동의 항목"
-        className="mt-5 flex min-h-0 flex-1 flex-col gap-1"
-      >
+      <section aria-label="개인정보 활용 동의 항목" className="mt-5 flex flex-1 flex-col gap-1">
         {consents.map(({ id, title, content }, index) => (
           <article key={id}>
             <h2 className="text-body-lg font-bold">
@@ -117,7 +114,7 @@ export default function PrivacyConsentStep({ consents }: PrivacyConsentStepProps
         ))}
       </section>
 
-      <div className="shrink-0 pt-4">
+      <div className="sticky bottom-0 shrink-0 bg-background pt-4 pb-[max(16px,env(safe-area-inset-bottom))]">
         <ActionButton
           disabled={!allRequiredConsentsAgreed}
           isLoading={isSaving}
