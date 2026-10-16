@@ -3,6 +3,8 @@
 
 import { useRef, useState } from "react";
 
+import type { NotificationThumbnail, NotificationTitleParts } from "@/lib/notificationDisplay";
+
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 const DELETE_ACTION_WIDTH = 72;
@@ -13,7 +15,11 @@ const TAP_MOVE_TOLERANCE = 5;
 type NotificationItemProps = {
   id: number;
   title: string;
+  // 상품명처럼 제목 일부를 강조할 때만 전달하며, 없으면 title을 그대로 보여줌
+  titleParts?: NotificationTitleParts | null;
   description: string;
+  // 구매 여부 알림처럼 상품 미리보기가 있는 알림에만 전달함
+  thumbnail?: NotificationThumbnail | null;
   createdAt: string;
   isUnread: boolean;
   isDeleteRevealed: boolean;
@@ -25,7 +31,9 @@ type NotificationItemProps = {
 export default function NotificationItem({
   id,
   title,
+  titleParts,
   description,
+  thumbnail,
   createdAt,
   isUnread,
   isDeleteRevealed,
@@ -141,8 +149,31 @@ export default function NotificationItem({
           눌러서 알림 확인, 왼쪽으로 밀거나 왼쪽 방향키를 눌러 삭제 버튼 표시
         </span>
         <div>
-          <p className="m-0 text-body-lg font-bold text-foreground">{title}</p>
+          {titleParts ? (
+            // 상품명이 길어도 뒤 문구가 잘리지 않도록 둘째 줄에서 상품명만 말줄임 처리함
+            <p className="m-0 text-body-lg font-bold text-foreground">
+              <span className="block">{titleParts.before}</span>
+              <span className="flex min-w-0">
+                <span className="min-w-0 truncate text-info">{titleParts.highlight}</span>
+                <span className="shrink-0">{titleParts.after}</span>
+              </span>
+            </p>
+          ) : (
+            <p className="m-0 line-clamp-2 text-body-lg font-bold text-foreground">{title}</p>
+          )}
           <p className="mt-3 mb-0 text-body-sm text-muted">{description}</p>
+          {thumbnail && (
+            <div
+              role="img"
+              aria-label={`${thumbnail.productName} 상품 이미지`}
+              className="mt-2 size-12 rounded-sm bg-disabled bg-cover bg-center bg-no-repeat"
+              style={
+                thumbnail.imageUrl
+                  ? { backgroundImage: `url(${JSON.stringify(thumbnail.imageUrl)})` }
+                  : undefined
+              }
+            />
+          )}
           <time className="mt-0.5 block text-right text-body-sm text-muted">{createdAt}</time>
         </div>
       </div>
