@@ -11,7 +11,6 @@ import type {
 import { ServerApiError } from "@/lib/api/serverClient";
 
 const notificationSettingTypes = [
-  "WEB_PUSH",
   "FRIEND_BIRTHDAY",
   "FRIEND_JOINED",
   "PURCHASE_FEEDBACK",

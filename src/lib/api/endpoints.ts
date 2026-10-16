@@ -37,6 +37,7 @@ export const API_ENDPOINTS = {
     summary: `${API_V1_PREFIX}/notifications/summary`,
     detail: (notificationId: number) => `${API_V1_PREFIX}/notifications/${notificationId}`,
     readAll: `${API_V1_PREFIX}/notifications/read-all`,
+    webPushPublicKey: `${API_V1_PREFIX}/notifications/web-push/public-key`,
   },
   personalRecommendations: `${API_V1_PREFIX}/users/me/personal-recommendations`,
   productCategories: `${API_V1_PREFIX}/products/categories`,
@@ -52,6 +53,8 @@ export const API_ENDPOINTS = {
     notificationSetting: (settingType: string) =>
       `${API_V1_PREFIX}/users/me/settings/notifications/${settingType}`,
     onboarding: `${API_V1_PREFIX}/users/me/onboarding`,
+    pushSubscriptions: `${API_V1_PREFIX}/users/me/push-subscriptions`,
+    pushSubscriptionStatus: `${API_V1_PREFIX}/users/me/push-subscriptions/status`,
   },
   friendGiftRecommendations: (userId: number) =>
     `${API_V1_PREFIX}/users/${userId}/gift-recommendations`,
