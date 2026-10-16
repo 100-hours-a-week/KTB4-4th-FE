@@ -1,9 +1,12 @@
-// 구매 여부 알림을 눌렀을 때 상품·친구 정보와 답변 상태를 보여주는 구매 확인 모달
+// 구매 여부 알림을 눌렀을 때 상품·친구 정보를 보여주고 구매 여부 답변을 전송하는 구매 확인 모달
 
 "use client";
 
+import { useState } from "react";
+
 import Modal from "@/components/common/Modal";
-import type { PurchaseCheck } from "@/lib/api/purchaseChecks";
+import { ApiRequestError } from "@/lib/api/client";
+import { answerPurchaseCheck, type PurchaseCheck } from "@/lib/api/purchaseChecks";
 
 type PurchaseCheckModalProps = {
   open: boolean;
@@ -31,23 +34,65 @@ export default function PurchaseCheckModal({
   purchaseCheck,
   onClose,
 }: PurchaseCheckModalProps) {
-  const { product, answered, purchased } = purchaseCheck;
+  const { purchaseCheckId, product } = purchaseCheck;
+  // 답변 전송 성공이나 다른 탭에서 먼저 답한 경우(409)를 반영한 답변 완료 여부
+  const [isAnswered, setIsAnswered] = useState(purchaseCheck.answered);
+  const [isAnswering, setIsAnswering] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isSoldOut = product.status === "SOLD_OUT";
   // 판매 중단 상품은 구매 링크를 숨김
   const canShowPurchaseLink = product.status !== "UNAVAILABLE" && product.purchaseUrl !== null;
+
+  // 구매했다고 답할 때만 답변을 저장하며, 이미 답한 구매 확인이면 답변 완료 상태로 바꿈
+  const answerPurchased = async () => {
+    if (isAnswering) return;
+
+    setIsAnswering(true);
+    setErrorMessage(null);
+
+    try {
+      await answerPurchaseCheck(purchaseCheckId, true);
+      setIsAnswered(true);
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 409) {
+        setIsAnswered(true);
+        return;
+      }
+
+      setErrorMessage(
+        error instanceof ApiRequestError ? error.message : "구매 여부를 저장하지 못했습니다.",
+      );
+    } finally {
+      setIsAnswering(false);
+    }
+  };
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={answered ? "이미 답했어요" : "이 상품, 구매하셨나요?"}
+      title={isAnswered ? "이미 답변한 상품이에요." : "이 상품, 구매하셨나요?"}
       description={getContextLabel(purchaseCheck)}
       actionsClassName="mt-8"
-      // TODO: 구매 여부 답변 전송 이슈에서 구매했어요·안 했어요 버튼 추가
-      secondAction={{
-        label: <span className="font-bold">닫기</span>,
-        onClick: onClose,
-      }}
+      // 구매 안했어요는 답변을 저장하지 않고 모달만 닫음
+      firstAction={
+        isAnswered
+          ? undefined
+          : {
+              label: <span className="font-bold">구매 안했어요</span>,
+              onClick: onClose,
+              disabled: isAnswering,
+            }
+      }
+      secondAction={
+        isAnswered
+          ? { label: <span className="font-bold">닫기</span>, onClick: onClose }
+          : {
+              label: <span className="font-bold">구매 했어요</span>,
+              onClick: () => void answerPurchased(),
+              disabled: isAnswering,
+            }
+      }
     >
       <div className="flex gap-3">
         <div
@@ -88,12 +133,9 @@ export default function PurchaseCheckModal({
         </div>
       </div>
 
-      {answered && purchased !== null && (
-        <p className="mt-6 rounded-md bg-background-subtle px-3 py-2.5 text-body-sm text-foreground-secondary">
-          내 답변:{" "}
-          <span className="font-bold text-foreground">
-            {purchased ? "구매했어요" : "안 했어요"}
-          </span>
+      {errorMessage && (
+        <p role="alert" className="mt-4 text-body-sm text-danger">
+          {errorMessage}
         </p>
       )}
     </Modal>

@@ -1,4 +1,4 @@
-// 구매 여부 알림 모달에 보여줄 구매 확인 정보 조회 API 요청과 응답 타입
+// 구매 여부 알림 모달의 구매 확인 정보 조회와 구매 여부 답변 전송 API 요청 및 응답 타입
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -40,6 +40,17 @@ interface PurchaseCheckResponse {
   data: PurchaseCheck;
 }
 
+export interface PurchaseCheckAnswer {
+  purchaseCheckId: number;
+  purchased: boolean;
+  answeredAt: string;
+}
+
+interface PurchaseCheckAnswerResponse {
+  message: string;
+  data: PurchaseCheckAnswer;
+}
+
 interface PurchaseCheckErrorResponse {
   message?: string;
 }
@@ -49,8 +60,20 @@ const DEFAULT_ERROR_MESSAGES: Partial<Record<number, string>> = {
   401: "로그인이 필요합니다.",
   403: "이용이 제한된 계정입니다.",
   404: "구매 확인 요청을 찾을 수 없습니다.",
+  409: "이미 구매 여부를 답했습니다.",
   500: "요청을 처리하지 못했습니다.",
 };
+
+async function toPurchaseCheckError(response: Response, fallbackMessage: string) {
+  const errorResponse = (await response
+    .json()
+    .catch(() => null)) as PurchaseCheckErrorResponse | null;
+
+  return new ApiRequestError(
+    errorResponse?.message ?? DEFAULT_ERROR_MESSAGES[response.status] ?? fallbackMessage,
+    response.status,
+  );
+}
 
 // 이미 답한 구매 확인도 200으로 조회되며 answered가 true로 내려옴
 export async function getPurchaseCheck(purchaseCheckId: number) {
@@ -60,19 +83,30 @@ export async function getPurchaseCheck(purchaseCheckId: number) {
   });
 
   if (!response.ok) {
-    const errorResponse = (await response
-      .json()
-      .catch(() => null)) as PurchaseCheckErrorResponse | null;
-
-    throw new ApiRequestError(
-      errorResponse?.message ??
-        DEFAULT_ERROR_MESSAGES[response.status] ??
-        "구매 확인 정보를 불러오지 못했습니다.",
-      response.status,
-    );
+    throw await toPurchaseCheckError(response, "구매 확인 정보를 불러오지 못했습니다.");
   }
 
   const { data } = (await response.json()) as PurchaseCheckResponse;
+
+  return data;
+}
+
+// 이미 답한 구매 확인이면 409를 반환하므로 호출하는 쪽에서 답변 완료 상태로 처리함
+export async function answerPurchaseCheck(purchaseCheckId: number, purchased: boolean) {
+  const response = await apiFetch(API_ENDPOINTS.purchaseCheck(purchaseCheckId), {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ purchased }),
+  });
+
+  if (!response.ok) {
+    throw await toPurchaseCheckError(response, "구매 여부를 저장하지 못했습니다.");
+  }
+
+  const { data } = (await response.json()) as PurchaseCheckAnswerResponse;
 
   return data;
 }
