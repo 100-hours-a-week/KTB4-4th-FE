@@ -63,6 +63,9 @@ export default function AiConversationContent({ conversationId }: AiConversation
   const [analysisProgress, setAnalysisProgress] = useState<ConversationAnalysisProgress | null>(
     null,
   );
+  // 입력이 잠긴 응답의 진행률은 분석이 성공한 뒤에 반영하고, 실패하면 직전 진행률을 유지함
+  const [pendingAnalysisProgress, setPendingAnalysisProgress] =
+    useState<ConversationAnalysisProgress | null>(null);
   const restoreRequestKeyRef = useRef<string | null>(null);
   const isVerifiedConversation =
     conversation !== null && String(conversation.conversationId) === conversationId;
@@ -208,12 +211,34 @@ export default function AiConversationContent({ conversationId }: AiConversation
 
   const handleMessageSent = (response: AiConversationCompletedEvent) => {
     if (availableConversationId !== undefined) {
-      setAnalysisProgress({ conversationId: availableConversationId, progress: response.progress });
+      const nextAnalysisProgress = {
+        conversationId: availableConversationId,
+        progress: response.progress,
+      };
+
+      if (response.inputLocked) {
+        setPendingAnalysisProgress(nextAnalysisProgress);
+      } else {
+        setAnalysisProgress(nextAnalysisProgress);
+      }
     }
 
     if (response.inputLocked && conversation !== null) {
       setConversation({ ...conversation, status: "ANALYZING" });
     }
+  };
+
+  const handleAnalysisCompleted = () => {
+    if (availableConversationId === undefined || conversation === null) return;
+
+    setAnalysisProgress({
+      conversationId: availableConversationId,
+      progress:
+        pendingAnalysisProgress?.conversationId === availableConversationId
+          ? pendingAnalysisProgress.progress
+          : conversation.progress,
+    });
+    setPendingAnalysisProgress(null);
   };
 
   return (
@@ -284,6 +309,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
           nextConversationAvailableAt={nextConversationAvailableAt}
           conversationId={availableConversationId}
           onMessageSent={handleMessageSent}
+          onAnalysisCompleted={handleAnalysisCompleted}
         />
       )}
     </main>

@@ -56,6 +56,8 @@ type ChatRoomProps = {
   nextConversationAvailableAt?: string;
   conversationId?: number;
   onMessageSent?: (response: AiConversationCompletedEvent) => void;
+  // 취향 분석 요청이 성공해 결과를 받은 뒤 호출되며, 실패 시에는 호출되지 않음
+  onAnalysisCompleted?: () => void;
 };
 
 function toPreferenceAnalysisResult(response: AiPreferenceAnalysisData): PreferenceAnalysisResult {
@@ -84,6 +86,7 @@ export default function ChatRoom({
   nextConversationAvailableAt,
   conversationId,
   onMessageSent,
+  onAnalysisCompleted,
 }: ChatRoomProps) {
   const router = useRouter();
   const { setConversation } = useAiConversationContext();
@@ -110,6 +113,8 @@ export default function ChatRoom({
   const isMessageSendingRef = useRef(false);
   const isConversationExpiredRef = useRef(false);
   const hasStartedNextConversationRef = useRef(false);
+  // 분석 요청 함수가 바뀌면 분석을 다시 요청하는 Effect가 있어 콜백은 함수 의존성에 넣지 않고 최신 값만 참조함
+  const onAnalysisCompletedRef = useRef(onAnalysisCompleted);
   const {
     errorMessage: conversationStartError,
     isStartingConversation,
@@ -117,6 +122,10 @@ export default function ChatRoom({
     retryAfterSeconds: conversationStartRetryAfterSeconds,
     startConversation,
   } = useAiConversationStart();
+
+  useEffect(() => {
+    onAnalysisCompletedRef.current = onAnalysisCompleted;
+  }, [onAnalysisCompleted]);
 
   useEffect(() => {
     if (!isReadOnly || !nextConversationAvailableAt) return;
@@ -216,6 +225,7 @@ export default function ChatRoom({
 
       setAnalysisResult(toPreferenceAnalysisResult(response));
       setAnalysisStatus("COMPLETED");
+      onAnalysisCompletedRef.current?.();
     } catch (error) {
       if (error instanceof ApiRequestError) {
         if (error.status === 401) {
