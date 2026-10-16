@@ -36,6 +36,11 @@ type ConversationMessagesError = {
   retryAfterSeconds: number;
 };
 
+type ConversationAnalysisProgress = {
+  conversationId: number;
+  progress: number;
+};
+
 const EMPTY_PREFERENCE_ANALYSIS_RESULT: PreferenceAnalysisResult = {
   interests: [],
   preferences: [],
@@ -55,7 +60,9 @@ export default function AiConversationContent({ conversationId }: AiConversation
   const [messagesError, setMessagesError] = useState<ConversationMessagesError | null>(null);
   const [conversationRestoreError, setConversationRestoreError] = useState("");
   const [requestVersion, setRequestVersion] = useState(0);
-  const [analysisProgress, setAnalysisProgress] = useState<number | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<ConversationAnalysisProgress | null>(
+    null,
+  );
   const restoreRequestKeyRef = useRef<string | null>(null);
   const isVerifiedConversation =
     conversation !== null && String(conversation.conversationId) === conversationId;
@@ -83,7 +90,12 @@ export default function AiConversationContent({ conversationId }: AiConversation
     messagesState?.conversationId !== availableConversationId &&
     messagesError?.conversationId !== availableConversationId;
   const currentAnalysisProgress =
-    analysisProgress ?? (isVerifiedConversation ? conversation.progress : 0);
+    availableConversationId !== undefined &&
+    analysisProgress?.conversationId === availableConversationId
+      ? analysisProgress.progress
+      : isVerifiedConversation
+        ? conversation.progress
+        : 0;
 
   useEffect(() => {
     if (isVerifiedConversation) {
@@ -195,7 +207,9 @@ export default function AiConversationContent({ conversationId }: AiConversation
   };
 
   const handleMessageSent = (response: AiConversationCompletedEvent) => {
-    setAnalysisProgress(response.progress);
+    if (availableConversationId !== undefined) {
+      setAnalysisProgress({ conversationId: availableConversationId, progress: response.progress });
+    }
 
     if (response.inputLocked && conversation !== null) {
       setConversation({ ...conversation, status: "ANALYZING" });
