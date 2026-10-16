@@ -1,5 +1,7 @@
-// 브라우저 웹 푸시 지원 여부 확인, VAPID 공개키 변환·비교, 현재 기기 구독 조회·생성 유틸 함수 모음
+// 브라우저 웹 푸시 지원 여부 확인, VAPID 공개키 변환·비교, 현재 기기 구독 조회와 구독 생성·서버 등록(공개키 변경 시 이전 구독 정리) 유틸 함수 모음
 "use client";
+
+import { registerPushSubscription, unregisterPushSubscription } from "@/lib/api/pushSubscriptions";
 
 const SERVICE_WORKER_READY_TIMEOUT_MS = 10_000;
 
@@ -56,8 +58,36 @@ export async function getCurrentPushSubscription() {
   return (await registration?.pushManager.getSubscription()) ?? null;
 }
 
+let registerRequest: Promise<PushSubscription> | null = null;
+
+// unsubscribe()는 호출한 객체와 관계없이 현재 등록된 구독을 해제하므로 구독 생성·등록이 동시에 실행되면
+// 한쪽의 등록 실패 처리가 다른 쪽의 새 구독까지 해제할 수 있어 진행 중인 요청을 함께 사용함
+export function ensurePushSubscriptionRegistered(vapidPublicKey: string) {
+  if (!registerRequest) {
+    registerRequest = createAndRegisterPushSubscription(vapidPublicKey).finally(() => {
+      registerRequest = null;
+    });
+  }
+
+  return registerRequest;
+}
+
+// 구독을 서버에 등록하고, 등록에 실패하면 브라우저에만 구독이 남지 않도록 해제함
+async function createAndRegisterPushSubscription(vapidPublicKey: string) {
+  const subscription = await getOrCreatePushSubscription(vapidPublicKey);
+
+  try {
+    await registerPushSubscription(subscription);
+  } catch (error) {
+    await subscription.unsubscribe().catch(() => false);
+    throw error;
+  }
+
+  return subscription;
+}
+
 // 기존 구독이 현재 공개키로 만들어졌으면 재사용하고, 공개키가 바뀌었으면 해제 후 다시 구독함
-export async function getOrCreatePushSubscription(vapidPublicKey: string) {
+async function getOrCreatePushSubscription(vapidPublicKey: string) {
   const registration = await waitForServiceWorkerReady();
   const publicKey = urlBase64ToUint8Array(vapidPublicKey);
   const existingSubscription = await registration.pushManager.getSubscription();
@@ -66,7 +96,12 @@ export async function getOrCreatePushSubscription(vapidPublicKey: string) {
     return existingSubscription;
   }
 
-  await existingSubscription?.unsubscribe();
+  if (existingSubscription) {
+    // 이전 공개키 구독은 발송 시 푸시 서비스가 거부만 하고 서버에서 정리되지 않으므로 먼저 서버 구독을 삭제함
+    // 삭제에 실패해도 새 공개키로 다시 구독하는 흐름은 계속 진행함
+    await unregisterPushSubscription(existingSubscription.endpoint).catch(() => undefined);
+    await existingSubscription.unsubscribe();
+  }
 
   return registration.pushManager.subscribe({
     userVisibleOnly: true,

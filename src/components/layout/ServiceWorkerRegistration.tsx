@@ -3,10 +3,10 @@
 
 import { useEffect } from "react";
 
-import { getVapidPublicKey, registerPushSubscription } from "@/lib/api/pushSubscriptions";
+import { getVapidPublicKey } from "@/lib/api/pushSubscriptions";
 import {
+  ensurePushSubscriptionRegistered,
   getCurrentPushSubscription,
-  getOrCreatePushSubscription,
   isSubscribedWithVapidKey,
   isWebPushSupported,
 } from "@/lib/webPush";
@@ -25,15 +25,8 @@ async function resubscribeIfVapidKeyChanged() {
 
   if (isSubscribedWithVapidKey(subscription, vapidPublicKey)) return;
 
-  const newSubscription = await getOrCreatePushSubscription(vapidPublicKey);
-
-  try {
-    await registerPushSubscription(newSubscription);
-  } catch (error) {
-    // 서버 등록에 실패하면 브라우저에만 구독이 남지 않도록 해제함
-    await newSubscription.unsubscribe().catch(() => false);
-    throw error;
-  }
+  // 서버 등록에 실패하면 브라우저 구독 해제까지 처리된 뒤 에러가 전달됨
+  await ensurePushSubscriptionRegistered(vapidPublicKey);
 }
 
 export default function ServiceWorkerRegistration() {

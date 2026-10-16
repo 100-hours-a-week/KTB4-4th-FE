@@ -9,12 +9,11 @@ import { ApiRequestError } from "@/lib/api/client";
 import {
   getPushSubscriptionStatus,
   getVapidPublicKey,
-  registerPushSubscription,
   unregisterPushSubscription,
 } from "@/lib/api/pushSubscriptions";
 import {
+  ensurePushSubscriptionRegistered,
   getCurrentPushSubscription,
-  getOrCreatePushSubscription,
   isWebPushSupported,
 } from "@/lib/webPush";
 
@@ -145,21 +144,10 @@ export default function useWebPushSubscription() {
 
       setStatus("on");
 
-      let subscription: PushSubscription;
-
       try {
-        subscription = await getOrCreatePushSubscription(vapidPublicKey);
-      } catch {
-        setStatus("off");
-        showToast(ENABLE_FAILED_MESSAGE);
-        return;
-      }
-
-      try {
-        await registerPushSubscription(subscription);
+        // 서버 등록에 실패하면 브라우저 구독 해제까지 처리된 뒤 에러가 전달됨
+        await ensurePushSubscriptionRegistered(vapidPublicKey);
       } catch (error) {
-        // 서버 등록에 실패하면 브라우저에만 구독이 남지 않도록 해제함
-        await subscription.unsubscribe().catch(() => false);
         setStatus("off");
 
         if (error instanceof ApiRequestError && error.status === 401) {
