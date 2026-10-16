@@ -36,6 +36,11 @@ type ConversationMessagesError = {
   retryAfterSeconds: number;
 };
 
+type ConversationAnalysisProgress = {
+  conversationId: number;
+  progress: number;
+};
+
 const EMPTY_PREFERENCE_ANALYSIS_RESULT: PreferenceAnalysisResult = {
   interests: [],
   preferences: [],
@@ -55,7 +60,12 @@ export default function AiConversationContent({ conversationId }: AiConversation
   const [messagesError, setMessagesError] = useState<ConversationMessagesError | null>(null);
   const [conversationRestoreError, setConversationRestoreError] = useState("");
   const [requestVersion, setRequestVersion] = useState(0);
-  const [analysisProgress, setAnalysisProgress] = useState<number | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<ConversationAnalysisProgress | null>(
+    null,
+  );
+  // 입력이 잠긴 응답의 진행률은 분석이 성공한 뒤에 반영하고, 실패하면 직전 진행률을 유지함
+  const [pendingAnalysisProgress, setPendingAnalysisProgress] =
+    useState<ConversationAnalysisProgress | null>(null);
   const restoreRequestKeyRef = useRef<string | null>(null);
   const isVerifiedConversation =
     conversation !== null && String(conversation.conversationId) === conversationId;
@@ -83,7 +93,12 @@ export default function AiConversationContent({ conversationId }: AiConversation
     messagesState?.conversationId !== availableConversationId &&
     messagesError?.conversationId !== availableConversationId;
   const currentAnalysisProgress =
-    analysisProgress ?? (isVerifiedConversation ? conversation.progress : 0);
+    availableConversationId !== undefined &&
+    analysisProgress?.conversationId === availableConversationId
+      ? analysisProgress.progress
+      : isVerifiedConversation
+        ? conversation.progress
+        : 0;
 
   useEffect(() => {
     if (isVerifiedConversation) {
@@ -195,11 +210,35 @@ export default function AiConversationContent({ conversationId }: AiConversation
   };
 
   const handleMessageSent = (response: AiConversationCompletedEvent) => {
-    setAnalysisProgress(response.progress);
+    if (availableConversationId !== undefined) {
+      const nextAnalysisProgress = {
+        conversationId: availableConversationId,
+        progress: response.progress,
+      };
+
+      if (response.inputLocked) {
+        setPendingAnalysisProgress(nextAnalysisProgress);
+      } else {
+        setAnalysisProgress(nextAnalysisProgress);
+      }
+    }
 
     if (response.inputLocked && conversation !== null) {
       setConversation({ ...conversation, status: "ANALYZING" });
     }
+  };
+
+  const handleAnalysisCompleted = () => {
+    if (availableConversationId === undefined || conversation === null) return;
+
+    setAnalysisProgress({
+      conversationId: availableConversationId,
+      progress:
+        pendingAnalysisProgress?.conversationId === availableConversationId
+          ? pendingAnalysisProgress.progress
+          : conversation.progress,
+    });
+    setPendingAnalysisProgress(null);
   };
 
   return (
@@ -270,6 +309,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
           nextConversationAvailableAt={nextConversationAvailableAt}
           conversationId={availableConversationId}
           onMessageSent={handleMessageSent}
+          onAnalysisCompleted={handleAnalysisCompleted}
         />
       )}
     </main>
