@@ -1,4 +1,4 @@
-// 웹 푸시 VAPID 공개키 조회와 현재 기기의 구독 등록·상태 조회 API 요청과 응답 타입
+// 웹 푸시 VAPID 공개키 조회와 현재 기기의 구독 등록·상태 조회·해제 API 요청과 응답 타입
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -131,4 +131,19 @@ export async function getPushSubscriptionStatus(endpoint: string) {
 
   const { data } = (await response.json()) as PushSubscriptionApiResponse<PushSubscriptionStatus>;
   return data;
+}
+
+// 서버는 현재 사용자의 해당 endpoint 구독만 삭제하며, 없거나 다른 사용자의 구독이어도 204로 응답함
+export async function unregisterPushSubscription(endpoint: string) {
+  const response = await apiFetch(API_ENDPOINTS.users.pushSubscriptions, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ endpoint }),
+  });
+
+  if (!response.ok) {
+    throw await createPushSubscriptionError(response, "웹 푸시 알림을 끄지 못했습니다.");
+  }
 }
