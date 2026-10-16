@@ -151,7 +151,7 @@ export default function NotificationItem({
         <div>
           {titleParts ? (
             // 상품명이 길어도 뒤 문구가 잘리지 않도록 둘째 줄에서 상품명만 말줄임 처리함
-            <p className="m-0 text-body-lg font-bold text-foreground">
+            <p className="m-0 text-body font-bold text-foreground">
               <span className="block">{titleParts.before}</span>
               <span className="flex min-w-0">
                 <span className="min-w-0 truncate text-info">{titleParts.highlight}</span>
@@ -161,12 +161,15 @@ export default function NotificationItem({
           ) : (
             <p className="m-0 line-clamp-2 text-body-lg font-bold text-foreground">{title}</p>
           )}
-          <p className="mt-3 mb-0 text-body-sm text-muted">{description}</p>
+          {/* 상품 미리보기가 있는 카드는 제목과 본문을 붙이고 썸네일과의 간격을 넓힘 */}
+          <p className={`${thumbnail ? "mt-1" : "mt-3"} mb-0 text-body-sm text-muted`}>
+            {description}
+          </p>
           {thumbnail && (
             <div
               role="img"
               aria-label={`${thumbnail.productName} 상품 이미지`}
-              className="mt-2 size-12 rounded-sm bg-disabled bg-cover bg-center bg-no-repeat"
+              className="mt-3 size-12 rounded-sm bg-disabled bg-cover bg-center bg-no-repeat"
               style={
                 thumbnail.imageUrl
                   ? { backgroundImage: `url(${JSON.stringify(thumbnail.imageUrl)})` }
