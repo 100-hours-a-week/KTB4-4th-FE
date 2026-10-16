@@ -9,6 +9,10 @@ type WithdrawalModalProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  isPending?: boolean;
+  // 409처럼 다시 요청하면 안 되는 상태에서 확정 버튼을 비활성화함
+  isConfirmDisabled?: boolean;
+  errorMessage?: string;
 };
 
 const deletedDataItems = [
@@ -21,7 +25,14 @@ const deletedDataItems = [
   "서비스 이용 중 생성된 사용자 관련 데이터",
 ];
 
-export default function WithdrawalModal({ open, onClose, onConfirm }: WithdrawalModalProps) {
+export default function WithdrawalModal({
+  open,
+  onClose,
+  onConfirm,
+  isPending = false,
+  isConfirmDisabled = false,
+  errorMessage = "",
+}: WithdrawalModalProps) {
   return (
     <Modal
       open={open}
@@ -30,17 +41,30 @@ export default function WithdrawalModal({ open, onClose, onConfirm }: Withdrawal
       titleClassName="text-center"
       actionsClassName="mt-7"
       actions={
-        <div className="flex w-full gap-3">
-          <ActionButton
-            className="!bg-disabled !text-background"
-            aria-label="회원 탈퇴 확정"
-            onClick={onConfirm}
-          >
-            탈퇴하기
-          </ActionButton>
-          <ActionButton className="!bg-foreground !text-background" onClick={onClose}>
-            취소
-          </ActionButton>
+        <div className="w-full">
+          {errorMessage && (
+            <p role="alert" className="mb-3 text-center text-caption text-danger">
+              {errorMessage}
+            </p>
+          )}
+          <div className="flex w-full gap-3">
+            <ActionButton
+              className="!bg-disabled !text-background disabled:opacity-60"
+              aria-label="회원 탈퇴 확정"
+              isLoading={isPending}
+              disabled={isConfirmDisabled}
+              onClick={onConfirm}
+            >
+              탈퇴하기
+            </ActionButton>
+            <ActionButton
+              className="!bg-foreground !text-background disabled:opacity-60"
+              disabled={isPending}
+              onClick={onClose}
+            >
+              취소
+            </ActionButton>
+          </div>
         </div>
       }
     >
