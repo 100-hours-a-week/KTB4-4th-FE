@@ -7,6 +7,7 @@ import { useToastContext } from "@/contexts/ToastContext";
 import { logout } from "@/lib/api/auth";
 import { ApiRequestError } from "@/lib/api/client";
 import { cleanupBeforeSessionEnd } from "@/lib/auth/session";
+import { rememberWebPushForRestore } from "@/lib/webPushRestore";
 
 const LOGIN_PATH = "/login";
 const LOGOUT_FAILED_MESSAGE = "로그아웃하지 못했습니다.";
@@ -26,6 +27,8 @@ export default function useLogout() {
     setIsPending(true);
 
     try {
+      // 정리 단계에서 구독이 해제되므로 그 전에 재로그인 시 복원할 사용자를 저장함
+      await rememberWebPushForRestore();
       await cleanupBeforeSessionEnd();
       await logout();
       window.location.replace(LOGIN_PATH);
