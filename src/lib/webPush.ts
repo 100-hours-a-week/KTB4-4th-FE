@@ -1,6 +1,7 @@
-// 브라우저 웹 푸시 지원 여부 확인, VAPID 공개키 변환·비교, 현재 기기 구독 조회와 구독 생성·서버 등록(공개키 변경 시 이전 구독 정리) 유틸 함수 모음
+// 브라우저 웹 푸시 지원 여부 확인, VAPID 공개키 변환·비교, 현재 기기 구독 조회와 구독 생성·서버 등록(공개키 변경 시 이전 구독 정리)·해제 유틸 함수 모음
 "use client";
 
+import { ApiRequestError } from "@/lib/api/client";
 import { registerPushSubscription, unregisterPushSubscription } from "@/lib/api/pushSubscriptions";
 
 const SERVICE_WORKER_READY_TIMEOUT_MS = 10_000;
@@ -56,6 +57,29 @@ function waitForServiceWorkerReady() {
 export async function getCurrentPushSubscription() {
   const registration = await navigator.serviceWorker.getRegistration();
   return (await registration?.pushManager.getSubscription()) ?? null;
+}
+
+// 이 기기의 서버 구독을 삭제한 뒤 결과와 관계없이 브라우저 구독을 해제함
+// 서버에 남은 구독은 다음 발송 시 푸시 서비스 응답(410)으로 정리되므로 실패해도 예외를 전달하지 않고,
+// 호출한 쪽에서 로그인 페이지 이동 여부를 판단할 수 있도록 401 여부만 반환함
+export async function unsubscribeCurrentDevice() {
+  if (!isWebPushSupported()) return { isUnauthorized: false };
+
+  const subscription = await getCurrentPushSubscription().catch(() => null);
+
+  if (!subscription) return { isUnauthorized: false };
+
+  let isUnauthorized = false;
+
+  try {
+    await unregisterPushSubscription(subscription.endpoint);
+  } catch (error) {
+    isUnauthorized = error instanceof ApiRequestError && error.status === 401;
+  } finally {
+    await subscription.unsubscribe().catch(() => false);
+  }
+
+  return { isUnauthorized };
 }
 
 let registerRequest: Promise<PushSubscription> | null = null;

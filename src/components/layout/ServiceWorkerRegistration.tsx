@@ -1,4 +1,4 @@
-// 앱 진입 시 웹 푸시 수신용 서비스 워커를 등록하고, VAPID 공개키가 바뀐 기존 구독을 다시 구독하는 컴포넌트
+// 앱 진입 시 웹 푸시 수신용 서비스 워커를 등록하고, 로그아웃 전 켜 두었던 같은 사용자의 구독 복원과 VAPID 공개키가 바뀐 기존 구독의 재구독을 처리하는 컴포넌트
 "use client";
 
 import { useEffect } from "react";
@@ -10,6 +10,7 @@ import {
   isSubscribedWithVapidKey,
   isWebPushSupported,
 } from "@/lib/webPush";
+import { restoreWebPushForSameUser } from "@/lib/webPushRestore";
 
 const SERVICE_WORKER_PATH = "/sw.js";
 
@@ -35,8 +36,14 @@ export default function ServiceWorkerRegistration() {
 
     navigator.serviceWorker
       .register(SERVICE_WORKER_PATH, { scope: "/" })
+      // 사용자 동작 없이 진행되는 동기화이므로 실패해도 토스트 없이 기록만 남김
+      // 복원한 구독은 현재 공개키로 만들어지므로 재구독 확인 전에 복원을 먼저 처리함
       .then(() =>
-        // 사용자 동작 없이 진행되는 동기화이므로 실패해도 토스트 없이 기록만 남김
+        restoreWebPushForSameUser().catch((error) => {
+          console.error("웹 푸시 구독 복원에 실패했습니다.", error);
+        }),
+      )
+      .then(() =>
         resubscribeIfVapidKeyChanged().catch((error) => {
           console.error("웹 푸시 재구독에 실패했습니다.", error);
         }),

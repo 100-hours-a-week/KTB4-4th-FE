@@ -6,15 +6,12 @@ import { useEffect, useRef, useState } from "react";
 
 import { useToastContext } from "@/contexts/ToastContext";
 import { ApiRequestError } from "@/lib/api/client";
-import {
-  getPushSubscriptionStatus,
-  getVapidPublicKey,
-  unregisterPushSubscription,
-} from "@/lib/api/pushSubscriptions";
+import { getPushSubscriptionStatus, getVapidPublicKey } from "@/lib/api/pushSubscriptions";
 import {
   ensurePushSubscriptionRegistered,
   getCurrentPushSubscription,
   isWebPushSupported,
+  unsubscribeCurrentDevice,
 } from "@/lib/webPush";
 
 type WebPushStatus = "checking" | "on" | "off";
@@ -163,8 +160,7 @@ export default function useWebPushSubscription() {
     }
   };
 
-  // 이 기기의 서버 구독을 삭제한 뒤 결과와 관계없이 브라우저 구독을 해제함
-  // 서버에 남은 구독은 다음 발송 시 푸시 서비스 응답(410)으로 정리되므로 실패해도 안내하지 않음
+  // 서버 구독 삭제에 실패해도 브라우저 구독은 해제되며, 실패를 안내하지 않음
   const disable = async () => {
     if (isPendingRef.current || status !== "on") return;
 
@@ -173,21 +169,7 @@ export default function useWebPushSubscription() {
     setStatus("off");
 
     try {
-      if (!isWebPushSupported()) return;
-
-      const subscription = await getCurrentPushSubscription().catch(() => null);
-
-      if (!subscription) return;
-
-      let isUnauthorized = false;
-
-      try {
-        await unregisterPushSubscription(subscription.endpoint);
-      } catch (error) {
-        isUnauthorized = error instanceof ApiRequestError && error.status === 401;
-      } finally {
-        await subscription.unsubscribe().catch(() => false);
-      }
+      const { isUnauthorized } = await unsubscribeCurrentDevice();
 
       if (isUnauthorized) {
         router.replace("/login");
