@@ -49,6 +49,7 @@ export default function Sidebar({ id, state, onClose, onClosed }: SidebarProps) 
 
   const handleLogoutClick = () => {
     // TODO: 로그아웃 API 구현 후 로그아웃 처리
+    // TODO: 로그아웃 전 이 기기의 웹 푸시 구독 해제(구독 해제 API 호출 후 subscription.unsubscribe()) 연결
   };
 
   return (

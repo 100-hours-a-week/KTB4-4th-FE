@@ -1,4 +1,4 @@
-// 현재 기기의 웹 푸시 구독 상태 확인과 구독 켜기를 처리하는 훅
+// 현재 기기의 웹 푸시 구독 상태 확인과 구독 켜기·끄기를 처리하는 훅
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -9,11 +9,11 @@ import { ApiRequestError } from "@/lib/api/client";
 import {
   getPushSubscriptionStatus,
   getVapidPublicKey,
-  registerPushSubscription,
+  unregisterPushSubscription,
 } from "@/lib/api/pushSubscriptions";
 import {
+  ensurePushSubscriptionRegistered,
   getCurrentPushSubscription,
-  getOrCreatePushSubscription,
   isWebPushSupported,
 } from "@/lib/webPush";
 
@@ -144,21 +144,10 @@ export default function useWebPushSubscription() {
 
       setStatus("on");
 
-      let subscription: PushSubscription;
-
       try {
-        subscription = await getOrCreatePushSubscription(vapidPublicKey);
-      } catch {
-        setStatus("off");
-        showToast(ENABLE_FAILED_MESSAGE);
-        return;
-      }
-
-      try {
-        await registerPushSubscription(subscription);
+        // 서버 등록에 실패하면 브라우저 구독 해제까지 처리된 뒤 에러가 전달됨
+        await ensurePushSubscriptionRegistered(vapidPublicKey);
       } catch (error) {
-        // 서버 등록에 실패하면 브라우저에만 구독이 남지 않도록 해제함
-        await subscription.unsubscribe().catch(() => false);
         setStatus("off");
 
         if (error instanceof ApiRequestError && error.status === 401) {
@@ -174,5 +163,40 @@ export default function useWebPushSubscription() {
     }
   };
 
-  return { status, isPending, enable };
+  // 이 기기의 서버 구독을 삭제한 뒤 결과와 관계없이 브라우저 구독을 해제함
+  // 서버에 남은 구독은 다음 발송 시 푸시 서비스 응답(410)으로 정리되므로 실패해도 안내하지 않음
+  const disable = async () => {
+    if (isPendingRef.current || status !== "on") return;
+
+    isPendingRef.current = true;
+    setIsPending(true);
+    setStatus("off");
+
+    try {
+      if (!isWebPushSupported()) return;
+
+      const subscription = await getCurrentPushSubscription().catch(() => null);
+
+      if (!subscription) return;
+
+      let isUnauthorized = false;
+
+      try {
+        await unregisterPushSubscription(subscription.endpoint);
+      } catch (error) {
+        isUnauthorized = error instanceof ApiRequestError && error.status === 401;
+      } finally {
+        await subscription.unsubscribe().catch(() => false);
+      }
+
+      if (isUnauthorized) {
+        router.replace("/login");
+      }
+    } finally {
+      isPendingRef.current = false;
+      setIsPending(false);
+    }
+  };
+
+  return { status, isPending, enable, disable };
 }
