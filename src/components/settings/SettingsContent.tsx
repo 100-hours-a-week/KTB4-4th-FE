@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import Modal from "@/components/common/Modal";
 import WebPushSettingItem from "@/components/settings/WebPushSettingItem";
 import WithdrawalModal from "@/components/settings/WithdrawalModal";
+import useWithdrawal from "@/hooks/useWithdrawal";
 import { ApiRequestError } from "@/lib/api/client";
 import {
   type NotificationSettingType,
@@ -83,6 +84,7 @@ export default function SettingsContent({
   );
   const hasPolicyModalQueryRef = useRef(initialPolicyModal !== null);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+  const withdrawal = useWithdrawal();
   const activePolicyModal = openPolicyModal ? policyModalContent[openPolicyModal] : null;
 
   const handleNotificationToggle = async (settingType: NotificationSettingType) => {
@@ -137,7 +139,15 @@ export default function SettingsContent({
   };
 
   const handleWithdrawalConfirm = () => {
-    // TODO: 회원 탈퇴 API 연동 후 성공 시 로그아웃 및 로그인 페이지 이동 처리
+    void withdrawal.withdraw();
+  };
+
+  // 탈퇴 요청 중에는 결과(로그인 이동 또는 에러 문구)를 보여줄 수 있도록 모달을 닫지 않음
+  const handleWithdrawalModalClose = () => {
+    if (withdrawal.isPending) return;
+
+    setIsWithdrawalModalOpen(false);
+    withdrawal.resetError();
   };
 
   // 쿼리로 연 모달은 닫을 때 쿼리를 지워 새로고침이나 뒤로 가기로 다시 열리지 않게 함
@@ -278,8 +288,11 @@ export default function SettingsContent({
 
       <WithdrawalModal
         open={isWithdrawalModalOpen}
-        onClose={() => setIsWithdrawalModalOpen(false)}
+        onClose={handleWithdrawalModalClose}
         onConfirm={handleWithdrawalConfirm}
+        isPending={withdrawal.isPending}
+        isConfirmDisabled={withdrawal.isBlocked}
+        errorMessage={withdrawal.errorMessage}
       />
     </main>
   );
