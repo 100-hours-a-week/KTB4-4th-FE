@@ -1,8 +1,12 @@
-// 현재 기기의 웹 푸시 구독 등록과 구독 상태 조회 API 요청과 응답 타입
+// 웹 푸시 VAPID 공개키 조회와 현재 기기의 구독 등록·상태 조회 API 요청과 응답 타입
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+
+interface VapidPublicKey {
+  publicKey: string;
+}
 
 export interface RegisterPushSubscriptionResult {
   enabled: boolean;
@@ -61,6 +65,35 @@ async function createPushSubscriptionError(response: Response, fallbackMessage: 
     response.status,
     getRetryAfterSeconds(response, errorResponse),
   );
+}
+
+let vapidPublicKeyRequest: Promise<string> | null = null;
+
+async function requestVapidPublicKey() {
+  // 인증이 필요 없는 공개 API라 토큰 재발급 처리 없이 요청함
+  const response = await fetch(API_ENDPOINTS.notifications.webPushPublicKey, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await createPushSubscriptionError(response, "VAPID 공개키를 사용할 수 없습니다.");
+  }
+
+  const { data } = (await response.json()) as PushSubscriptionApiResponse<VapidPublicKey>;
+  return data.publicKey;
+}
+
+// 공개키는 실행 환경마다 고정이므로 페이지 안에서 한 번만 조회하고, 실패하면 다음 호출에서 다시 조회함
+export function getVapidPublicKey() {
+  if (!vapidPublicKeyRequest) {
+    vapidPublicKeyRequest = requestVapidPublicKey().catch((error: unknown) => {
+      vapidPublicKeyRequest = null;
+      throw error;
+    });
+  }
+
+  return vapidPublicKeyRequest;
 }
 
 // 구독 정보는 인증 정보이므로 가공하거나 로그에 남기지 않고 toJSON() 결과를 그대로 전달함

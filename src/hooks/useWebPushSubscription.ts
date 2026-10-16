@@ -6,22 +6,28 @@ import { useEffect, useRef, useState } from "react";
 
 import { useToastContext } from "@/contexts/ToastContext";
 import { ApiRequestError } from "@/lib/api/client";
-import { getPushSubscriptionStatus, registerPushSubscription } from "@/lib/api/pushSubscriptions";
+import {
+  getPushSubscriptionStatus,
+  getVapidPublicKey,
+  registerPushSubscription,
+} from "@/lib/api/pushSubscriptions";
 import {
   getCurrentPushSubscription,
   getOrCreatePushSubscription,
-  getVapidPublicKey,
   isWebPushSupported,
 } from "@/lib/webPush";
 
 type WebPushStatus = "checking" | "on" | "off";
 
+type StatusCheckResult = { subscribed: boolean } | { error: unknown };
+
 const UNSUPPORTED_MESSAGE =
   "이 브라우저에서는 웹 푸시 알림을 사용할 수 없습니다. iPhone은 홈 화면에 추가한 뒤 이용해 주세요.";
 const PERMISSION_DENIED_MESSAGE = "브라우저 설정에서 알림 권한을 허용해 주세요.";
-const MISSING_KEY_MESSAGE = "웹 푸시 알림을 사용할 수 없습니다.";
+const KEY_UNAVAILABLE_MESSAGE = "웹 푸시 알림을 사용할 수 없습니다.";
 const ENABLE_FAILED_MESSAGE = "웹 푸시 알림을 켜지 못했습니다. 잠시 후 다시 시도해 주세요.";
-const STATUS_FAILED_MESSAGE = "웹 푸시 알림 상태를 확인하지 못했습니다.";
+const STATUS_FAILED_MESSAGE =
+  "웹 푸시 알림 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 
 const getErrorMessage = (error: unknown, fallbackMessage: string) => {
   if (!(error instanceof ApiRequestError)) return fallbackMessage;
@@ -33,10 +39,16 @@ const getErrorMessage = (error: unknown, fallbackMessage: string) => {
   return error.message;
 };
 
-// 브라우저 구독이 있고 서버에도 현재 사용자로 등록돼 있을 때만 이 기기의 웹 푸시가 켜진 것으로 봄
+// 서버 오류는 재시도 안내가 포함된 상태 확인 실패 문구로 보여줌
+const getStatusErrorMessage = (error: unknown) => {
+  if (!(error instanceof ApiRequestError) || error.status >= 500) return STATUS_FAILED_MESSAGE;
+
+  return getErrorMessage(error, STATUS_FAILED_MESSAGE);
+};
+
+// 권한이 있고 브라우저 구독이 있을 때만 상태 조회 API를 호출하며, 서버에도 현재 사용자로 등록돼 있어야 켜진 것으로 봄
 async function checkCurrentDeviceSubscribed() {
-  if (!isWebPushSupported() || !getVapidPublicKey()) return false;
-  if (Notification.permission !== "granted") return false;
+  if (!isWebPushSupported() || Notification.permission !== "granted") return false;
 
   const subscription = await getCurrentPushSubscription();
 
@@ -46,32 +58,48 @@ async function checkCurrentDeviceSubscribed() {
   return subscribed;
 }
 
+// 공개키를 사용할 수 없으면 null을 반환하며, 토글 클릭 시 안내 토스트로 처리함
+function loadVapidPublicKey() {
+  return getVapidPublicKey().catch(() => null);
+}
+
 export default function useWebPushSubscription() {
   const router = useRouter();
   const { showToast } = useToastContext();
   const [status, setStatus] = useState<WebPushStatus>("checking");
   const [isPending, setIsPending] = useState(false);
   const isPendingRef = useRef(false);
+  const vapidPublicKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
 
-    checkCurrentDeviceSubscribed()
-      .then((subscribed) => {
-        if (!isCancelled) setStatus(subscribed ? "on" : "off");
-      })
-      .catch((error: unknown) => {
-        if (isCancelled) return;
+    const statusRequest: Promise<StatusCheckResult> = checkCurrentDeviceSubscribed().then(
+      (subscribed) => ({ subscribed }),
+      (error: unknown) => ({ error }),
+    );
+    // 토글 클릭 시 권한 요청 전에 비동기 작업이 없도록 공개키를 미리 조회해 둠
+    const keyRequest = isWebPushSupported() ? loadVapidPublicKey() : Promise.resolve(null);
 
-        setStatus("off");
+    void Promise.all([statusRequest, keyRequest]).then(([result, vapidPublicKey]) => {
+      if (isCancelled) return;
 
-        if (error instanceof ApiRequestError && error.status === 401) {
-          router.replace("/login");
-          return;
-        }
+      vapidPublicKeyRef.current = vapidPublicKey;
 
-        showToast(getErrorMessage(error, STATUS_FAILED_MESSAGE));
-      });
+      if ("subscribed" in result) {
+        setStatus(result.subscribed ? "on" : "off");
+        return;
+      }
+
+      setStatus("off");
+
+      if (result.error instanceof ApiRequestError && result.error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      showToast(getStatusErrorMessage(result.error));
+    });
 
     return () => {
       isCancelled = true;
@@ -87,10 +115,14 @@ export default function useWebPushSubscription() {
       return;
     }
 
-    const vapidPublicKey = getVapidPublicKey();
+    const vapidPublicKey = vapidPublicKeyRef.current;
 
     if (!vapidPublicKey) {
-      showToast(MISSING_KEY_MESSAGE);
+      showToast(KEY_UNAVAILABLE_MESSAGE);
+      // 다음 클릭에서 사용할 수 있도록 공개키를 다시 조회함
+      void loadVapidPublicKey().then((publicKey) => {
+        vapidPublicKeyRef.current = publicKey;
+      });
       return;
     }
 

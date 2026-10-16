@@ -13,10 +13,6 @@ export function isWebPushSupported() {
   );
 }
 
-export function getVapidPublicKey() {
-  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() || null;
-}
-
 export function urlBase64ToUint8Array(value: string) {
   const padding = "=".repeat((4 - (value.length % 4)) % 4);
   const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -35,6 +31,10 @@ function isSameApplicationServerKey(subscription: PushSubscription, publicKey: U
     currentKeyBytes.length === publicKey.length &&
     currentKeyBytes.every((byte, index) => byte === publicKey[index])
   );
+}
+
+export function isSubscribedWithVapidKey(subscription: PushSubscription, vapidPublicKey: string) {
+  return isSameApplicationServerKey(subscription, urlBase64ToUint8Array(vapidPublicKey));
 }
 
 // 서비스 워커 등록이 실패하면 ready가 끝나지 않으므로 일정 시간 후 실패로 처리함
