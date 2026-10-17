@@ -139,7 +139,11 @@ export default function FriendsPageContent({ initialFriendsPromise }: FriendsPag
   }, [hasFriends]);
 
   return (
-    <main aria-label="친구" className="page-content flex flex-1 flex-col bg-background">
+    // 목록 끝이 하단 내비게이션의 돌출된 AI 버튼에 가려지지 않도록 하단 여백 확보
+    <main
+      aria-label="친구"
+      className="page-content flex flex-1 flex-col bg-background pb-[calc(var(--spacing-bottom-nav-overlap)+var(--spacing-page))]"
+    >
       <PageIntro
         title={pageCopy.title}
         description={hasFriends === false ? pageCopy.emptyDescription : pageCopy.description}

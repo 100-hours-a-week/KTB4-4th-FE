@@ -67,6 +67,8 @@
   --spacing-page: 1rem;
   --spacing-section: 2.5rem;
   --spacing-touch: 2.75rem;
+  /* 하단 내비게이션 AI 버튼이 콘텐츠 영역 위로 돌출되는 높이 */
+  --spacing-bottom-nav-overlap: 2.25rem;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1.125rem;
