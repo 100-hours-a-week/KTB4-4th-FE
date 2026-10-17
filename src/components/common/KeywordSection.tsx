@@ -23,7 +23,7 @@ export default function KeywordSection({ category, nickname, keywords }: Keyword
         {keywords.map((keyword) => (
           <li
             key={keyword}
-            className="rounded-full border border-brand-100 bg-warning-subtle px-3 py-1 text-caption font-bold text-foreground-secondary"
+            className="rounded-full border border-brand-100 bg-warning-subtle px-3.5 py-1.5 text-body font-bold text-foreground-secondary"
           >
             {keyword}
           </li>
