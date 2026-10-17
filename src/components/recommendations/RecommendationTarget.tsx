@@ -65,6 +65,7 @@ export default function RecommendationTarget({
         <h1 className="min-w-0 text-heading-3 font-bold text-foreground">{recommendationTitle}</h1>
         {showBudget && hasValidPriceRange && (
           <PriceRangeSlider
+            key={`${availableMinPrice}:${availableMaxPrice}:${initialMinPrice}:${initialMaxPrice}`}
             availableMinPrice={availableMinPrice}
             availableMaxPrice={availableMaxPrice}
             initialMinPrice={initialMinPrice}
