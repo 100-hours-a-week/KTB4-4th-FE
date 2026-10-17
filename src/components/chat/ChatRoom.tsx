@@ -183,6 +183,24 @@ export default function ChatRoom({
     messageList?.scrollTo({ top: messageList.scrollHeight, behavior });
   }, [messages, isAwaitingResponse]);
 
+  // 키보드가 올라와 목록 높이가 줄면 줄어든 만큼 스크롤을 내려 보고 있던 아래쪽 메시지가 가려지지 않게 함
+  useEffect(() => {
+    const messageList = messageListRef.current;
+    if (!messageList) return;
+
+    let previousHeight = messageList.clientHeight;
+    const resizeObserver = new ResizeObserver(() => {
+      const currentHeight = messageList.clientHeight;
+      if (currentHeight < previousHeight) {
+        messageList.scrollTop += previousHeight - currentHeight;
+      }
+      previousHeight = currentHeight;
+    });
+
+    resizeObserver.observe(messageList);
+    return () => resizeObserver.disconnect();
+  }, []);
+
   // 재연결이나 다른 탭의 턴으로 놓친 메시지를 진행 중인 턴이 없을 때 목록으로 다시 받아옴
   useEffect(() => {
     if (!needsMessageSync || turn !== null || conversationId === undefined) return;

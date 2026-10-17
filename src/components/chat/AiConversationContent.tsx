@@ -9,6 +9,7 @@ import { toChatMessage } from "@/components/chat/chatRoomReducer";
 import PreferenceAnalysisBar from "@/components/chat/PreferenceAnalysisBar";
 import ActionButton from "@/components/common/ActionButton";
 import { useAiConversationContext } from "@/contexts/AiConversationContext";
+import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
 import { AI_CONSENT_SETTINGS_PATH, isAiConsentRequiredError } from "@/lib/api/aiConversationErrors";
 import { getAiConversationMessages } from "@/lib/api/aiConversationMessages";
 import { startAiConversation, type AiConversationStatus } from "@/lib/api/aiConversations";
@@ -67,6 +68,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
   const [pendingAnalysisProgress, setPendingAnalysisProgress] =
     useState<ConversationAnalysisProgress | null>(null);
   const restoreRequestKeyRef = useRef<string | null>(null);
+  useVisualViewportHeight();
   const isVerifiedConversation =
     conversation !== null && String(conversation.conversationId) === conversationId;
   const verifiedStatus = isVerifiedConversation ? conversation.status : undefined;
