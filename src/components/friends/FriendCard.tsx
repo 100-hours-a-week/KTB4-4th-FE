@@ -35,7 +35,8 @@ export default function FriendCard({
     : null;
 
   return (
-    <div className="flex min-h-12 items-center gap-1 bg-surface">
+    // 행 배경이 페이지 좌우 여백까지 채워지도록 음수 마진으로 확장
+    <div className="-mx-page flex min-h-12 items-center gap-1 bg-surface px-page py-2.5 transition-colors hover:bg-background-subtle">
       <Link
         href={`/friends/${userId}`}
         aria-label={`${name} 상세 보기`}

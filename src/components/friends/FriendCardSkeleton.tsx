@@ -2,7 +2,10 @@
 
 export default function FriendCardSkeleton() {
   return (
-    <div aria-hidden="true" className="flex min-h-12 animate-pulse items-center gap-1 bg-surface">
+    <div
+      aria-hidden="true"
+      className="-mx-page flex min-h-12 animate-pulse items-center gap-1 bg-surface px-page py-2.5"
+    >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="h-12 w-12 shrink-0 rounded-[35%] bg-background-subtle" />
         <div className="min-w-0 flex-1">
