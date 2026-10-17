@@ -1,9 +1,12 @@
-// 알림 설정, AI 대화 정보 활용 동의 내용, 쿼리로 처음부터 열 정책 모달을 전달하는 사용자 설정 화면의 서버 컴포넌트 진입점
+// 알림 설정, 정책 모달별 동의 내용, 쿼리로 처음부터 열 정책 모달을 전달하는 사용자 설정 화면의 서버 컴포넌트 진입점
 
 import { redirect } from "next/navigation";
 
-import SettingsContent from "@/components/settings/SettingsContent";
-import { AI_CONSENT_TITLE, type AiConsentContent, getConsents } from "@/lib/api/consents";
+import SettingsContent, {
+  type PolicyConsents,
+  type PolicyModalType,
+} from "@/components/settings/SettingsContent";
+import { type ConsentContent, type ConsentItem, getConsents } from "@/lib/api/consents";
 import { getNotificationSettings } from "@/lib/api/getNotificationSettings";
 import type {
   NotificationSetting,
@@ -46,16 +49,38 @@ async function getInitialNotificationSettingsOrRedirect() {
   }
 }
 
-// 동의 내용은 모달 안내용이라 불러오지 못해도 설정 화면은 그대로 보여주고 모달에서 대체 안내문을 표시함
-async function getAiConsentOrNull(): Promise<AiConsentContent | null> {
-  try {
-    const consents = await getConsents();
-    const aiConsent = consents.find(({ title }) => title === AI_CONSENT_TITLE);
+// 동의 항목 응답에 종류를 구분하는 필드가 없어 각 정책 모달에 보여줄 항목은 제목으로만 구분함
+// 백엔드 제목이 바뀌면 이 값도 함께 바꿔야 함
+const policyConsentTitles: Record<PolicyModalType, readonly string[]> = {
+  aiConsent: ["AI 대화 정보 활용 동의"],
+  privacyPolicy: ["친구에게 취향 정보 공개 동의", "상품 이용 기록 활용 동의"],
+  terms: ["개인정보 수집 및 이용 동의"],
+};
 
-    return aiConsent ? { title: aiConsent.title, content: aiConsent.content } : null;
-  } catch {
-    return null;
+// 일부 항목만 보여주면 정책 내용이 빠진 채 보이므로 하나라도 없으면 null 반환
+function pickConsentContents(consents: ConsentItem[], titles: readonly string[]) {
+  const contents: ConsentContent[] = [];
+
+  for (const title of titles) {
+    const consent = consents.find((item) => item.title === title);
+
+    if (!consent) return null;
+
+    contents.push({ title: consent.title, content: consent.content });
   }
+
+  return contents;
+}
+
+// 동의 내용은 모달 안내용이라 불러오지 못해도 설정 화면은 그대로 보여주고 모달에서 대체 안내문을 표시함
+async function getPolicyConsents(): Promise<PolicyConsents> {
+  const consents = await getConsents().catch(() => null);
+
+  return {
+    aiConsent: consents && pickConsentContents(consents, policyConsentTitles.aiConsent),
+    privacyPolicy: consents && pickConsentContents(consents, policyConsentTitles.privacyPolicy),
+    terms: consents && pickConsentContents(consents, policyConsentTitles.terms),
+  };
 }
 
 type SettingsPageProps = {
@@ -65,9 +90,9 @@ type SettingsPageProps = {
 };
 
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
-  const [initialNotificationSettings, aiConsent, { modal }] = await Promise.all([
+  const [initialNotificationSettings, policyConsents, { modal }] = await Promise.all([
     getInitialNotificationSettingsOrRedirect(),
-    getAiConsentOrNull(),
+    getPolicyConsents(),
     searchParams,
   ]);
 
@@ -75,7 +100,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     <SettingsContent
       initialNotificationSettings={initialNotificationSettings}
       initialPolicyModal={modal === "aiConsent" ? "aiConsent" : null}
-      aiConsent={aiConsent}
+      policyConsents={policyConsents}
     />
   );
 }

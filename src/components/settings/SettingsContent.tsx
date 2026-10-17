@@ -9,7 +9,7 @@ import WebPushSettingItem from "@/components/settings/WebPushSettingItem";
 import WithdrawalModal from "@/components/settings/WithdrawalModal";
 import useWithdrawal from "@/hooks/useWithdrawal";
 import { ApiRequestError } from "@/lib/api/client";
-import type { AiConsentContent } from "@/lib/api/consents";
+import type { ConsentContent } from "@/lib/api/consents";
 import {
   type NotificationSettingType,
   updateNotificationSetting,
@@ -17,13 +17,14 @@ import {
 
 export type PolicyModalType = "aiConsent" | "privacyPolicy" | "terms";
 type PrivacyItemType = "preferences" | PolicyModalType;
+// 정책 모달별로 보여줄 동의 항목 목록이며, 불러오지 못한 모달은 null
+export type PolicyConsents = Record<PolicyModalType, ConsentContent[] | null>;
 
 type SettingsContentProps = {
   initialNotificationSettings: Readonly<Record<NotificationSettingType, boolean>>;
   // AI 대화에서 정보 활용 동의가 필요해 이동한 경우처럼 쿼리로 처음부터 열 모달
   initialPolicyModal?: PolicyModalType | null;
-  // 불러오지 못하면 null이며, 모달에 대체 안내문을 표시함
-  aiConsent: AiConsentContent | null;
+  policyConsents: PolicyConsents;
 };
 
 const notificationItems: { type: NotificationSettingType; label: string }[] = [
@@ -38,34 +39,11 @@ const privacyItems: { id: PrivacyItemType; label: string }[] = [
   { id: "terms", label: "이용약관" },
 ];
 
-// AI 대화 정보 활용 동의는 서버에서 받은 내용으로 본문을 채우고, 불러오지 못하면 아래 안내문을 표시함
-// TODO: 개인정보 처리방침, 이용약관의 최종 원문 확정 후 임시 안내문을 실제 내용으로 교체
-const policyModalContent: Record<PolicyModalType, { title: string; body: string }> = {
-  aiConsent: {
-    title: "AI 대화 정보 활용 동의",
-    body: "AI 대화 정보 활용 동의 내용을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
-  },
-  privacyPolicy: {
-    title: "개인정보 처리방침",
-    body: "개인정보 처리방침 원문을 준비 중입니다. 확정된 원문은 추후 이 영역에 제공될 예정입니다.",
-  },
-  terms: {
-    title: "이용약관",
-    body: "이용약관 원문을 준비 중입니다. 확정된 원문은 추후 이 영역에 제공될 예정입니다.",
-  },
-};
-
-const getPolicyModalContent = (
-  modalType: PolicyModalType | null,
-  aiConsent: AiConsentContent | null,
-) => {
-  if (!modalType) return null;
-
-  if (modalType === "aiConsent" && aiConsent) {
-    return { title: policyModalContent.aiConsent.title, body: aiConsent.content };
-  }
-
-  return policyModalContent[modalType];
+// 동의 내용을 불러오지 못하면 제목 아래에 대체 안내문을 표시함
+const policyModalTitles: Record<PolicyModalType, string> = {
+  aiConsent: "AI 대화 정보 활용 동의",
+  privacyPolicy: "개인정보 처리방침",
+  terms: "이용약관",
 };
 
 const getNotificationErrorMessage = (error: unknown) => {
@@ -83,7 +61,7 @@ const getNotificationErrorMessage = (error: unknown) => {
 export default function SettingsContent({
   initialNotificationSettings,
   initialPolicyModal = null,
-  aiConsent,
+  policyConsents,
 }: SettingsContentProps) {
   const router = useRouter();
   const pendingSettingTypesRef = useRef(new Set<NotificationSettingType>());
@@ -102,7 +80,8 @@ export default function SettingsContent({
   const hasPolicyModalQueryRef = useRef(initialPolicyModal !== null);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
   const withdrawal = useWithdrawal();
-  const activePolicyModal = getPolicyModalContent(openPolicyModal, aiConsent);
+  const activePolicyTitle = openPolicyModal ? policyModalTitles[openPolicyModal] : null;
+  const activePolicyConsents = openPolicyModal ? policyConsents[openPolicyModal] : null;
 
   const handleNotificationToggle = async (settingType: NotificationSettingType) => {
     if (pendingSettingTypesRef.current.has(settingType)) {
@@ -293,15 +272,31 @@ export default function SettingsContent({
       </button>
 
       <Modal
-        open={activePolicyModal !== null}
+        open={activePolicyTitle !== null}
         onClose={handlePolicyModalClose}
-        title={activePolicyModal?.title ?? ""}
+        title={activePolicyTitle ?? ""}
         childrenClassName="mt-4"
         secondAction={{ label: "확인", onClick: handlePolicyModalClose }}
       >
-        <p className="m-0 whitespace-pre-wrap text-body-sm leading-relaxed text-foreground-secondary">
-          {activePolicyModal?.body}
-        </p>
+        {activePolicyConsents ? (
+          <div className="flex flex-col gap-4">
+            {activePolicyConsents.map(({ title, content }) => (
+              <section key={title}>
+                {/* 항목이 여러 개인 모달만 항목별 제목으로 내용을 구분함 */}
+                {activePolicyConsents.length > 1 && (
+                  <h3 className="m-0 text-body-sm font-bold text-foreground">{title}</h3>
+                )}
+                <p className="m-0 whitespace-pre-wrap text-body-sm leading-relaxed text-foreground-secondary">
+                  {content}
+                </p>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <p className="m-0 whitespace-pre-wrap text-body-sm leading-relaxed text-foreground-secondary">
+            {activePolicyTitle} 내용을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
+          </p>
+        )}
       </Modal>
 
       <WithdrawalModal
