@@ -105,8 +105,9 @@ html {
   background: var(--color-background-subtle);
 }
 
+/* --visual-viewport-height는 AI 대화 화면에서만 설정되며 iOS 키보드가 가린 만큼 줄어든 높이 */
 body {
-  min-height: 100dvh;
+  min-height: var(--visual-viewport-height, 100dvh);
   margin: 0;
   color: var(--color-foreground);
   background: var(--color-background-subtle);
@@ -163,7 +164,7 @@ dialog[data-modal]::backdrop {
   flex-direction: column;
   width: 100%;
   max-width: var(--app-max-width);
-  height: 100dvh;
+  height: var(--visual-viewport-height, 100dvh);
   margin: 0 auto;
   overflow: hidden;
   background: var(--color-background);
