@@ -21,12 +21,15 @@ const navigationItems = [
   {
     label: "AI",
     href: "/ai",
-    icon: "/icons/icon-ai.svg",
-    caption: "AI",
+    icon: "/images/Needu_profile.png",
     startsConversation: true,
   },
   { label: "친구", href: "/friends", icon: "/icons/icon-user.svg" },
 ] as const;
+
+const NAVIGATION_ICON_SIZE = 28;
+// 문구 없이 니쥬 이미지만 노출되는 AI 버튼 아이콘 크기
+const AI_ICON_SIZE = 40;
 
 export default function BottomNavigation() {
   const pathname = usePathname();
@@ -74,7 +77,6 @@ export default function BottomNavigation() {
           const { label, href, icon } = item;
           const isActive = pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
           const activeIcon = "activeIcon" in item ? item.activeIcon : icon;
-          const caption = "caption" in item ? item.caption : undefined;
           const startsConversation = "startsConversation" in item && item.startsConversation;
 
           return (
@@ -99,8 +101,8 @@ export default function BottomNavigation() {
                 <Image
                   src={isActive ? activeIcon : icon}
                   alt=""
-                  width={28}
-                  height={28}
+                  width={startsConversation ? AI_ICON_SIZE : NAVIGATION_ICON_SIZE}
+                  height={startsConversation ? AI_ICON_SIZE : NAVIGATION_ICON_SIZE}
                   className={
                     startsConversation
                       ? styles.aiIconReveal
@@ -109,11 +111,6 @@ export default function BottomNavigation() {
                         : "opacity-40"
                   }
                 />
-                {caption && (
-                  <strong aria-hidden="true" className="text-caption font-bold">
-                    {caption}
-                  </strong>
-                )}
                 {!startsConversation && <span>{label}</span>}
               </Link>
             </li>
