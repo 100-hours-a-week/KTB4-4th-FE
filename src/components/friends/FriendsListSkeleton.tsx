@@ -6,7 +6,7 @@ const SKELETON_COUNT = 6;
 
 export default function FriendsListSkeleton() {
   return (
-    <ul aria-busy="true" className="mt-6 flex list-none flex-col gap-5 p-0">
+    <ul aria-busy="true" className="mt-3.5 flex list-none flex-col p-0">
       {Array.from({ length: SKELETON_COUNT }, (_, index) => (
         <li key={index}>
           <FriendCardSkeleton />

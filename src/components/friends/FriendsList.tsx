@@ -327,7 +327,7 @@ export default function FriendsList({
     <ul
       aria-label={isFavorite ? "즐겨찾는 친구" : "전체 친구"}
       aria-busy={isLoading}
-      className="mt-6 flex list-none flex-col gap-5 p-0"
+      className="mt-3.5 flex list-none flex-col p-0"
     >
       {visibleFriends.map((friend) => {
         const friendFavoriteError =
