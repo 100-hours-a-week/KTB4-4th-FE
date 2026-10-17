@@ -8,6 +8,8 @@
   margin: 0;
   padding: 0.5rem 0.75rem;
   appearance: none;
+  /* 입력 조합 중인 단독 자음이 크게 보이지 않도록 시스템 한글 글꼴 사용 */
+  font-family: var(--font-system-ko);
   line-height: 1.25rem;
   overflow-y: hidden;
   resize: none;
