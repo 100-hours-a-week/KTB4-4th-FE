@@ -2,15 +2,15 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useSwipeable } from "react-swipeable";
 
 import type { NotificationThumbnail, NotificationTitleParts } from "@/lib/notificationDisplay";
 
-import type { PointerEvent as ReactPointerEvent } from "react";
-
 const DELETE_ACTION_WIDTH = 72;
 const SWIPE_THRESHOLD = DELETE_ACTION_WIDTH / 2;
-// 이 거리 이상 움직였으면 스와이프로 보고 누르기로 처리하지 않음
-const TAP_MOVE_TOLERANCE = 5;
+const SWIPE_DIRECTION_DELTA = 10;
+
+type SwipeAxis = "horizontal" | "vertical";
 
 type NotificationItemProps = {
   id: number;
@@ -42,48 +42,51 @@ export default function NotificationItem({
   onRevealDelete,
 }: NotificationItemProps) {
   const [dragOffset, setDragOffset] = useState<number | null>(null);
-  const pointerStartXRef = useRef<number | null>(null);
+  const swipeAxisRef = useRef<SwipeAxis | null>(null);
   const currentOffsetRef = useRef(0);
   const hasMovedRef = useRef(false);
   const instructionId = `notification-swipe-instruction-${id}`;
   const restingOffset = isDeleteRevealed ? -DELETE_ACTION_WIDTH : 0;
   const translateX = dragOffset ?? restingOffset;
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerStartXRef.current = event.clientX;
-    currentOffsetRef.current = restingOffset;
-    hasMovedRef.current = false;
-    setDragOffset(restingOffset);
-    event.currentTarget.setPointerCapture(event.pointerId);
+  const resetSwipe = () => {
+    swipeAxisRef.current = null;
+    setDragOffset(null);
   };
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (pointerStartXRef.current === null) return;
+  const swipeHandlers = useSwipeable({
+    delta: SWIPE_DIRECTION_DELTA,
+    trackMouse: true,
+    touchEventOptions: { passive: false },
+    onTouchStartOrOnMouseDown: () => {
+      swipeAxisRef.current = null;
+      currentOffsetRef.current = restingOffset;
+      hasMovedRef.current = false;
+    },
+    onSwiping: ({ first, absX, absY, deltaX, event }) => {
+      if (first) {
+        swipeAxisRef.current = absX > absY ? "horizontal" : "vertical";
+      }
 
-    const distance = event.clientX - pointerStartXRef.current;
+      if (swipeAxisRef.current !== "horizontal") return;
 
-    if (Math.abs(distance) >= TAP_MOVE_TOLERANCE) {
+      if (event.cancelable) event.preventDefault();
+
       hasMovedRef.current = true;
-    }
 
-    const nextOffset = Math.max(-DELETE_ACTION_WIDTH, Math.min(0, restingOffset + distance));
+      const nextOffset = Math.max(-DELETE_ACTION_WIDTH, Math.min(0, restingOffset + deltaX));
 
-    currentOffsetRef.current = nextOffset;
-    setDragOffset(nextOffset);
-  };
+      currentOffsetRef.current = nextOffset;
+      setDragOffset(nextOffset);
+    },
+    onTouchEndOrOnMouseUp: () => {
+      if (swipeAxisRef.current === "horizontal") {
+        onRevealDelete(currentOffsetRef.current <= -SWIPE_THRESHOLD ? id : null);
+      }
 
-  const handlePointerEnd = () => {
-    if (pointerStartXRef.current === null) return;
-
-    onRevealDelete(currentOffsetRef.current <= -SWIPE_THRESHOLD ? id : null);
-    pointerStartXRef.current = null;
-    setDragOffset(null);
-  };
-
-  const handlePointerCancel = () => {
-    pointerStartXRef.current = null;
-    setDragOffset(null);
-  };
+      resetSwipe();
+    },
+  });
 
   // 삭제 버튼이 열려 있으면 알림을 열지 않고 삭제 버튼만 닫음
   const selectNotification = () => {
@@ -140,10 +143,8 @@ export default function NotificationItem({
             onRevealDelete(null);
           }
         }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerEnd}
-        onPointerCancel={handlePointerCancel}
+        {...swipeHandlers}
+        onTouchCancel={resetSwipe}
       >
         <span id={instructionId} className="sr-only">
           눌러서 알림 확인, 왼쪽으로 밀거나 왼쪽 방향키를 눌러 삭제 버튼 표시

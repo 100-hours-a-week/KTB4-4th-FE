@@ -6,9 +6,12 @@ import useWebPushSubscription from "@/hooks/useWebPushSubscription";
 const LABEL_ID = "web-push-notification-label";
 
 export default function WebPushSettingItem() {
-  const { status, isPending, enable, disable } = useWebPushSubscription();
-  const isEnabled = status === "on";
-  const isDisabled = status === "checking" || isPending;
+  const { status, cachedStatus, isPending, isVapidKeyLoading, enable, disable } =
+    useWebPushSubscription();
+  // 상태 확인 중에는 마지막으로 확인한 상태를 먼저 보여주고, 확인이 끝날 때까지 누를 수 없게 함
+  const isEnabled = status === "checking" ? cachedStatus === "on" : status === "on";
+  // 켜기에는 공개키가 필요하므로 꺼진 상태에서는 공개키 조회가 끝날 때까지 누를 수 없게 함
+  const isDisabled = status === "checking" || isPending || (status === "off" && isVapidKeyLoading);
 
   const handleToggle = () => {
     void (isEnabled ? disable() : enable());

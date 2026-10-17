@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { useToastContext } from "@/contexts/ToastContext";
 import { ApiRequestError } from "@/lib/api/client";
@@ -13,6 +13,12 @@ import {
   isWebPushSupported,
   unsubscribeCurrentDevice,
 } from "@/lib/webPush";
+import {
+  clearWebPushStatusCache,
+  readWebPushStatusCache,
+  saveWebPushStatusCache,
+  subscribeWebPushStatusCache,
+} from "@/lib/webPushStatusCache";
 
 type WebPushStatus = "checking" | "on" | "off";
 
@@ -66,37 +72,55 @@ export default function useWebPushSubscription() {
   const [status, setStatus] = useState<WebPushStatus>("checking");
   const [isPending, setIsPending] = useState(false);
   const isPendingRef = useRef(false);
+  const [isVapidKeyLoading, setIsVapidKeyLoading] = useState(true);
   const vapidPublicKeyRef = useRef<string | null>(null);
+  // 서버 렌더링 시에는 저장소를 읽을 수 없으므로 null로 두고, 화면이 뜬 직후 저장된 값으로 바뀜
+  const cachedStatus = useSyncExternalStore(
+    subscribeWebPushStatusCache,
+    readWebPushStatusCache,
+    () => null,
+  );
 
   useEffect(() => {
     let isCancelled = false;
 
-    const statusRequest: Promise<StatusCheckResult> = checkCurrentDeviceSubscribed().then(
-      (subscribed) => ({ subscribed }),
-      (error: unknown) => ({ error }),
-    );
     // 토글 클릭 시 권한 요청 전에 비동기 작업이 없도록 공개키를 미리 조회해 둠
     const keyRequest = isWebPushSupported() ? loadVapidPublicKey() : Promise.resolve(null);
 
-    void Promise.all([statusRequest, keyRequest]).then(([result, vapidPublicKey]) => {
+    void keyRequest.then((vapidPublicKey) => {
       if (isCancelled) return;
 
       vapidPublicKeyRef.current = vapidPublicKey;
-
-      if ("subscribed" in result) {
-        setStatus(result.subscribed ? "on" : "off");
-        return;
-      }
-
-      setStatus("off");
-
-      if (result.error instanceof ApiRequestError && result.error.status === 401) {
-        router.replace("/login");
-        return;
-      }
-
-      showToast(getStatusErrorMessage(result.error));
+      setIsVapidKeyLoading(false);
     });
+
+    // 공개키 조회를 기다리지 않고 상태 확인 결과를 바로 토글에 반영함
+    void checkCurrentDeviceSubscribed()
+      .then(
+        (subscribed): StatusCheckResult => ({ subscribed }),
+        (error: unknown): StatusCheckResult => ({ error }),
+      )
+      .then((result) => {
+        if (isCancelled) return;
+
+        if ("subscribed" in result) {
+          const nextStatus = result.subscribed ? "on" : "off";
+
+          setStatus(nextStatus);
+          saveWebPushStatusCache(nextStatus);
+          return;
+        }
+
+        setStatus("off");
+
+        if (result.error instanceof ApiRequestError && result.error.status === 401) {
+          clearWebPushStatusCache();
+          router.replace("/login");
+          return;
+        }
+
+        showToast(getStatusErrorMessage(result.error));
+      });
 
     return () => {
       isCancelled = true;
@@ -144,10 +168,13 @@ export default function useWebPushSubscription() {
       try {
         // 서버 등록에 실패하면 브라우저 구독 해제까지 처리된 뒤 에러가 전달됨
         await ensurePushSubscriptionRegistered(vapidPublicKey);
+        saveWebPushStatusCache("on");
       } catch (error) {
         setStatus("off");
+        saveWebPushStatusCache("off");
 
         if (error instanceof ApiRequestError && error.status === 401) {
+          clearWebPushStatusCache();
           router.replace("/login");
           return;
         }
@@ -167,11 +194,13 @@ export default function useWebPushSubscription() {
     isPendingRef.current = true;
     setIsPending(true);
     setStatus("off");
+    saveWebPushStatusCache("off");
 
     try {
       const { isUnauthorized } = await unsubscribeCurrentDevice();
 
       if (isUnauthorized) {
+        clearWebPushStatusCache();
         router.replace("/login");
       }
     } finally {
@@ -180,5 +209,5 @@ export default function useWebPushSubscription() {
     }
   };
 
-  return { status, isPending, enable, disable };
+  return { status, cachedStatus, isPending, isVapidKeyLoading, enable, disable };
 }
