@@ -706,9 +706,12 @@ export default function ChatRoom({
           isReadOnly ||
           isConversationExpired ||
           conversationId === undefined ||
+          conversationBlockedMessage !== ""
+        }
+        // 응답 생성, 스트림 재연결, 재시도 대기 중에는 다음 메시지를 미리 작성할 수 있게 전송만 막음
+        isSubmitLocked={
           !isStreamConnected ||
           turn !== null ||
-          conversationBlockedMessage !== "" ||
           (sendError?.status === 429 && sendError.retryAfterSeconds > 0)
         }
       />
