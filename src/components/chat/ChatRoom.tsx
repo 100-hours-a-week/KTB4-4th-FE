@@ -3,7 +3,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 
 import AiConversationExpiredModal from "@/components/chat/AiConversationExpiredModal";
 import ChatComposer from "@/components/chat/ChatComposer";
@@ -173,15 +173,14 @@ export default function ChatRoom({
     return () => window.clearTimeout(timer);
   }, [sendError]);
 
+  // 기존 대화가 화면보다 길면 진입 시 화면을 그리기 전에 맨 아래로 바로 이동하고, 이후 메시지 변화는 부드럽게 따라감
   // 생성 중인 대화에 들어오면 메시지 변화 없이 타이핑 표시만 나타나므로 그때도 맨 아래로 스크롤함
-  useEffect(() => {
-    if (isInitialRender.current) {
-      isInitialRender.current = false;
-      return;
-    }
-
+  useLayoutEffect(() => {
     const messageList = messageListRef.current;
-    messageList?.scrollTo({ top: messageList.scrollHeight, behavior: "smooth" });
+    const behavior = isInitialRender.current ? "auto" : "smooth";
+    isInitialRender.current = false;
+
+    messageList?.scrollTo({ top: messageList.scrollHeight, behavior });
   }, [messages, isAwaitingResponse]);
 
   // 재연결이나 다른 탭의 턴으로 놓친 메시지를 진행 중인 턴이 없을 때 목록으로 다시 받아옴
