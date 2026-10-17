@@ -212,16 +212,21 @@ jobs:
           DESIRED_COUNT=$(jq -r '.services[0].desiredCount' <<< "$SERVICE_STATE")
           RUNNING_COUNT=$(jq -r '.services[0].runningCount' <<< "$SERVICE_STATE")
 
+          # Task Definition 반영 여부는 Desired Count와 관계없이 검증
           if [[ "$CURRENT_TASK_DEFINITION_ARN" != "$EXPECTED_TASK_DEFINITION_ARN" ]]; then
             echo "ECS Service가 요청한 Task Definition을 사용하지 않습니다."
             exit 1
           fi
 
-          if [[ "$DESIRED_COUNT" -lt 1 || "$RUNNING_COUNT" -lt "$DESIRED_COUNT" ]]; then
+          # Runtime Control에서 의도적으로 중지한 경우 기동 검증 생략
+          if [[ "$DESIRED_COUNT" -eq 0 ]]; then
+            echo "Desired Count가 0이므로 Task 기동 검증을 생략합니다."
+          elif [[ "$RUNNING_COUNT" -lt "$DESIRED_COUNT" ]]; then
             echo "실행 중인 Task 수가 충분하지 않습니다: $RUNNING_COUNT/$DESIRED_COUNT"
             exit 1
           fi
 
+          # 이미지 일치 여부는 Desired Count와 관계없이 검증
           ACTUAL_IMAGE=$(aws ecs describe-task-definition \
             --task-definition "$CURRENT_TASK_DEFINITION_ARN" \
             --region "$AWS_REGION" \
@@ -230,7 +235,14 @@ jobs:
 
           if [[ "$ACTUAL_IMAGE" != "$EXPECTED_IMAGE" ]]; then
             echo "배포된 이미지가 요청한 이미지와 다릅니다."
+            echo "Expected: $EXPECTED_IMAGE"
+            echo "Actual: $ACTUAL_IMAGE"
             exit 1
           fi
 
-          echo "Frontend V2 배포 완료: $RUNNING_COUNT/$DESIRED_COUNT"
+          if [[ "$DESIRED_COUNT" -eq 0 ]]; then
+            echo "Frontend V2 배포 완료: Task Definition 및 이미지 반영 확인 (Desired Count: 0)"
+            echo "실제 기동 및 헬스체크는 start-ecs 이후 별도 검증이 필요합니다."
+          else
+            echo "Frontend V2 배포 완료: $RUNNING_COUNT/$DESIRED_COUNT"
+          fi
