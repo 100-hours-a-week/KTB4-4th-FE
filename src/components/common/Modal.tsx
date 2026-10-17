@@ -14,6 +14,7 @@ type ModalProps = {
   titleClassName?: string;
   description?: string;
   children?: ReactNode;
+  childrenClassName?: string;
   firstAction?: ComponentProps<typeof ChoiceButtons>["first"];
   secondAction?: ComponentProps<typeof ChoiceButtons>["second"];
   actions?: ReactNode;
@@ -28,6 +29,7 @@ export default function Modal({
   titleClassName = "",
   description,
   children,
+  childrenClassName = "mt-8",
   firstAction,
   secondAction,
   actions,
@@ -73,7 +75,7 @@ export default function Modal({
           </p>
         )}
 
-        {children && <div className="mt-8">{children}</div>}
+        {children && <div className={childrenClassName}>{children}</div>}
 
         {actions ? (
           <div className={actionsClassName}>{actions}</div>

@@ -14,6 +14,13 @@ export interface ConsentItem {
   agreedAt: string | null;
 }
 
+// 설정 화면의 AI 대화 정보 활용 동의 모달에 보여줄 항목 내용
+export type AiConsentContent = Pick<ConsentItem, "title" | "content">;
+
+// 동의 항목 응답에 종류를 구분하는 필드가 없어 AI 대화 항목은 제목으로만 구분함
+// 백엔드 제목이 바뀌면 이 값도 함께 바꿔야 함
+export const AI_CONSENT_TITLE = "AI 대화 정보 활용 동의";
+
 interface ConsentsResponse {
   message: string;
   data: {

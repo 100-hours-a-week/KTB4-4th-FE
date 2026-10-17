@@ -9,6 +9,7 @@ import WebPushSettingItem from "@/components/settings/WebPushSettingItem";
 import WithdrawalModal from "@/components/settings/WithdrawalModal";
 import useWithdrawal from "@/hooks/useWithdrawal";
 import { ApiRequestError } from "@/lib/api/client";
+import type { AiConsentContent } from "@/lib/api/consents";
 import {
   type NotificationSettingType,
   updateNotificationSetting,
@@ -21,6 +22,8 @@ type SettingsContentProps = {
   initialNotificationSettings: Readonly<Record<NotificationSettingType, boolean>>;
   // AI 대화에서 정보 활용 동의가 필요해 이동한 경우처럼 쿼리로 처음부터 열 모달
   initialPolicyModal?: PolicyModalType | null;
+  // 불러오지 못하면 null이며, 모달에 대체 안내문을 표시함
+  aiConsent: AiConsentContent | null;
 };
 
 const notificationItems: { type: NotificationSettingType; label: string }[] = [
@@ -35,12 +38,12 @@ const privacyItems: { id: PrivacyItemType; label: string }[] = [
   { id: "terms", label: "이용약관" },
 ];
 
-// TODO: 각 정책의 최종 원문 확정 후 임시 안내문을 실제 내용으로 교체
-// TODO: AI 대화 정보 활용 동의 API 연동 시 동의 모달에 동의 버튼과 현재 동의 상태 반영
+// AI 대화 정보 활용 동의는 서버에서 받은 내용으로 본문을 채우고, 불러오지 못하면 아래 안내문을 표시함
+// TODO: 개인정보 처리방침, 이용약관의 최종 원문 확정 후 임시 안내문을 실제 내용으로 교체
 const policyModalContent: Record<PolicyModalType, { title: string; body: string }> = {
   aiConsent: {
     title: "AI 대화 정보 활용 동의",
-    body: "AI 대화 정보 활용 동의 원문을 준비 중입니다. 확정된 원문은 추후 이 영역에 제공될 예정입니다.",
+    body: "AI 대화 정보 활용 동의 내용을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
   },
   privacyPolicy: {
     title: "개인정보 처리방침",
@@ -50,6 +53,19 @@ const policyModalContent: Record<PolicyModalType, { title: string; body: string 
     title: "이용약관",
     body: "이용약관 원문을 준비 중입니다. 확정된 원문은 추후 이 영역에 제공될 예정입니다.",
   },
+};
+
+const getPolicyModalContent = (
+  modalType: PolicyModalType | null,
+  aiConsent: AiConsentContent | null,
+) => {
+  if (!modalType) return null;
+
+  if (modalType === "aiConsent" && aiConsent) {
+    return { title: policyModalContent.aiConsent.title, body: aiConsent.content };
+  }
+
+  return policyModalContent[modalType];
 };
 
 const getNotificationErrorMessage = (error: unknown) => {
@@ -67,6 +83,7 @@ const getNotificationErrorMessage = (error: unknown) => {
 export default function SettingsContent({
   initialNotificationSettings,
   initialPolicyModal = null,
+  aiConsent,
 }: SettingsContentProps) {
   const router = useRouter();
   const pendingSettingTypesRef = useRef(new Set<NotificationSettingType>());
@@ -85,7 +102,7 @@ export default function SettingsContent({
   const hasPolicyModalQueryRef = useRef(initialPolicyModal !== null);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
   const withdrawal = useWithdrawal();
-  const activePolicyModal = openPolicyModal ? policyModalContent[openPolicyModal] : null;
+  const activePolicyModal = getPolicyModalContent(openPolicyModal, aiConsent);
 
   const handleNotificationToggle = async (settingType: NotificationSettingType) => {
     if (pendingSettingTypesRef.current.has(settingType)) {
@@ -279,6 +296,7 @@ export default function SettingsContent({
         open={activePolicyModal !== null}
         onClose={handlePolicyModalClose}
         title={activePolicyModal?.title ?? ""}
+        childrenClassName="mt-4"
         secondAction={{ label: "확인", onClick: handlePolicyModalClose }}
       >
         <p className="m-0 whitespace-pre-wrap text-body-sm leading-relaxed text-foreground-secondary">
