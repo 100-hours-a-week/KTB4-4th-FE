@@ -60,6 +60,20 @@ type ChatRoomProps = {
   onAnalysisCompleted?: () => void;
 };
 
+type TypingToken = {
+  userMessageId: number;
+  index: number;
+  text: string;
+  isChunkEnd: boolean;
+};
+
+const WORD_TYPING_INTERVAL_MS = 50;
+
+// 공백과 줄바꿈을 앞 단어에 포함해 원문 형태를 유지하면서 표시 단위를 나눔
+function splitIntoTypingTokens(text: string) {
+  return text.match(/\S+\s*|\s+/gu) ?? [];
+}
+
 function toPreferenceAnalysisResult(response: AiPreferenceAnalysisData): PreferenceAnalysisResult {
   return {
     interests: response.keywords.interest,
@@ -108,6 +122,10 @@ export default function ChatRoom({
     null,
   );
   const messageListRef = useRef<HTMLElement>(null);
+  const typingQueueRef = useRef<TypingToken[]>([]);
+  const typingTimerRef = useRef<number | null>(null);
+  const pendingCompletedEventRef = useRef<AiConversationCompletedEvent | null>(null);
+  const pendingDoneUserMessageIdRef = useRef<number | null>(null);
   const isInitialRender = useRef(true);
   const isAnalysisRequestingRef = useRef(false);
   const isMessageSendingRef = useRef(false);
@@ -471,6 +489,52 @@ export default function ChatRoom({
     onMessageSent?.(event);
   };
 
+  const clearTypingState = () => {
+    if (typingTimerRef.current !== null) {
+      window.clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+
+    typingQueueRef.current = [];
+    pendingCompletedEventRef.current = null;
+    pendingDoneUserMessageIdRef.current = null;
+  };
+
+  const finishPendingTurn = () => {
+    const completedEvent = pendingCompletedEventRef.current;
+    const doneUserMessageId = pendingDoneUserMessageIdRef.current;
+
+    pendingCompletedEventRef.current = null;
+    pendingDoneUserMessageIdRef.current = null;
+
+    if (completedEvent) {
+      handleTurnCompleted(completedEvent);
+    }
+
+    if (doneUserMessageId !== null) {
+      dispatch({ type: "TURN_DONE", userMessageId: doneUserMessageId });
+    }
+  };
+
+  const scheduleNextTypingToken = () => {
+    if (typingTimerRef.current !== null) return;
+
+    const nextToken = typingQueueRef.current.shift();
+
+    if (!nextToken) {
+      finishPendingTurn();
+      return;
+    }
+
+    typingTimerRef.current = window.setTimeout(() => {
+      typingTimerRef.current = null;
+      dispatch({ type: "DELTA_TOKEN_DISPLAYED", ...nextToken });
+      scheduleNextTypingToken();
+    }, WORD_TYPING_INTERVAL_MS);
+  };
+
+  useEffect(() => clearTypingState, []);
+
   // 스트림은 ACTIVE 대화에서만 열리며 입력이 잠기거나 만료되면 닫힘
   const { status: streamStatus } = useAiConversationStream({
     conversationId:
@@ -484,10 +548,38 @@ export default function ChatRoom({
       dispatch({ type: "SEND_ACCEPTED", clientMessageId, userMessageId });
     },
     onDelta: ({ userMessageId, index, text }) => {
-      dispatch({ type: "DELTA_RECEIVED", userMessageId, index, text });
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        dispatch({
+          type: "DELTA_TOKEN_DISPLAYED",
+          userMessageId,
+          index,
+          text,
+          isChunkEnd: true,
+        });
+        return;
+      }
+
+      const words = splitIntoTypingTokens(text);
+      const tokens = (words.length > 0 ? words : [""]).map((word, wordIndex, allWords) => ({
+        userMessageId,
+        index,
+        text: word,
+        isChunkEnd: wordIndex === allWords.length - 1,
+      }));
+
+      typingQueueRef.current.push(...tokens);
+      scheduleNextTypingToken();
     },
-    onCompleted: handleTurnCompleted,
+    onCompleted: (event) => {
+      pendingCompletedEventRef.current = event;
+
+      if (typingQueueRef.current.length === 0 && typingTimerRef.current === null) {
+        finishPendingTurn();
+      }
+    },
     onError: ({ userMessageId, message, retryable, restartRequired }) => {
+      clearTypingState();
+
       // AI 세션이 사라진 대화라 어느 탭의 턴이든 새 대화 시작으로 안내함
       if (restartRequired) {
         expireConversation();
@@ -497,10 +589,16 @@ export default function ChatRoom({
       dispatch({ type: "TURN_FAILED", userMessageId, message, retryable });
     },
     onDone: ({ userMessageId }) => {
-      dispatch({ type: "TURN_DONE", userMessageId });
+      pendingDoneUserMessageIdRef.current = userMessageId;
+
+      if (typingQueueRef.current.length === 0 && typingTimerRef.current === null) {
+        finishPendingTurn();
+      }
     },
     // 연결이 닫혀 대화 시작 API로 다시 확인했는데 같은 대화로 재연결할 수 없는 경우
     onRecovery: (result: AiConversationStreamRecovery) => {
+      clearTypingState();
+
       if (result.type === "CONVERSATION_CHANGED") {
         handleConversationChanged(result.conversation);
         return;
