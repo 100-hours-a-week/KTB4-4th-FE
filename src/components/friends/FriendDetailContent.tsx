@@ -99,7 +99,10 @@ export default function FriendDetailContent({ userId, initialFriend }: FriendDet
           <span className="font-semibold">{friend.nickname}님에게 선물하기</span>
         </Link>
       </div>
-      {friend.tasteAnalysisCompleted ? (
+      <div className="mt-4 flex w-full max-w-[360px] justify-center">
+        <FriendPokeButton userId={userId} nickname={friend.nickname} />
+      </div>
+      {friend.tasteAnalysisCompleted && (
         <div className="mt-8 flex w-full max-w-[360px] flex-col gap-8 text-left">
           <KeywordSection
             category="취향"
@@ -112,10 +115,6 @@ export default function FriendDetailContent({ userId, initialFriend }: FriendDet
             keywords={friend.interestKeywords}
           />
           <AiSummarySection nickname={friend.nickname} summary={friend.interestSummary} />
-        </div>
-      ) : (
-        <div className="mt-8 flex w-full max-w-[360px] justify-center">
-          <FriendPokeButton userId={userId} nickname={friend.nickname} />
         </div>
       )}
     </section>
