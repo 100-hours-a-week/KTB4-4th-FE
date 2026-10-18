@@ -178,6 +178,7 @@ function GiftRecommendationsListContent({
               key={product.recommendationId}
               product={{
                 name: product.name,
+                category: product.category,
                 price: product.price,
                 productImageUrl: product.productImageUrl,
                 purchaseUrl: product.purchaseUrl,
