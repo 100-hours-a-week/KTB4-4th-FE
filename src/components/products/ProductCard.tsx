@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 
+import { getProductCategoryName } from "@/lib/productCategories";
+
 type ProductCardProps = {
   product: {
     name: string;
+    category: string;
     price: number;
     productImageUrl: string | null;
     purchaseUrl: string;
@@ -29,9 +32,10 @@ export default function ProductCard({ product, detailHref }: ProductCardProps) {
       />
 
       <div className="mt-2 min-w-0">
-        <h2 className="line-clamp-2 text-body-sm font-medium text-foreground-secondary">
-          {product.name}
-        </h2>
+        <p className="truncate text-body-sm font-bold text-foreground">
+          {getProductCategoryName(product.category)}
+        </p>
+        <h2 className="mt-0.5 line-clamp-2 text-body-sm font-medium text-muted">{product.name}</h2>
         <p className="mt-0.5 text-body font-bold text-foreground">{formatPrice(product.price)}</p>
       </div>
     </>
