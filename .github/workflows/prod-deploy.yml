@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       image_sha:
-        description: "Production에 배포할 ECR 이미지의 Git SHA"
+        description: "Dev에서 검증하고 Main에 포함된 V2 이미지 SHA (40자리)"
         required: true
         type: string
 
@@ -12,26 +12,27 @@ permissions:
   contents: read
 
 jobs:
-  deploy-production:
+  deploy-prod:
     name: Deploy V2 Production
 
     permissions:
       contents: read
+      actions: read
       id-token: write
 
     uses: ./.github/workflows/deploy.yml
 
     with:
       environment: prod
-      github_environment: production
+      github_environment: prod
       image_sha: ${{ inputs.image_sha }}
       verify_dev_match: true
 
     secrets: inherit
 
   record-production-deployment:
-    name: Record Production Deployment
-    needs: deploy-production
+    name: Record Production Image Deployment
+    needs: deploy-prod
     runs-on: ubuntu-latest
 
     permissions:
@@ -57,6 +58,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git tag -a "$PRODUCTION_TAG" "$IMAGE_SHA" \
-            -m "Production deployment $PRODUCTION_TAG"
+            -m "Production image deployment $PRODUCTION_TAG"
 
           git push origin "$PRODUCTION_TAG"
