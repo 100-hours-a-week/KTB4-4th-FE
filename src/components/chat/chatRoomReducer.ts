@@ -46,7 +46,13 @@ export type ChatRoomAction =
   | { type: "SEND_ACCEPTED"; clientMessageId: string; userMessageId: number }
   | { type: "SEND_FAILED"; clientMessageId: string; status: number; retryAfterSeconds: number }
   | { type: "SEND_REJECTED"; clientMessageId: string; message: string | null }
-  | { type: "DELTA_RECEIVED"; userMessageId: number; index: number; text: string }
+  | {
+      type: "DELTA_TOKEN_DISPLAYED";
+      userMessageId: number;
+      index: number;
+      text: string;
+      isChunkEnd: boolean;
+    }
   | { type: "TURN_COMPLETED"; userMessageId: number; messageId: number; content: string }
   | { type: "TURN_FAILED"; userMessageId: number; message: string; retryable: boolean }
   | { type: "TURN_DONE"; userMessageId: number }
@@ -220,7 +226,7 @@ export const chatRoomReducer = (state: ChatRoomState, action: ChatRoomAction): C
         turnErrorMessage: action.message,
         turn: null,
       };
-    case "DELTA_RECEIVED": {
+    case "DELTA_TOKEN_DISPLAYED": {
       const { turn } = state;
 
       if (
@@ -260,7 +266,10 @@ export const chatRoomReducer = (state: ChatRoomState, action: ChatRoomAction): C
               },
             ],
         isAwaitingResponse: false,
-        turn: { ...turn, nextDeltaIndex: action.index + 1 },
+        turn: {
+          ...turn,
+          nextDeltaIndex: action.isChunkEnd ? action.index + 1 : turn.nextDeltaIndex,
+        },
       };
     }
     case "TURN_COMPLETED": {
