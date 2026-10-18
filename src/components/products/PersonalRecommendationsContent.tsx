@@ -12,11 +12,22 @@ import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import { ApiRequestError } from "@/lib/api/client";
 import { checkLoginValidity, type LoginValidityData } from "@/lib/api/loginValidity";
-import type { PersonalRecommendationsPriceRange } from "@/lib/api/personalRecommendations";
 import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type ProductVisibilityTab = "private" | "shared";
+
+type TabPriceRangeState = {
+  available: PriceRange | null;
+  selected: PriceRange | null;
+  applied: PriceRange | null;
+};
+
+const INITIAL_TAB_PRICE_RANGE_STATE: TabPriceRangeState = {
+  available: null,
+  selected: null,
+  applied: null,
+};
 
 type PersonalRecommendationsContentProps = {
   categories: readonly ProductCategory[];
@@ -29,10 +40,12 @@ export default function PersonalRecommendationsContent({
   const [selectedVisibilityTab, setSelectedVisibilityTab] =
     useState<ProductVisibilityTab>("private");
   const [loginUser, setLoginUser] = useState<LoginValidityData["user"] | null>(null);
-  const [availablePriceRange, setAvailablePriceRange] =
-    useState<PersonalRecommendationsPriceRange | null>(null);
-  const [selectedPriceRange, setSelectedPriceRange] = useState<PriceRange | null>(null);
-  const [appliedPriceRange, setAppliedPriceRange] = useState<PriceRange | null>(null);
+  const [priceRangesByTab, setPriceRangesByTab] = useState<
+    Record<ProductVisibilityTab, TabPriceRangeState>
+  >({
+    private: INITIAL_TAB_PRICE_RANGE_STATE,
+    shared: INITIAL_TAB_PRICE_RANGE_STATE,
+  });
   const [selectedCategoryCode, setSelectedCategoryCode] =
     useState<string>(ALL_PRODUCT_CATEGORY_CODE);
 
@@ -60,17 +73,32 @@ export default function PersonalRecommendationsContent({
     };
   }, [router]);
 
-  const handleAvailablePriceRangeLoad = useCallback(
-    (priceRange: PersonalRecommendationsPriceRange | null) => {
-      setAvailablePriceRange(priceRange);
-      setSelectedPriceRange(priceRange);
+  const updateTabPriceRange = useCallback(
+    (tab: ProductVisibilityTab, nextState: Partial<TabPriceRangeState>) => {
+      setPriceRangesByTab((currentPriceRanges) => ({
+        ...currentPriceRanges,
+        [tab]: { ...currentPriceRanges[tab], ...nextState },
+      }));
     },
     [],
   );
 
+  const handlePrivatePriceRangeLoad = useCallback(
+    (priceRange: PriceRange | null) => {
+      updateTabPriceRange("private", { available: priceRange, selected: priceRange });
+    },
+    [updateTabPriceRange],
+  );
+
+  const handleSharedPriceRangeLoad = useCallback(
+    (priceRange: PriceRange | null) => {
+      updateTabPriceRange("shared", { available: priceRange, selected: priceRange });
+    },
+    [updateTabPriceRange],
+  );
+
   const handlePriceRangeCommit = (priceRange: PriceRange) => {
-    setSelectedPriceRange(priceRange);
-    setAppliedPriceRange(priceRange);
+    updateTabPriceRange(selectedVisibilityTab, { selected: priceRange, applied: priceRange });
   };
 
   if (!loginUser) {
@@ -81,6 +109,9 @@ export default function PersonalRecommendationsContent({
     );
   }
 
+  const privatePriceRange = priceRangesByTab.private;
+  const sharedPriceRange = priceRangesByTab.shared;
+  const currentPriceRange = priceRangesByTab[selectedVisibilityTab];
   const selfTarget = {
     type: "SELF",
     userId: loginUser.id,
@@ -117,11 +148,11 @@ export default function PersonalRecommendationsContent({
         />
         <RecommendationTarget
           target={selfTarget}
-          availableMinPrice={availablePriceRange?.minPrice}
-          availableMaxPrice={availablePriceRange?.maxPrice}
-          initialMinPrice={selectedPriceRange?.minPrice}
-          initialMaxPrice={selectedPriceRange?.maxPrice}
-          showBudget={availablePriceRange !== null}
+          availableMinPrice={currentPriceRange.available?.minPrice}
+          availableMaxPrice={currentPriceRange.available?.maxPrice}
+          initialMinPrice={currentPriceRange.selected?.minPrice}
+          initialMaxPrice={currentPriceRange.selected?.maxPrice}
+          showBudget={currentPriceRange.available !== null}
           onPriceRangeCommit={handlePriceRangeCommit}
         />
       </section>
@@ -137,10 +168,10 @@ export default function PersonalRecommendationsContent({
             category={
               selectedCategoryCode === ALL_PRODUCT_CATEGORY_CODE ? undefined : selectedCategoryCode
             }
-            minPrice={appliedPriceRange?.minPrice}
-            maxPrice={appliedPriceRange?.maxPrice}
+            minPrice={privatePriceRange.applied?.minPrice}
+            maxPrice={privatePriceRange.applied?.maxPrice}
             onPriceRangeLoad={
-              appliedPriceRange === null ? handleAvailablePriceRangeLoad : undefined
+              privatePriceRange.applied === null ? handlePrivatePriceRangeLoad : undefined
             }
           />
         ) : (
@@ -149,10 +180,10 @@ export default function PersonalRecommendationsContent({
             category={
               selectedCategoryCode === ALL_PRODUCT_CATEGORY_CODE ? undefined : selectedCategoryCode
             }
-            minPrice={appliedPriceRange?.minPrice}
-            maxPrice={appliedPriceRange?.maxPrice}
+            minPrice={sharedPriceRange.applied?.minPrice}
+            maxPrice={sharedPriceRange.applied?.maxPrice}
             onPriceRangeLoad={
-              appliedPriceRange === null ? handleAvailablePriceRangeLoad : undefined
+              sharedPriceRange.applied === null ? handleSharedPriceRangeLoad : undefined
             }
           />
         )}

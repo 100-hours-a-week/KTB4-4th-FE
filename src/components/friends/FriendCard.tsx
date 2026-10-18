@@ -9,7 +9,10 @@ type FriendCardProps = {
   userId: number;
   name: string;
   profileImageUrl: string | null;
+  birthDate: string | null;
   isFavorite: boolean;
+  isFavoritePending?: boolean;
+  isFavoriteDisabled?: boolean;
   onToggleFavorite: () => void;
 };
 
@@ -17,11 +20,23 @@ export default function FriendCard({
   userId,
   name,
   profileImageUrl,
+  birthDate,
   isFavorite,
+  isFavoritePending = false,
+  isFavoriteDisabled = false,
   onToggleFavorite,
 }: FriendCardProps) {
+  const birthdayLabel = birthDate
+    ? (() => {
+        const [, month, day] = birthDate.split("-");
+
+        return `생일 · ${Number(month)}월 ${Number(day)}일`;
+      })()
+    : null;
+
   return (
-    <div className="flex min-h-12 items-center gap-1 bg-surface">
+    // 행 배경이 페이지 좌우 여백까지 채워지도록 음수 마진으로 확장
+    <div className="-mx-page flex min-h-12 items-center gap-1 bg-surface px-page py-2.5 transition-colors hover:bg-background-subtle">
       <Link
         href={`/friends/${userId}`}
         aria-label={`${name} 상세 보기`}
@@ -37,12 +52,14 @@ export default function FriendCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[18px] leading-6 font-medium text-foreground">{name}</p>
-          {/* TODO: 백엔드 생일 데이터 완성 후 생일 및 D-day 정보 표시 */}
+          {birthdayLabel && <p className="mt-0.5 text-caption text-muted">{birthdayLabel}</p>}
         </div>
       </Link>
       <FriendFavoriteButton
         name={name}
         isFavorite={isFavorite}
+        isPending={isFavoritePending}
+        disabled={isFavoriteDisabled}
         onToggle={onToggleFavorite}
         className="mr-2"
       />

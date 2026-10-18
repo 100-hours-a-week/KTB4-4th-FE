@@ -14,6 +14,9 @@ export interface ConsentItem {
   agreedAt: string | null;
 }
 
+// 설정 화면의 정책 모달에 보여줄 동의 항목 내용
+export type ConsentContent = Pick<ConsentItem, "title" | "content">;
+
 interface ConsentsResponse {
   message: string;
   data: {

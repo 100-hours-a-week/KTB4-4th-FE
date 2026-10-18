@@ -15,6 +15,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // Android Chrome에서 키보드가 올라오면 화면 높이(dvh)를 줄여 입력창 위 내용이 가려지지 않게 함
+  interactiveWidget: "resizes-content",
   themeColor: "#ffffff",
   colorScheme: "light",
 };

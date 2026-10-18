@@ -10,7 +10,10 @@ import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 
 type ChatComposerProps = {
   onSend: (content: string) => Promise<void>;
+  // 대화를 더 이어갈 수 없어 입력 자체를 막는 상태
   isDisabled?: boolean;
+  // 응답 생성 중처럼 잠시 전송만 막는 상태이며 입력창 포커스와 작성 중인 내용은 유지함
+  isSubmitLocked?: boolean;
   placeholder?: string;
 };
 
@@ -29,13 +32,14 @@ function resizeTextarea(textarea: HTMLTextAreaElement) {
 export default function ChatComposer({
   onSend,
   isDisabled = false,
+  isSubmitLocked = false,
   placeholder = "메시지 입력",
 }: ChatComposerProps) {
   const [draftMessage, setDraftMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const normalizedMessage = draftMessage.trim();
-  const isSubmitDisabled = isDisabled || isSending || !normalizedMessage;
+  const isSubmitDisabled = isDisabled || isSubmitLocked || isSending || !normalizedMessage;
 
   useEffect(() => {
     if (textareaRef.current) {

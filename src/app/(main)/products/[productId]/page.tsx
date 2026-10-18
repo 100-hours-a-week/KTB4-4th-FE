@@ -1,10 +1,10 @@
 // 상품 문맥에 맞는 상세 정보를 서버에서 조회해 표시하는 페이지
 
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import PersonalProductDetailContent from "@/components/products/PersonalProductDetailContent";
 import { getProductDetail, type ProductDetailContext } from "@/lib/api/productDetail";
-import { ServerApiError } from "@/lib/api/serverClient";
+import { handleServerPageError } from "@/lib/serverPageError";
 
 type ProductDetailPageProps = {
   params: Promise<{ productId: string }>;
@@ -36,11 +36,7 @@ async function getProductDetailOrRedirect(
 
     return await getProductDetail({ productId, context });
   } catch (error) {
-    if (error instanceof ServerApiError && error.status === 401) {
-      redirect("/login");
-    }
-
-    redirect("/error");
+    handleServerPageError(error, { notFoundStatuses: [404] });
   }
 }
 
@@ -48,32 +44,40 @@ export default async function ProductDetailPage({ params, searchParams }: Produc
   const [{ productId }, { context, userId }] = await Promise.all([params, searchParams]);
   const parsedProductId = Number(productId);
 
-  if (
-    !Number.isSafeInteger(parsedProductId) ||
-    parsedProductId <= 0 ||
-    !isProductDetailContext(context)
-  ) {
+  if (!Number.isSafeInteger(parsedProductId) || parsedProductId <= 0) {
+    notFound();
+  }
+
+  if (!isProductDetailContext(context)) {
     redirect("/error");
   }
 
   const parsedUserId = userId === undefined ? undefined : Number(userId);
 
   if (
-    (context === "FRIEND_GIFT" &&
-      (!Number.isSafeInteger(parsedUserId) || (parsedUserId as number) <= 0)) ||
-    (context !== "FRIEND_GIFT" && userId !== undefined)
+    context === "FRIEND_GIFT" &&
+    (!Number.isSafeInteger(parsedUserId) || (parsedUserId as number) <= 0)
   ) {
+    notFound();
+  }
+
+  if (context !== "FRIEND_GIFT" && userId !== undefined) {
     redirect("/error");
   }
 
   const product = await getProductDetailOrRedirect(parsedProductId, context, parsedUserId);
+  const detailProps =
+    context === "FRIEND_GIFT"
+      ? { product, context, friendUserId: parsedUserId as number }
+      : { product, context };
 
   return (
+    // 구매하러 가기 버튼이 하단 내비게이션의 돌출된 AI 버튼에 가려지지 않도록 하단 여백 확보
     <main
       aria-label="상품 상세"
-      className="page-content flex flex-1 flex-col bg-background pb-[max(2rem,env(safe-area-inset-bottom))]"
+      className="page-content flex flex-1 flex-col bg-background pb-[max(calc(var(--spacing-bottom-nav-overlap)+var(--spacing-page)),env(safe-area-inset-bottom))]"
     >
-      <PersonalProductDetailContent product={product} context={context} />
+      <PersonalProductDetailContent {...detailProps} />
     </main>
   );
 }

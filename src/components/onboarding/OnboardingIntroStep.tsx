@@ -1,6 +1,9 @@
 // 서비스의 주요 기능을 소개하는 첫 번째 온보딩 단계 컴포넌트
 "use client";
 
+import Image from "next/image";
+
+import onboardingIntroImage from "@/assets/images/onboarding-intro.png";
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
 import { useOnboarding } from "@/contexts/OnboardingContext";
@@ -16,11 +19,12 @@ export default function OnboardingIntroStep() {
         </p>
       </header>
 
-      {/* TODO: 서비스 UI 이미지가 준비되면 실제 이미지로 교체 */}
-      <div
-        role="img"
-        aria-label="서비스 화면 이미지 준비 중"
-        className="mt-5 aspect-[11/12] w-full shrink-0 rounded-sm border border-border-strong bg-background-subtle"
+      <Image
+        src={onboardingIntroImage}
+        alt="니쥬와 나눈 대화로 발견한 나의 취향 프로필 카드 예시"
+        sizes="(max-width: 430px) 100vw, 430px"
+        className="mt-5 h-auto w-full shrink-0"
+        priority
       />
 
       <PageIntro
