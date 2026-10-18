@@ -72,9 +72,10 @@ export default async function ProductDetailPage({ params, searchParams }: Produc
       : { product, context };
 
   return (
+    // 구매하러 가기 버튼이 하단 내비게이션의 돌출된 AI 버튼에 가려지지 않도록 하단 여백 확보
     <main
       aria-label="상품 상세"
-      className="page-content flex flex-1 flex-col bg-background pb-[max(2rem,env(safe-area-inset-bottom))]"
+      className="page-content flex flex-1 flex-col bg-background pb-[max(calc(var(--spacing-bottom-nav-overlap)+var(--spacing-page)),env(safe-area-inset-bottom))]"
     >
       <PersonalProductDetailContent {...detailProps} />
     </main>
