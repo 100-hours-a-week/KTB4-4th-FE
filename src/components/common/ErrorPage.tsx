@@ -13,9 +13,10 @@ import Header from "@/components/layout/Header";
 type ErrorPageProps = {
   title: string;
   description: string;
+  showHeader?: boolean;
 };
 
-export default function ErrorPage({ title, description }: ErrorPageProps) {
+export default function ErrorPage({ title, description, showHeader = true }: ErrorPageProps) {
   const router = useRouter();
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
@@ -24,7 +25,7 @@ export default function ErrorPage({ title, description }: ErrorPageProps) {
 
   return (
     <>
-      <Header />
+      {showHeader && <Header />}
       <main className="page-content flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#ededed] text-center text-foreground">
         <div className="my-auto w-full pt-8 pb-[calc(2rem+12vh)]">
           <h1 className="text-[clamp(22px,5vw,28px)] leading-tight font-bold">{title}</h1>
