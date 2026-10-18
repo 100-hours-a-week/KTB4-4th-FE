@@ -35,27 +35,26 @@ export default function PurchaseCheckModal({
   onClose,
 }: PurchaseCheckModalProps) {
   const { purchaseCheckId, product } = purchaseCheck;
-  // 답변 전송 성공이나 다른 탭에서 먼저 답한 경우(409)를 반영한 답변 완료 여부
-  const [isAnswered, setIsAnswered] = useState(purchaseCheck.answered);
+  const isAnswered = purchaseCheck.answered;
   const [isAnswering, setIsAnswering] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isSoldOut = product.status === "SOLD_OUT";
   // 판매 중단 상품은 구매 링크를 숨김
   const canShowPurchaseLink = product.status !== "UNAVAILABLE" && product.purchaseUrl !== null;
 
-  // 구매했다고 답할 때만 답변을 저장하며, 이미 답한 구매 확인이면 답변 완료 상태로 바꿈
-  const answerPurchased = async () => {
+  // 구매 여부 답변을 저장하며, 성공하거나 이미 답한 구매 확인이면 모달을 닫음
+  const answerPurchase = async (purchased: boolean) => {
     if (isAnswering) return;
 
     setIsAnswering(true);
     setErrorMessage(null);
 
     try {
-      await answerPurchaseCheck(purchaseCheckId, true);
-      setIsAnswered(true);
+      await answerPurchaseCheck(purchaseCheckId, purchased);
+      onClose();
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 409) {
-        setIsAnswered(true);
+        onClose();
         return;
       }
 
@@ -74,13 +73,12 @@ export default function PurchaseCheckModal({
       title={isAnswered ? "이미 답변한 상품이에요." : "이 상품, 구매하셨나요?"}
       description={getContextLabel(purchaseCheck)}
       actionsClassName="mt-8"
-      // 구매 안했어요는 답변을 저장하지 않고 모달만 닫음
       firstAction={
         isAnswered
           ? undefined
           : {
               label: <span className="font-bold">구매 안했어요</span>,
-              onClick: onClose,
+              onClick: () => void answerPurchase(false),
               disabled: isAnswering,
             }
       }
@@ -89,7 +87,7 @@ export default function PurchaseCheckModal({
           ? { label: <span className="font-bold">닫기</span>, onClick: onClose }
           : {
               label: <span className="font-bold">구매 했어요</span>,
-              onClick: () => void answerPurchased(),
+              onClick: () => void answerPurchase(true),
               disabled: isAnswering,
             }
       }
