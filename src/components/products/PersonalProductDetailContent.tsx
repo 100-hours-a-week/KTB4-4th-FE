@@ -48,6 +48,7 @@ export default function PersonalProductDetailContent({
   const router = useRouter();
   const [feedback, setFeedback] = useState(product.myFeedback);
   const [isDislikeModalOpen, setIsDislikeModalOpen] = useState(false);
+  const [isLikeModalOpen, setIsLikeModalOpen] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [feedbackErrorMessage, setFeedbackErrorMessage] = useState("");
   const [loginNickname, setLoginNickname] = useState<string | null>(null);
@@ -110,6 +111,7 @@ export default function PersonalProductDetailContent({
         feedback: "LIKE",
       });
       setFeedback(savedFeedback.feedback);
+      setIsLikeModalOpen(true);
       // 뒤로가기로 재진입해도 저장된 만족도가 반영되도록 라우터 캐시의 상세 데이터를 갱신함
       router.refresh();
     } catch (error) {
@@ -265,6 +267,17 @@ export default function PersonalProductDetailContent({
       <ActionButton onClick={handlePurchase} className="mt-1 !font-bold">
         구매하러 가기
       </ActionButton>
+
+      <Modal
+        open={isLikeModalOpen}
+        onClose={() => setIsLikeModalOpen(false)}
+        title="피드백 감사합니다!"
+        actionsClassName="mt-8"
+        secondAction={{
+          label: "닫기",
+          onClick: () => setIsLikeModalOpen(false),
+        }}
+      />
 
       <Modal
         open={isDislikeModalOpen}
