@@ -48,6 +48,7 @@ import type {
 } from "@/types/chat";
 
 type ChatRoomProps = {
+  nickname: string;
   initialMessages: ChatMessage[];
   initialAnalysisStatus: PreferenceAnalysisStatus;
   analysisResult: PreferenceAnalysisResult;
@@ -92,6 +93,7 @@ function formatRemainingConversationTime(totalSeconds: number) {
 }
 
 export default function ChatRoom({
+  nickname,
   initialMessages,
   initialAnalysisStatus,
   analysisResult: initialAnalysisResult,
@@ -856,6 +858,7 @@ export default function ChatRoom({
       {analysisStatus === "COMPLETED" && (
         <PreferenceAnalysisResultModal
           open={!isConfirmingAnalysis}
+          nickname={nickname}
           result={analysisResult}
           onReject={handleRejectAnalysis}
           onConfirm={handleConfirmAnalysis}
