@@ -5,18 +5,22 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import ChatRoom from "@/components/chat/ChatRoom";
+import { toChatMessage } from "@/components/chat/chatRoomReducer";
 import PreferenceAnalysisBar from "@/components/chat/PreferenceAnalysisBar";
 import ActionButton from "@/components/common/ActionButton";
 import { useAiConversationContext } from "@/contexts/AiConversationContext";
-import {
-  getAiConversationMessages,
-  type AiConversationMessage,
-} from "@/lib/api/aiConversationMessages";
-import type { SendAiConversationMessageData } from "@/lib/api/aiConversationMessageSend";
+import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
+import { AI_CONSENT_SETTINGS_PATH, isAiConsentRequiredError } from "@/lib/api/aiConversationErrors";
+import { getAiConversationMessages } from "@/lib/api/aiConversationMessages";
 import { startAiConversation, type AiConversationStatus } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
+import { checkLoginValidity } from "@/lib/api/loginValidity";
 import { getPreferenceAnalysisDescription } from "@/mocks/chat";
-import type { ChatMessage, PreferenceAnalysisResult } from "@/types/chat";
+import type {
+  AiConversationCompletedEvent,
+  ChatMessage,
+  PreferenceAnalysisResult,
+} from "@/types/chat";
 
 type AiConversationContentProps = {
   conversationId?: string;
@@ -34,24 +38,17 @@ type ConversationMessagesError = {
   retryAfterSeconds: number;
 };
 
+type ConversationAnalysisProgress = {
+  conversationId: number;
+  progress: number;
+};
+
 const EMPTY_PREFERENCE_ANALYSIS_RESULT: PreferenceAnalysisResult = {
   interests: [],
   preferences: [],
   summary: null,
   correctionAvailable: false,
 };
-
-function toChatMessage(message: AiConversationMessage): ChatMessage {
-  const isAiMessage = message.role === "AI";
-
-  return {
-    id: message.messageId,
-    role: isAiMessage ? "ASSISTANT" : "USER",
-    senderName: isAiMessage ? "니쥬" : "나",
-    content: message.content,
-    deliveryStatus: "SENT",
-  };
-}
 
 function isMessageHistoryAvailable(status: AiConversationStatus) {
   // TODO: 메시지 조회를 지원하는 대화 상태가 추가되면 이 조건에 반영
@@ -64,9 +61,16 @@ export default function AiConversationContent({ conversationId }: AiConversation
   const [messagesState, setMessagesState] = useState<ConversationMessagesState | null>(null);
   const [messagesError, setMessagesError] = useState<ConversationMessagesError | null>(null);
   const [conversationRestoreError, setConversationRestoreError] = useState("");
+  const [loginNickname, setLoginNickname] = useState("나");
   const [requestVersion, setRequestVersion] = useState(0);
-  const [analysisProgress, setAnalysisProgress] = useState<number | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<ConversationAnalysisProgress | null>(
+    null,
+  );
+  // 입력이 잠긴 응답의 진행률은 분석이 성공한 뒤에 반영하고, 실패하면 직전 진행률을 유지함
+  const [pendingAnalysisProgress, setPendingAnalysisProgress] =
+    useState<ConversationAnalysisProgress | null>(null);
   const restoreRequestKeyRef = useRef<string | null>(null);
+  useVisualViewportHeight();
   const isVerifiedConversation =
     conversation !== null && String(conversation.conversationId) === conversationId;
   const verifiedStatus = isVerifiedConversation ? conversation.status : undefined;
@@ -93,7 +97,28 @@ export default function AiConversationContent({ conversationId }: AiConversation
     messagesState?.conversationId !== availableConversationId &&
     messagesError?.conversationId !== availableConversationId;
   const currentAnalysisProgress =
-    analysisProgress ?? (isVerifiedConversation ? conversation.progress : 0);
+    availableConversationId !== undefined &&
+    analysisProgress?.conversationId === availableConversationId
+      ? analysisProgress.progress
+      : isVerifiedConversation
+        ? conversation.progress
+        : 0;
+
+  useEffect(() => {
+    let isActive = true;
+
+    void checkLoginValidity()
+      .then(({ user }) => {
+        if (isActive) {
+          setLoginNickname(user.nickname);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isVerifiedConversation) {
@@ -130,6 +155,12 @@ export default function AiConversationContent({ conversationId }: AiConversation
 
         if (error instanceof ApiRequestError && error.status === 401) {
           router.replace("/login");
+          return;
+        }
+
+        // 동의 없이는 대화 화면을 쓸 수 없어 뒤로 가기로 다시 오지 않도록 기록을 바꿈
+        if (isAiConsentRequiredError(error)) {
+          router.replace(AI_CONSENT_SETTINGS_PATH);
           return;
         }
 
@@ -198,12 +229,36 @@ export default function AiConversationContent({ conversationId }: AiConversation
     setRequestVersion((version) => version + 1);
   };
 
-  const handleMessageSent = (response: SendAiConversationMessageData) => {
-    setAnalysisProgress(response.progress);
+  const handleMessageSent = (response: AiConversationCompletedEvent) => {
+    if (availableConversationId !== undefined) {
+      const nextAnalysisProgress = {
+        conversationId: availableConversationId,
+        progress: response.progress,
+      };
+
+      if (response.inputLocked) {
+        setPendingAnalysisProgress(nextAnalysisProgress);
+      } else {
+        setAnalysisProgress(nextAnalysisProgress);
+      }
+    }
 
     if (response.inputLocked && conversation !== null) {
       setConversation({ ...conversation, status: "ANALYZING" });
     }
+  };
+
+  const handleAnalysisCompleted = () => {
+    if (availableConversationId === undefined || conversation === null) return;
+
+    setAnalysisProgress({
+      conversationId: availableConversationId,
+      progress:
+        pendingAnalysisProgress?.conversationId === availableConversationId
+          ? pendingAnalysisProgress.progress
+          : conversation.progress,
+    });
+    setPendingAnalysisProgress(null);
   };
 
   return (
@@ -266,6 +321,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
       ) : (
         <ChatRoom
           key={`conversation-${availableConversationId}`}
+          nickname={loginNickname}
           initialMessages={messages}
           initialAnalysisStatus="IDLE"
           analysisResult={EMPTY_PREFERENCE_ANALYSIS_RESULT}
@@ -274,6 +330,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
           nextConversationAvailableAt={nextConversationAvailableAt}
           conversationId={availableConversationId}
           onMessageSent={handleMessageSent}
+          onAnalysisCompleted={handleAnalysisCompleted}
         />
       )}
     </main>

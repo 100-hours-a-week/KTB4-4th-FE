@@ -1,6 +1,12 @@
 // 성능 측정용 친구 목록·상세 임시 데이터
 
-import type { FriendDetail, FriendListItem, FriendsPage } from "@/lib/api/friends";
+import type {
+  FriendDetail,
+  FriendFavorite,
+  FriendListItem,
+  FriendsPage,
+  GetFriendsParams,
+} from "@/lib/api/friends";
 import { mockDelay } from "@/mocks/config";
 
 const MOCK_FRIEND_COUNT = 45;
@@ -13,26 +19,72 @@ const mockFriends: FriendListItem[] = Array.from({ length: MOCK_FRIEND_COUNT }, 
     userId: MOCK_FRIEND_ID_START + index,
     name: `테스트친구${order}`,
     profileImageUrl: `/images/mock/profile-${order}.jpg`,
-    birthDate: "2000-01-01",
-    isFavorite: false,
+    birthDate:
+      index % 7 === 6
+        ? null
+        : `2000-${String((index % 12) + 1).padStart(2, "0")}-${String((index % 27) + 1).padStart(2, "0")}`,
+    isFavorite: index % 4 === 0,
   };
 });
+
+type MockCursor = {
+  offset: number;
+  favorite: boolean;
+  keyword: string;
+};
+
+function sortFriends(left: FriendListItem, right: FriendListItem) {
+  return left.name.localeCompare(right.name, "ko");
+}
+
+function parseMockCursor(cursor: string | undefined, favorite: boolean, keyword: string) {
+  if (!cursor) {
+    return 0;
+  }
+
+  const parsedCursor = JSON.parse(cursor) as MockCursor;
+
+  if (parsedCursor.favorite !== favorite || parsedCursor.keyword !== keyword) {
+    throw new Error("조회 조건과 일치하지 않는 친구 목록 커서입니다.");
+  }
+
+  return parsedCursor.offset;
+}
 
 export function isMockFriendId(userId: number) {
   return userId >= MOCK_FRIEND_ID_START && userId < MOCK_FRIEND_ID_START + MOCK_FRIEND_COUNT;
 }
 
-export async function getMockFriendsPage(cursor: string | undefined, size: number) {
+export async function getMockFriendsPage({
+  cursor,
+  size = 20,
+  favorite = false,
+  keyword = "",
+  signal,
+}: GetFriendsParams = {}) {
   await mockDelay();
 
-  const start = cursor ? Number(cursor) : 0;
+  if (signal?.aborted) {
+    throw new DOMException("요청이 취소되었습니다.", "AbortError");
+  }
+
+  const normalizedKeyword = keyword.trim();
+  const filteredFriends = mockFriends
+    .filter((friend) => !favorite || friend.isFavorite)
+    .filter((friend) => !normalizedKeyword || friend.name.includes(normalizedKeyword))
+    .sort(sortFriends);
+  const start = parseMockCursor(cursor, favorite, normalizedKeyword);
   const end = start + size;
-  const hasNext = end < mockFriends.length;
+  const hasNext = end < filteredFriends.length;
 
   return {
-    items: mockFriends.slice(start, end),
+    items: filteredFriends.slice(start, end),
     isKakaoFriendSynced: true,
-    nextCursor: hasNext ? String(end) : null,
+    totalCount: mockFriends.length,
+    favoriteTotalCount: mockFriends.filter((friend) => friend.isFavorite).length,
+    nextCursor: hasNext
+      ? JSON.stringify({ offset: end, favorite, keyword: normalizedKeyword } satisfies MockCursor)
+      : null,
     hasNext,
   } satisfies FriendsPage;
 }
@@ -52,5 +104,26 @@ export async function getMockFriendDetail(userId: number) {
     profileImageUrl: friend.profileImageUrl,
     tasteAnalysisCompleted: true,
     birthDate: friend.birthDate,
+    tasteKeywords: ["실용적인", "감성적인", "새로운"],
+    interestKeywords: ["여행", "인테리어", "커피"],
+    interestSummary: "최근 여행과 인테리어에 관심이 많고, 새로운 카페를 찾아다니는 것을 좋아해요.",
+    isFavorite: friend.isFavorite,
   } satisfies FriendDetail;
+}
+
+export async function updateMockFriendFavorite(userId: number, isFavorite: boolean) {
+  await mockDelay();
+
+  const friend = mockFriends.find((item) => item.userId === userId);
+
+  if (!friend) {
+    throw new Error("목업 친구를 찾을 수 없습니다.");
+  }
+
+  friend.isFavorite = isFavorite;
+
+  return {
+    userId: friend.userId,
+    isFavorite: friend.isFavorite,
+  } satisfies FriendFavorite;
 }

@@ -91,7 +91,7 @@ export function refreshAccessToken() {
   return refreshRequest;
 }
 
-function redirectToLogin() {
+export function redirectToLogin() {
   if (window.location.pathname !== LOGIN_PATH) {
     window.location.replace(LOGIN_PATH);
   }

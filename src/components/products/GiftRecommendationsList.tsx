@@ -170,14 +170,15 @@ function GiftRecommendationsListContent({
         {products.map((product) => {
           const detailHref =
             targetType === "FRIEND" && targetUserId !== undefined
-              ? `/products/${product.recommendationId}?targetType=FRIEND&targetUserId=${targetUserId}`
-              : `/products/${product.recommendationId}`;
+              ? `/products/${product.productId}?context=FRIEND_GIFT&userId=${targetUserId}`
+              : `/products/${product.productId}?context=MY_GIFT`;
 
           return (
             <ProductCard
               key={product.recommendationId}
               product={{
                 name: product.name,
+                category: product.category,
                 price: product.price,
                 productImageUrl: product.productImageUrl,
                 purchaseUrl: product.purchaseUrl,

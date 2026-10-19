@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId } from "react";
 
 import useDialogControl from "@/hooks/useDialogControl";
+import useLogout from "@/hooks/useLogout";
 
 import styles from "./Sidebar.module.css";
 
@@ -26,6 +27,7 @@ export default function Sidebar({ id, state, onClose, onClosed }: SidebarProps) 
     mode: "non-modal",
   });
   const titleId = useId();
+  const { isPending: isLoggingOut, logout } = useLogout();
 
   useEffect(() => {
     if (state !== "open") return;
@@ -47,8 +49,11 @@ export default function Sidebar({ id, state, onClose, onClosed }: SidebarProps) 
     router.push("/settings");
   };
 
-  const handleLogoutClick = () => {
-    // TODO: 로그아웃 API 구현 후 로그아웃 처리
+  // 로그아웃 실패 토스트가 전체 화면 사이드바에 가려지지 않도록 사이드바를 닫음
+  const handleLogoutClick = async () => {
+    const isLoggedOut = await logout();
+
+    if (!isLoggedOut) onClose();
   };
 
   return (
@@ -100,7 +105,8 @@ export default function Sidebar({ id, state, onClose, onClosed }: SidebarProps) 
 
         <button
           type="button"
-          className={`${styles.logoutButton} ${styles.menuButton} mt-auto flex w-full items-center border-0 bg-transparent px-3 py-3 text-left text-body-lg font-bold text-danger`}
+          className={`${styles.logoutButton} ${styles.menuButton} mt-auto flex w-full items-center border-0 bg-transparent px-3 py-3 text-left text-body-lg font-bold text-danger disabled:cursor-not-allowed disabled:opacity-60`}
+          disabled={isLoggingOut}
           onClick={handleLogoutClick}
         >
           로그아웃

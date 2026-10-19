@@ -9,6 +9,7 @@ import PageIntro from "@/components/common/PageIntro";
 import { useOnboarding, type OnboardingStep } from "@/contexts/OnboardingContext";
 import { ApiRequestError } from "@/lib/api/client";
 import { completeOnboarding } from "@/lib/api/completeOnboarding";
+import { clearLoginValidityCache } from "@/lib/api/loginValidity";
 
 import type { ReactNode } from "react";
 
@@ -26,7 +27,7 @@ const formatBirthDateForApi = (digits: string) =>
 // TODO: 온보딩 정보 조회 API 연동 후 Context 대신 API 응답으로 요약 정보 표시
 export default function OnboardingReview() {
   const router = useRouter();
-  const { state, goToStep, resetOnboarding } = useOnboarding();
+  const { state, goToStep, clearSavedOnboarding } = useOnboarding();
   const [isSaving, setIsSaving] = useState(false);
   const { gender, birthDateDigits, interestCategoryCodes, allergyCodes, giftExclusionCodes } =
     state.formData;
@@ -83,14 +84,14 @@ export default function OnboardingReview() {
         allergyCodes,
         giftExclusionCodes,
       });
-      resetOnboarding();
+      clearSavedOnboarding();
+      clearLoginValidityCache();
       router.replace("/");
     } catch (error) {
+      setIsSaving(false);
       router.replace(
         error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
       );
-    } finally {
-      setIsSaving(false);
     }
   };
 

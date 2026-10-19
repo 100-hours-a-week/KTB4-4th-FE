@@ -1,71 +1,131 @@
 // 헤더의 알림 버튼과 알림 목록 드롭다운
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+
+import PurchaseCheckModal from "@/components/products/PurchaseCheckModal";
+import { useNotificationContext } from "@/contexts/NotificationContext";
+import { ApiRequestError } from "@/lib/api/client";
+import { getPurchaseCheck, type PurchaseCheck } from "@/lib/api/purchaseChecks";
+import { formatRelativeTime } from "@/lib/formatRelativeTime";
+import { getNotificationDisplay } from "@/lib/notificationDisplay";
+import { getNotificationTargetPath, getPurchaseCheckTargetId } from "@/lib/notificationTarget";
 
 import NotificationItem from "./NotificationItem";
 
-type Notification = {
-  id: number;
-  title: string;
-  description: string;
-  createdAt: string;
-  isUnread: boolean;
-};
-
-const initialNotifications: Notification[] = [
-  {
-    id: 1,
-    title: "민준 님이 친구로 추가했어요.",
-    description: "친구의 취향을 확인해 보세요.",
-    createdAt: "방금 전",
-    isUnread: false,
-  },
-  {
-    id: 2,
-    title: "수연 님의 생일이 8일 남았어요.",
-    description: "지금 선물을 준비하면 여유 있게 도착해요.",
-    createdAt: "어제",
-    isUnread: true,
-  },
-  {
-    id: 3,
-    title: "수연 님의 생일이 8일 남았어요.",
-    description: "지금 선물을 준비하면 여유 있게 도착해요.",
-    createdAt: "어제",
-    isUnread: false,
-  },
-  {
-    id: 4,
-    title: "수연 님의 생일이 8일 남았어요.",
-    description: "지금 선물을 준비하면 여유 있게 도착해요.",
-    createdAt: "어제",
-    isUnread: true,
-  },
-];
-
 export default function NotificationDropdown() {
+  const {
+    notifications,
+    hasUnread,
+    hasNext,
+    isListLoaded,
+    isInitialLoading,
+    isLoadingMore,
+    isMarkingAllAsRead,
+    errorMessage,
+    loadNotificationsIfNeeded,
+    loadMoreNotifications,
+    readNotification,
+    deleteNotification: deleteNotificationItem,
+    markAllNotificationsAsRead: markAllNotificationItemsAsRead,
+  } = useNotificationContext();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([...initialNotifications]);
   const [revealedNotificationId, setRevealedNotificationId] = useState<number | null>(null);
+  const [purchaseCheck, setPurchaseCheck] = useState<PurchaseCheck | null>(null);
+  const [isLoadingPurchaseCheck, setIsLoadingPurchaseCheck] = useState(false);
+  const [purchaseCheckErrorMessage, setPurchaseCheckErrorMessage] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const sentinelRef = useRef<HTMLLIElement>(null);
   const dropdownId = useId();
   const headingId = useId();
-  const hasUnreadNotification = notifications.some((notification) => notification.isUnread);
+  // 첫 조회 결과를 받기 전에는 빈 목록 문구 대신 로딩 문구를 보여줌
+  const isWaitingInitialList = isInitialLoading || (!isListLoaded && !errorMessage);
 
   const deleteNotification = (notificationId: number) => {
-    setNotifications((currentNotifications) =>
-      currentNotifications.filter((notification) => notification.id !== notificationId),
-    );
+    void deleteNotificationItem(notificationId);
     setRevealedNotificationId(null);
+  };
+
+  // 구매 확인 정보를 먼저 조회하고, 성공했을 때만 드롭다운을 닫고 모달을 염
+  const openPurchaseCheck = async (purchaseCheckId: number) => {
+    if (isLoadingPurchaseCheck) return;
+
+    setIsLoadingPurchaseCheck(true);
+    setPurchaseCheckErrorMessage(null);
+
+    try {
+      const nextPurchaseCheck = await getPurchaseCheck(purchaseCheckId);
+
+      setIsOpen(false);
+      setRevealedNotificationId(null);
+      setPurchaseCheck(nextPurchaseCheck);
+    } catch (error) {
+      // 404 등 조회에 실패하면 모달을 띄우지 않고 드롭다운에 메시지만 표시함
+      setPurchaseCheckErrorMessage(
+        error instanceof ApiRequestError ? error.message : "구매 확인 정보를 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoadingPurchaseCheck(false);
+    }
+  };
+
+  // 읽지 않은 알림이면 읽음 처리하고, 이동할 화면이나 열 모달이 있으면 드롭다운을 닫고 이동함
+  const selectNotification = (notificationId: number) => {
+    const notification = notifications.find((item) => item.notificationId === notificationId);
+
+    if (!notification) return;
+
+    void readNotification(notificationId);
+
+    const purchaseCheckId = getPurchaseCheckTargetId(notification);
+
+    if (purchaseCheckId !== null) {
+      void openPurchaseCheck(purchaseCheckId);
+      return;
+    }
+
+    const targetPath = getNotificationTargetPath(notification);
+
+    if (!targetPath) return;
+
+    setIsOpen(false);
+    setRevealedNotificationId(null);
+    router.push(targetPath);
   };
 
   const markAllNotificationsAsRead = () => {
-    setNotifications((currentNotifications) =>
-      currentNotifications.map((notification) => ({ ...notification, isUnread: false })),
-    );
+    void markAllNotificationItemsAsRead();
     setRevealedNotificationId(null);
   };
+
+  // 드롭다운을 처음 열 때 알림 목록 첫 페이지를 조회함
+  useEffect(() => {
+    if (isOpen) {
+      void loadNotificationsIfNeeded();
+    }
+  }, [isOpen, loadNotificationsIfNeeded]);
+
+  // 목록 끝에 닿으면 다음 커서의 알림을 이어서 조회함
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+
+    if (!isOpen || !sentinel || !hasNext) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          void loadMoreNotifications();
+        }
+      },
+      { root: listRef.current, rootMargin: "100px 0px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [isOpen, hasNext, loadMoreNotifications, notifications.length]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -74,6 +134,7 @@ export default function NotificationDropdown() {
       if (!containerRef.current?.contains(event.target as Node)) {
         setIsOpen(false);
         setRevealedNotificationId(null);
+        setPurchaseCheckErrorMessage(null);
       }
     };
 
@@ -81,6 +142,7 @@ export default function NotificationDropdown() {
       if (event.key === "Escape") {
         setIsOpen(false);
         setRevealedNotificationId(null);
+        setPurchaseCheckErrorMessage(null);
       }
     };
 
@@ -101,7 +163,10 @@ export default function NotificationDropdown() {
         aria-controls={dropdownId}
         aria-expanded={isOpen}
         className="touch-target relative flex items-center justify-start border-0 bg-transparent p-0 text-foreground"
-        onClick={() => setIsOpen((currentIsOpen) => !currentIsOpen)}
+        onClick={() => {
+          setIsOpen((currentIsOpen) => !currentIsOpen);
+          setPurchaseCheckErrorMessage(null);
+        }}
       >
         <svg
           aria-hidden="true"
@@ -119,7 +184,7 @@ export default function NotificationDropdown() {
             strokeLinejoin="round"
           />
         </svg>
-        {hasUnreadNotification && (
+        {hasUnread && (
           <span
             aria-hidden="true"
             className="absolute top-2.5 left-[22px] size-1.5 rounded-full bg-danger"
@@ -140,22 +205,55 @@ export default function NotificationDropdown() {
           {notifications.length > 0 ? (
             <>
               <ul
+                ref={listRef}
                 className={`m-0 list-none border-t border-border p-0 ${notifications.length >= 4 ? "max-h-72 overflow-y-auto overscroll-contain" : ""}`}
               >
-                {notifications.map((notification) => (
-                  <NotificationItem
-                    key={notification.id}
-                    {...notification}
-                    isDeleteRevealed={revealedNotificationId === notification.id}
-                    onDelete={deleteNotification}
-                    onRevealDelete={setRevealedNotificationId}
-                  />
-                ))}
+                {notifications.map((notification) => {
+                  const { title, titleParts, description, thumbnail } =
+                    getNotificationDisplay(notification);
+
+                  return (
+                    <NotificationItem
+                      key={notification.notificationId}
+                      id={notification.notificationId}
+                      title={title}
+                      titleParts={titleParts}
+                      description={description}
+                      thumbnail={thumbnail}
+                      createdAt={formatRelativeTime(notification.createdAt)}
+                      isUnread={notification.readAt === null}
+                      isDeleteRevealed={revealedNotificationId === notification.notificationId}
+                      onSelect={selectNotification}
+                      onDelete={deleteNotification}
+                      onRevealDelete={setRevealedNotificationId}
+                    />
+                  );
+                })}
+                {hasNext && <li ref={sentinelRef} aria-hidden="true" className="h-px" />}
               </ul>
+              {(isLoadingPurchaseCheck || purchaseCheckErrorMessage) && (
+                <p
+                  role={purchaseCheckErrorMessage ? "alert" : "status"}
+                  className="m-0 border-t border-border px-5 py-2 text-center text-body-sm text-muted"
+                >
+                  {isLoadingPurchaseCheck
+                    ? "구매 확인 정보를 불러오는 중입니다."
+                    : purchaseCheckErrorMessage}
+                </p>
+              )}
+              {(isLoadingMore || errorMessage) && (
+                <p
+                  role={errorMessage ? "alert" : "status"}
+                  className="m-0 border-t border-border px-5 py-2 text-center text-body-sm text-muted"
+                >
+                  {isLoadingMore ? "알림을 불러오는 중입니다." : errorMessage}
+                </p>
+              )}
               <div className="flex justify-end border-t border-border px-3 py-1">
                 <button
                   type="button"
-                  disabled={!hasUnreadNotification}
+                  disabled={!hasUnread || isMarkingAllAsRead}
+                  aria-busy={isMarkingAllAsRead}
                   className="group touch-target flex items-center justify-center border-0 bg-transparent p-0 disabled:cursor-not-allowed"
                   onClick={markAllNotificationsAsRead}
                 >
@@ -166,11 +264,24 @@ export default function NotificationDropdown() {
               </div>
             </>
           ) : (
-            <p className="m-0 border-t border-border px-5 py-8 text-center text-body text-muted">
-              새로운 알림이 없습니다.
+            <p
+              role={isWaitingInitialList ? "status" : undefined}
+              className="m-0 border-t border-border px-5 py-8 text-center text-body text-muted"
+            >
+              {isWaitingInitialList
+                ? "알림을 불러오는 중입니다."
+                : (errorMessage ?? "새로운 알림이 없습니다.")}
             </p>
           )}
         </section>
+      )}
+
+      {purchaseCheck && (
+        <PurchaseCheckModal
+          open
+          purchaseCheck={purchaseCheck}
+          onClose={() => setPurchaseCheck(null)}
+        />
       )}
     </div>
   );

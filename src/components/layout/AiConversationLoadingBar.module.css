@@ -1,0 +1,39 @@
+/* 헤더 아래 AI 대화 시작 진행 상태 애니메이션 */
+
+.track {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  z-index: 50;
+  width: min(100%, var(--app-max-width));
+  height: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--color-brand-50);
+  transform: translateX(-50%);
+}
+
+.bar {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: var(--color-primary);
+  animation: ai-conversation-loading 1.2s var(--ease-standard) infinite;
+}
+
+@keyframes ai-conversation-loading {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    margin-left: 30%;
+    animation: none;
+  }
+}

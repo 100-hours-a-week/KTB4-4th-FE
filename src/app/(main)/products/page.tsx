@@ -42,7 +42,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     const categories = await getProductCategoriesOrRedirect();
 
     return (
-      <main aria-label="상품 추천" className="page-content flex flex-1 flex-col bg-background">
+      <main
+        aria-label="상품 추천"
+        className="page-content flex flex-1 flex-col bg-background pb-[calc(var(--spacing-bottom-nav-overlap)+var(--spacing-page))]"
+      >
         <FriendRecommendationContent userId={userId} categories={categories} />
       </main>
     );
@@ -51,7 +54,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const categories = await getProductCategoriesOrRedirect();
 
   return (
-    <main aria-label="상품 추천" className="page-content flex flex-1 flex-col bg-background">
+    <main
+      aria-label="상품 추천"
+      className="page-content flex flex-1 flex-col bg-background pb-[calc(var(--spacing-bottom-nav-overlap)+var(--spacing-page))]"
+    >
       <PersonalRecommendationsContent categories={categories} />
     </main>
   );

@@ -85,7 +85,7 @@ export default function PreferenceSelectionStep({
       </ActionButton>
 
       <p className="mt-3 text-center text-body-sm text-info">
-        고른 관심사는 AI와 대화하면서 계속 다듬어져요.
+        고른 관심사는 AI 대화를 통한 취향 분석에 도움이 돼요.
       </p>
     </main>
   );

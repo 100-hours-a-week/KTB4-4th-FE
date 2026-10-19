@@ -3,6 +3,8 @@
 type FriendFavoriteButtonProps = {
   name?: string;
   isFavorite: boolean;
+  isPending?: boolean;
+  disabled?: boolean;
   onToggle: () => void;
   className?: string;
 };
@@ -10,6 +12,8 @@ type FriendFavoriteButtonProps = {
 export default function FriendFavoriteButton({
   name,
   isFavorite,
+  isPending = false,
+  disabled = false,
   onToggle,
   className = "",
 }: FriendFavoriteButtonProps) {
@@ -20,8 +24,10 @@ export default function FriendFavoriteButton({
       type="button"
       aria-label={`${friendLabel}즐겨찾기 ${isFavorite ? "해제" : "설정"}`}
       aria-pressed={isFavorite}
+      aria-busy={isPending}
+      disabled={isPending || disabled}
       onClick={onToggle}
-      className={`touch-target flex shrink-0 items-center justify-center border-0 bg-transparent p-0 transition-colors ${
+      className={`touch-target flex shrink-0 items-center justify-center border-0 bg-transparent p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
         isFavorite ? "text-primary" : "text-muted"
       } ${className}`}
     >

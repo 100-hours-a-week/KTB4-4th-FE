@@ -3,25 +3,40 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 
 import AiSummarySection from "@/components/common/AiSummarySection";
 import KeywordSection from "@/components/common/KeywordSection";
 import FriendPokeButton from "@/components/friends/FriendPokeButton";
-import { ApiRequestError } from "@/lib/api/client";
-import { getFriendDetail, type FriendDetail } from "@/lib/api/friends";
-import { friendPreferenceMock } from "@/mocks/friendDetail";
+import { useFriendDetailContext } from "@/contexts/FriendDetailContext";
+import type { FriendDetail } from "@/lib/api/friends";
 
 type FriendDetailContentProps = {
   userId: number;
+  initialFriend: FriendDetail;
 };
 
-// TODO: 친구 상세 API에 생일 정보가 추가되면 응답 데이터로 교체
-const TEMPORARY_BIRTHDAY = {
-  month: 10,
-  day: 14,
-};
+function parseBirthday(birthDate: string | null) {
+  if (!birthDate) {
+    return null;
+  }
+
+  const match = birthDate.match(/^\d{4}-(\d{2})-(\d{2})$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const date = new Date(Date.UTC(2000, month - 1, day));
+
+  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return null;
+  }
+
+  return { month, day };
+}
 
 function getDaysUntilBirthday(month: number, day: number) {
   const today = new Date();
@@ -35,50 +50,15 @@ function getDaysUntilBirthday(month: number, day: number) {
   return Math.round((birthdayAtUtc - todayAtUtc) / (1000 * 60 * 60 * 24));
 }
 
-export default function FriendDetailContent({ userId }: FriendDetailContentProps) {
-  const router = useRouter();
-  const [friend, setFriend] = useState<FriendDetail | null>(null);
-  const isMountedRef = useRef(false);
-  const requestedUserIdRef = useRef<number | null>(null);
-  const daysUntilBirthday = getDaysUntilBirthday(TEMPORARY_BIRTHDAY.month, TEMPORARY_BIRTHDAY.day);
+export default function FriendDetailContent({ userId, initialFriend }: FriendDetailContentProps) {
+  const { friend: friendDetail, initializeFriend } = useFriendDetailContext();
+  const friend = friendDetail?.id === userId ? friendDetail : initialFriend;
+  const birthday = friend ? parseBirthday(friend.birthDate) : null;
+  const daysUntilBirthday = birthday ? getDaysUntilBirthday(birthday.month, birthday.day) : null;
 
   useEffect(() => {
-    isMountedRef.current = true;
-
-    const loadFriendDetail = async () => {
-      try {
-        const data = await getFriendDetail(userId);
-
-        if (isMountedRef.current && requestedUserIdRef.current === userId) {
-          setFriend(data);
-        }
-      } catch (error) {
-        if (isMountedRef.current && requestedUserIdRef.current === userId) {
-          router.replace(
-            error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
-          );
-        }
-      }
-    };
-
-    if (requestedUserIdRef.current !== userId) {
-      requestedUserIdRef.current = userId;
-      setFriend(null);
-      void loadFriendDetail();
-    }
-
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, [router, userId]);
-
-  if (!friend) {
-    return (
-      <p role="status" className="pt-12 text-center text-body-sm text-muted">
-        친구 정보를 불러오는 중이에요.
-      </p>
-    );
-  }
+    initializeFriend(initialFriend);
+  }, [initialFriend, initializeFriend]);
 
   return (
     <section
@@ -99,16 +79,18 @@ export default function FriendDetailContent({ userId }: FriendDetailContentProps
       <h1 id="friend-name" className="mt-4 text-heading-1 font-bold text-foreground">
         {friend.nickname}
       </h1>
-      <p className="mt-2 flex items-center gap-1 text-body font-semibold text-birthday">
-        <span>
-          {TEMPORARY_BIRTHDAY.month}월 {TEMPORARY_BIRTHDAY.day}일
-        </span>
-        {daysUntilBirthday === 0 ? (
-          <span>· 생일 🎂</span>
-        ) : (
-          daysUntilBirthday <= 7 && <span>· D-{daysUntilBirthday} 🎂</span>
-        )}
-      </p>
+      {birthday && daysUntilBirthday !== null && (
+        <p className="mt-2 flex items-center gap-1 text-body font-semibold text-birthday">
+          <span>
+            {birthday.month}월 {birthday.day}일
+          </span>
+          {daysUntilBirthday === 0 ? (
+            <span>· 생일 🎂</span>
+          ) : (
+            daysUntilBirthday <= 7 && <span>· D-{daysUntilBirthday} 🎂</span>
+          )}
+        </p>
+      )}
       <div className="mt-4 w-full max-w-[360px]">
         <Link
           href={`/products?targetType=FRIEND&targetUserId=${friend.id}`}
@@ -117,24 +99,22 @@ export default function FriendDetailContent({ userId }: FriendDetailContentProps
           <span className="font-semibold">{friend.nickname}님에게 선물하기</span>
         </Link>
       </div>
-      {friend.tasteAnalysisCompleted ? (
+      <div className="mt-4 flex w-full max-w-[360px] justify-center">
+        <FriendPokeButton userId={userId} nickname={friend.nickname} />
+      </div>
+      {friend.tasteAnalysisCompleted && (
         <div className="mt-8 flex w-full max-w-[360px] flex-col gap-8 text-left">
-          {/* TODO: 친구 상세 API에 취향 및 관심사 요약이 추가되면 실제 응답 데이터로 교체 */}
           <KeywordSection
             category="취향"
             nickname={friend.nickname}
-            keywords={friendPreferenceMock.tasteKeywords}
+            keywords={friend.tasteKeywords}
           />
           <KeywordSection
             category="관심사"
             nickname={friend.nickname}
-            keywords={friendPreferenceMock.interestKeywords}
+            keywords={friend.interestKeywords}
           />
-          <AiSummarySection nickname={friend.nickname} summary={friendPreferenceMock.aiSummary} />
-        </div>
-      ) : (
-        <div className="mt-8 flex w-full max-w-[360px] justify-center">
-          <FriendPokeButton nickname={friend.nickname} />
+          <AiSummarySection nickname={friend.nickname} summary={friend.interestSummary} />
         </div>
       )}
     </section>
