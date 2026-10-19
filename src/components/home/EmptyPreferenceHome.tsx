@@ -26,7 +26,7 @@ export default function EmptyPreferenceHome({ title, description }: EmptyPrefere
     <>
       <PageIntro title={title} description={description} />
 
-      <section aria-label="취향 찾기 안내" className="mt-5 rounded-sm bg-background-subtle p-4">
+      <section aria-label="취향 찾기 안내" className="mt-5 p-4">
         <Image
           src="/images/NeedU_logo.png"
           alt="NeedU 서비스 로고"

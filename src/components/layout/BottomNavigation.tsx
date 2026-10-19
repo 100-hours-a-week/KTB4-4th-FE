@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import AiConversationLoadingBar from "@/components/layout/AiConversationLoadingBar";
 import useAiConversationStart from "@/hooks/useAiConversationStart";
 
 import styles from "./BottomNavigation.module.css";
@@ -50,6 +51,8 @@ export default function BottomNavigation() {
 
   return (
     <nav aria-label="하단 메뉴" className="relative z-10 shrink-0">
+      {isStartingConversation && <AiConversationLoadingBar />}
+
       {errorMessage && (
         <p
           role="alert"
