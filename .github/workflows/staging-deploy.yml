@@ -17,6 +17,7 @@ jobs:
 
     permissions:
       contents: read
+      actions: read # 추가
       id-token: write
 
     uses: ./.github/workflows/deploy.yml
