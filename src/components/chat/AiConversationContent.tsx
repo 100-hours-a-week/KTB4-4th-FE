@@ -14,6 +14,7 @@ import { AI_CONSENT_SETTINGS_PATH, isAiConsentRequiredError } from "@/lib/api/ai
 import { getAiConversationMessages } from "@/lib/api/aiConversationMessages";
 import { startAiConversation, type AiConversationStatus } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
+import { checkLoginValidity } from "@/lib/api/loginValidity";
 import { getPreferenceAnalysisDescription } from "@/mocks/chat";
 import type {
   AiConversationCompletedEvent,
@@ -60,6 +61,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
   const [messagesState, setMessagesState] = useState<ConversationMessagesState | null>(null);
   const [messagesError, setMessagesError] = useState<ConversationMessagesError | null>(null);
   const [conversationRestoreError, setConversationRestoreError] = useState("");
+  const [loginNickname, setLoginNickname] = useState("나");
   const [requestVersion, setRequestVersion] = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState<ConversationAnalysisProgress | null>(
     null,
@@ -101,6 +103,22 @@ export default function AiConversationContent({ conversationId }: AiConversation
       : isVerifiedConversation
         ? conversation.progress
         : 0;
+
+  useEffect(() => {
+    let isActive = true;
+
+    void checkLoginValidity()
+      .then(({ user }) => {
+        if (isActive) {
+          setLoginNickname(user.nickname);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isVerifiedConversation) {
@@ -303,6 +321,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
       ) : (
         <ChatRoom
           key={`conversation-${availableConversationId}`}
+          nickname={loginNickname}
           initialMessages={messages}
           initialAnalysisStatus="IDLE"
           analysisResult={EMPTY_PREFERENCE_ANALYSIS_RESULT}

@@ -2,7 +2,8 @@
 
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useState } from "react";
 
 import Modal from "@/components/common/Modal";
 import type { PreferenceAnalysisKeyword, PreferenceAnalysisResult } from "@/types/chat";
@@ -11,6 +12,7 @@ import styles from "./PreferenceAnalysisResultModal.module.css";
 
 type PreferenceAnalysisResultModalProps = {
   open: boolean;
+  nickname: string;
   result: PreferenceAnalysisResult;
   onReject: () => void;
   onConfirm: () => Promise<void>;
@@ -27,13 +29,13 @@ const sortByScore = (keywords: PreferenceAnalysisKeyword[]) =>
 
 export default function PreferenceAnalysisResultModal({
   open,
+  nickname,
   result,
   onReject,
   onConfirm,
   onUpdateAnalysis,
   isConfirming,
 }: PreferenceAnalysisResultModalProps) {
-  const summaryTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [interests, setInterests] = useState(() => sortByScore(result.interests));
   const [preferences, setPreferences] = useState(() => sortByScore(result.preferences));
   const [interestDrafts, setInterestDrafts] = useState(() => sortByScore(result.interests));
@@ -45,15 +47,6 @@ export default function PreferenceAnalysisResultModal({
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateErrorMessage, setUpdateErrorMessage] = useState("");
   const [confirmErrorMessage, setConfirmErrorMessage] = useState("");
-
-  useLayoutEffect(() => {
-    const textarea = summaryTextareaRef.current;
-
-    if (!isEditing || !textarea) return;
-
-    textarea.style.height = "auto";
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [isEditing, summaryDraft]);
 
   const startEditing = () => {
     setSummaryDraft(summary ?? "");
@@ -123,16 +116,13 @@ export default function PreferenceAnalysisResultModal({
     badges: PreferenceAnalysisKeyword[],
     setBadges: React.Dispatch<React.SetStateAction<PreferenceAnalysisKeyword[]>>,
   ) => (
-    <div className="mt-3 flex flex-wrap gap-1">
+    <ul className="mt-3 flex list-none flex-wrap gap-2 p-0">
       {badges.map((badge, index) => (
-        <span
+        <li
           key={`${badge.value}-${index}`}
-          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[4px] bg-background-subtle px-2 py-1.5 text-[10px] font-bold text-muted"
+          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-brand-100 bg-warning-subtle px-3.5 py-1.5 text-body font-bold text-foreground-secondary"
         >
           <span>{badge.value}</span>
-          <span className="rounded-full bg-info-subtle px-1 py-0.5 font-bold text-muted">
-            {Math.round(Math.min(Math.max(badge.score, 0), 1) * 100)}%
-          </span>
           {isEditing && (
             <button
               type="button"
@@ -144,9 +134,9 @@ export default function PreferenceAnalysisResultModal({
               <span aria-hidden="true">×</span>
             </button>
           )}
-        </span>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 
   return (
@@ -181,53 +171,83 @@ export default function PreferenceAnalysisResultModal({
         <p className="mt-0 text-body-sm text-foreground">
           니쥬가 분석한 내용이 맞다고 생각하시나요?
         </p>
-        <div aria-label="취향 분석 결과" className="mt-6 space-y-5">
+        <div aria-label="취향 분석 결과" className="mt-6 space-y-8">
           <section aria-labelledby="preference-analysis-preferences">
-            <h3 id="preference-analysis-preferences" className="text-body font-bold">
-              취향
+            <h3
+              id="preference-analysis-preferences"
+              className="flex min-w-0 items-baseline whitespace-nowrap text-heading-3 font-bold text-foreground"
+            >
+              <span className="shrink-0">최근&nbsp;</span>
+              <span className="min-w-0 truncate text-info">{nickname}</span>
+              <span className="shrink-0">님의 취향</span>
             </h3>
             {renderBadges(isEditing ? preferenceDrafts : preferences, setPreferenceDrafts)}
           </section>
           <section aria-labelledby="preference-analysis-interests">
-            <h3 id="preference-analysis-interests" className="text-body font-bold">
-              관심사
+            <h3
+              id="preference-analysis-interests"
+              className="flex min-w-0 items-baseline whitespace-nowrap text-heading-3 font-bold text-foreground"
+            >
+              <span className="shrink-0">최근&nbsp;</span>
+              <span className="min-w-0 truncate text-info">{nickname}</span>
+              <span className="shrink-0">님의 관심사</span>
             </h3>
             {renderBadges(isEditing ? interestDrafts : interests, setInterestDrafts)}
           </section>
           {(summary !== null || isEditing) && (
-            <section aria-labelledby="preference-analysis-summary">
-              <h3 id="preference-analysis-summary" className="text-body font-bold">
-                요약
-              </h3>
-              {isEditing ? (
-                <form
-                  id="preference-analysis-correction-form"
-                  className="mt-3"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void updateAnalysis();
-                  }}
+            <section
+              aria-labelledby="preference-analysis-summary"
+              className="flex items-start gap-3 rounded-lg border border-border bg-background-subtle p-4"
+            >
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-surface">
+                <Image
+                  src="/images/Needu_profile.png"
+                  alt="니쥬 프로필"
+                  fill
+                  sizes="48px"
+                  className="object-cover"
+                />
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h3
+                  id="preference-analysis-summary"
+                  className="flex min-w-0 items-baseline whitespace-nowrap text-heading-3 font-bold text-foreground"
                 >
-                  <textarea
-                    ref={summaryTextareaRef}
-                    value={summaryDraft}
-                    aria-label="요약 수정"
-                    autoFocus
-                    disabled={isUpdating}
-                    rows={1}
-                    className={`${styles.summaryInput} block w-full resize-none overflow-hidden rounded-[4px] border-0 bg-background-subtle px-3 py-2 text-foreground placeholder:text-muted`}
-                    placeholder="분석한 내용을 입력해주세요."
-                    onChange={(event) => setSummaryDraft(event.target.value)}
-                  />
-                  {updateErrorMessage && (
-                    <p role="alert" className="mt-2 text-body-sm text-danger">
-                      {updateErrorMessage}
-                    </p>
-                  )}
-                </form>
-              ) : (
-                <p className="mt-3 text-body-sm text-muted">{summary}</p>
-              )}
+                  <span className="shrink-0">니쥬가 발견한&nbsp;</span>
+                  <span className="min-w-0 truncate text-info">{nickname}</span>
+                  <span className="shrink-0">님이에요!</span>
+                </h3>
+                {isEditing ? (
+                  <form
+                    id="preference-analysis-correction-form"
+                    className="mt-3"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void updateAnalysis();
+                    }}
+                  >
+                    <textarea
+                      value={summaryDraft}
+                      aria-label="요약 수정"
+                      autoFocus
+                      disabled={isUpdating}
+                      rows={1}
+                      className={`${styles.summaryInput} block h-32 w-full resize-none overflow-y-auto rounded-[4px] border border-border bg-surface px-3 py-2 text-foreground placeholder:text-muted`}
+                      placeholder="분석한 내용을 입력해주세요."
+                      onChange={(event) => setSummaryDraft(event.target.value)}
+                    />
+                    {updateErrorMessage && (
+                      <p role="alert" className="mt-2 text-body-sm text-danger">
+                        {updateErrorMessage}
+                      </p>
+                    )}
+                  </form>
+                ) : (
+                  <p className="mt-3 break-keep text-body leading-6 text-foreground-secondary">
+                    {summary}
+                  </p>
+                )}
+              </div>
             </section>
           )}
           {confirmErrorMessage && (
