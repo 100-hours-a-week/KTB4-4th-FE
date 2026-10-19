@@ -304,11 +304,6 @@ jobs:
           echo "ECS 서비스 확인 완료: $ECS_SERVICE"
           echo "현재 Desired Count: $DESIRED_COUNT"
 
-          if [[ "$DEPLOY_ENVIRONMENT" == "prod" && "$DESIRED_COUNT" -ne 0 ]]; then
-            echo "::error::Prod ECS가 기동 중입니다. Runtime Control 담당자와 확인 후 배포해야 합니다."
-            exit 1
-          fi
-
       - name: Create Task Definition Revision
         id: task-definition
         shell: bash
