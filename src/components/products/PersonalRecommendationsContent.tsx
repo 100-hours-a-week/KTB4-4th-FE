@@ -1,7 +1,7 @@
 // 내 추천 상품의 전체 가격 범위와 선택 예산을 연결하는 콘텐츠
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
@@ -16,6 +16,8 @@ import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCa
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type ProductVisibilityTab = "private" | "shared";
+
+const VISIBILITY_TAB_QUERY_KEY = "tab";
 
 type TabPriceRangeState = {
   available: PriceRange | null;
@@ -37,8 +39,10 @@ export default function PersonalRecommendationsContent({
   categories,
 }: PersonalRecommendationsContentProps) {
   const router = useRouter();
-  const [selectedVisibilityTab, setSelectedVisibilityTab] =
-    useState<ProductVisibilityTab>("private");
+  const searchParams = useSearchParams();
+  // 상세 화면에서 뒤로 가기로 돌아와도 선택한 탭이 유지되도록 URL 쿼리를 탭 상태의 기준으로 사용함
+  const selectedVisibilityTab: ProductVisibilityTab =
+    searchParams.get(VISIBILITY_TAB_QUERY_KEY) === "shared" ? "shared" : "private";
   const [loginUser, setLoginUser] = useState<LoginValidityData["user"] | null>(null);
   const [priceRangesByTab, setPriceRangesByTab] = useState<
     Record<ProductVisibilityTab, TabPriceRangeState>
@@ -97,6 +101,20 @@ export default function PersonalRecommendationsContent({
     [updateTabPriceRange],
   );
 
+  // 탭 전환마다 기록이 쌓이지 않도록 현재 기록의 URL만 교체함
+  const handleVisibilityTabChange = (tab: ProductVisibilityTab) => {
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+
+    if (tab === "shared") {
+      nextSearchParams.set(VISIBILITY_TAB_QUERY_KEY, tab);
+    } else {
+      nextSearchParams.delete(VISIBILITY_TAB_QUERY_KEY);
+    }
+
+    const nextQuery = nextSearchParams.toString();
+    window.history.replaceState(null, "", nextQuery ? `?${nextQuery}` : window.location.pathname);
+  };
+
   const handlePriceRangeCommit = (priceRange: PriceRange) => {
     updateTabPriceRange(selectedVisibilityTab, { selected: priceRange, applied: priceRange });
   };
@@ -142,7 +160,7 @@ export default function PersonalRecommendationsContent({
         <SegmentedTabs
           items={productVisibilityTabs}
           value={selectedVisibilityTab}
-          onChange={setSelectedVisibilityTab}
+          onChange={handleVisibilityTabChange}
           ariaLabel="상품 공개 범위"
           className="mb-4"
         />
