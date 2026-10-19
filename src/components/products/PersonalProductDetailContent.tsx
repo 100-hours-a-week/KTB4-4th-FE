@@ -94,7 +94,8 @@ export default function PersonalProductDetailContent({
   };
 
   const handleLike = async () => {
-    if (isFriendGift || isSubmittingFeedback || feedback === "DISLIKE") {
+    // 이미 마음에 들어요를 저장했거나 별로예요를 선택한 상품은 중복 요청하지 않음
+    if (isFriendGift || isSubmittingFeedback || feedback !== null) {
       return;
     }
 
@@ -109,6 +110,8 @@ export default function PersonalProductDetailContent({
         feedback: "LIKE",
       });
       setFeedback(savedFeedback.feedback);
+      // 뒤로가기로 재진입해도 저장된 만족도가 반영되도록 라우터 캐시의 상세 데이터를 갱신함
+      router.refresh();
     } catch (error) {
       setFeedback(previousFeedback);
 
@@ -232,7 +235,7 @@ export default function PersonalProductDetailContent({
               type="button"
               aria-pressed={feedback === "LIKE"}
               aria-busy={isSubmittingFeedback && feedback === "LIKE"}
-              disabled={isSubmittingFeedback || feedback === "DISLIKE"}
+              disabled={isSubmittingFeedback || feedback !== null}
               onClick={() => void handleLike()}
               className="rounded-sm border-0 bg-primary px-3 py-2 text-body-sm text-on-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
