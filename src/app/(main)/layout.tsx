@@ -18,7 +18,8 @@ export default function MainLayout({ children }: Readonly<{ children: ReactNode 
         <AiConversationProvider>
           <FriendDetailProvider>
             <Header />
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-gutter:stable]">
+            {/* 자체 스크롤 영역을 가진 페이지는 data-scrollbar-gutter="none"으로 스크롤바 여백 제외 */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-gutter:stable] has-[[data-scrollbar-gutter=none]]:[scrollbar-gutter:auto]">
               {children}
             </div>
             <Toast />

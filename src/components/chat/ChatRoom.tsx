@@ -745,7 +745,7 @@ export default function ChatRoom({
       throw new Error("추천 생성이 완료되지 않았습니다. 다시 시도해 주세요.");
     }
 
-    router.replace("/");
+    router.replace("/products");
   };
 
   return (

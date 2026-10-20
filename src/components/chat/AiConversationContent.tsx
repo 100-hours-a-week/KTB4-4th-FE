@@ -264,6 +264,7 @@ export default function AiConversationContent({ conversationId }: AiConversation
   return (
     <main
       aria-label="AI 대화"
+      data-scrollbar-gutter="none"
       className="page-content flex min-h-0 flex-1 flex-col bg-background-subtle pt-4"
     >
       {/* TODO: 취향 분석 진행률 설명 API 연동 후 Mock 설명 문구 교체 */}

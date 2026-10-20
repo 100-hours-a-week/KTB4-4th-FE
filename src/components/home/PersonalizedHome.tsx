@@ -72,7 +72,7 @@ export default function PersonalizedHome({
               </h2>
               <Link
                 href={`/products?targetType=SELF&targetUserId=${userId}`}
-                className="shrink-0 text-body-sm text-foreground-secondary"
+                className="shrink-0 rounded-sm bg-background-subtle px-2 py-0.5 text-body-sm text-foreground-secondary"
               >
                 더보기
               </Link>
