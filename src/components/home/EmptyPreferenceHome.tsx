@@ -26,7 +26,8 @@ export default function EmptyPreferenceHome({ title, description }: EmptyPrefere
     <>
       <PageIntro title={title} description={description} />
 
-      <section aria-label="취향 찾기 안내" className="mt-5 p-4">
+      {/* 레이아웃의 오른쪽 스크롤바 여백으로 콘텐츠가 왼쪽에 치우치지 않도록 여백 제외 */}
+      <section aria-label="취향 찾기 안내" data-scrollbar-gutter="none" className="mt-5 p-4">
         <Image
           src="/images/NeedU_logo.png"
           alt="NeedU 서비스 로고"
