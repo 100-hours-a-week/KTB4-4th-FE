@@ -1,0 +1,17 @@
+/* 애플리케이션 전역에서 사용하는 카카오 작은글씨 웹폰트 정의 (SIL OFL 1.1, public/fonts/OFL.txt) */
+
+@font-face {
+  font-family: "Kakao Small Sans";
+  src: url("/fonts/KakaoSmallSans-Regular-v2.002.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Kakao Small Sans";
+  src: url("/fonts/KakaoSmallSans-Bold-v2.002.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

@@ -4,7 +4,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
-import { kakaoSmallSans } from "./fonts";
+import { preloadKakaoSmallSans } from "./fonts";
+import "./fonts.css";
 import "./globals.css";
 
 type GlobalErrorProps = {
@@ -17,8 +18,10 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
     Sentry.captureException(error);
   }, [error]);
 
+  preloadKakaoSmallSans();
+
   return (
-    <html lang="ko" className={kakaoSmallSans.variable}>
+    <html lang="ko">
       <body>
         <main className="mobile-layout page-content items-center justify-center text-center">
           <h1 className="text-heading-2 font-bold text-foreground">문제가 발생했어요.</h1>

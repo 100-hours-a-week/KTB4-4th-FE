@@ -1,7 +1,8 @@
 // 전역 메타데이터와 폰트를 적용하는 루트 레이아웃
 import { GoogleAnalytics } from "@next/third-parties/google";
 
-import { kakaoSmallSans } from "./fonts";
+import { preloadKakaoSmallSans } from "./fonts";
+import "./fonts.css";
 import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
@@ -22,8 +23,10 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  preloadKakaoSmallSans();
+
   return (
-    <html lang="ko" className={kakaoSmallSans.variable}>
+    <html lang="ko">
       <body>
         <div className="mobile-layout">{children}</div>
       </body>
