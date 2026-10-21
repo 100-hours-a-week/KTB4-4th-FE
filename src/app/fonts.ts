@@ -17,5 +17,7 @@ export const kakaoSmallSans = localFont({
   ],
   variable: "--font-kakao-small-sans",
   display: "swap",
+
+  preload: false,
   fallback: ["Apple SD Gothic Neo", "Noto Sans KR", "sans-serif"],
 });
