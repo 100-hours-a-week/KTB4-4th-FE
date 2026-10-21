@@ -1,7 +1,6 @@
 // 전역 메타데이터와 폰트를 적용하는 루트 레이아웃
 import { GoogleAnalytics } from "@next/third-parties/google";
 
-import { preloadKakaoSmallSans } from "./fonts";
 import "./fonts.css";
 import "./globals.css";
 
@@ -23,8 +22,6 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  preloadKakaoSmallSans();
-
   return (
     <html lang="ko">
       <body>

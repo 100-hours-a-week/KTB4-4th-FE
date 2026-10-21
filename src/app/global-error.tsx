@@ -4,7 +4,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
-import { preloadKakaoSmallSans } from "./fonts";
 import "./fonts.css";
 import "./globals.css";
 
@@ -17,8 +16,6 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   useEffect(() => {
     Sentry.captureException(error);
   }, [error]);
-
-  preloadKakaoSmallSans();
 
   return (
     <html lang="ko">
