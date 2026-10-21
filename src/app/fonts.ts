@@ -1,21 +1,14 @@
-// 애플리케이션 전역에서 사용하는 로컬 카카오 폰트 설정
+// 카카오 작은글씨 웹폰트를 HTML head에서 미리 불러오도록 등록하는 함수
 
-import localFont from "next/font/local";
+import { preload } from "react-dom";
 
-export const kakaoSmallSans = localFont({
-  src: [
-    {
-      path: "../fonts/KakaoSmallSans-Regular.ttf",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "../fonts/KakaoSmallSans-Bold.ttf",
-      weight: "700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-kakao-small-sans",
-  display: "swap",
-  fallback: ["Apple SD Gothic Neo", "Noto Sans KR", "sans-serif"],
-});
+const KAKAO_SMALL_SANS_FONT_URLS = [
+  "/fonts/KakaoSmallSans-Regular-v2.002.woff2",
+  "/fonts/KakaoSmallSans-Bold-v2.002.woff2",
+];
+
+export function preloadKakaoSmallSans() {
+  KAKAO_SMALL_SANS_FONT_URLS.forEach((href) => {
+    preload(href, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+  });
+}

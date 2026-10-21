@@ -39,7 +39,7 @@
   --color-info-subtle: #e0f0fe;
 
   /* 한글 중심 글꼴과 텍스트 크기 */
-  --font-sans: var(--font-kakao-small-sans), "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-sans: "Kakao Small Sans", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   /* 카카오 폰트의 단독 자음(ㄹ, ㅋ 등)이 크게 보이는 입력 필드에 쓰는 시스템 한글 글꼴 */
   --font-system-ko: "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
   --text-display: 3.5rem;
