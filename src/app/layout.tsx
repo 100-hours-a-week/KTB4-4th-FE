@@ -1,7 +1,8 @@
 // 전역 메타데이터와 폰트를 적용하는 루트 레이아웃
 import { GoogleAnalytics } from "@next/third-parties/google";
 
-import "./fonts.css";
+import FontStylesheet from "@/components/layout/FontStylesheet";
+
 import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
@@ -24,6 +25,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko">
+      <head>
+        <FontStylesheet />
+      </head>
       <body>
         <div className="mobile-layout">{children}</div>
       </body>
