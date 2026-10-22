@@ -1,4 +1,4 @@
-// 첫 화면 표시를 기다리게 하지 않도록 웹폰트 정의 CSS를 비차단 방식으로 불러오는 head 컴포넌트
+// 첫 화면 표시와 HTML 해석을 막지 않도록 body 끝에서 웹폰트 정의 CSS를 비차단 방식으로 불러오는 컴포넌트
 
 import { KAKAO_SMALL_SANS_STYLESHEET } from "@/app/fonts";
 
