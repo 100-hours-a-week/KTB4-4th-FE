@@ -1,21 +1,3 @@
-// 애플리케이션 전역에서 사용하는 로컬 카카오 폰트 설정
+// 카카오 작은글씨 글자 범위별 조각 정의 CSS 경로 (scripts/fonts/split_fonts.py가 생성하는 파일명과 일치 필요)
 
-import localFont from "next/font/local";
-
-export const kakaoSmallSans = localFont({
-  src: [
-    {
-      path: "../fonts/KakaoSmallSans-Regular.ttf",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "../fonts/KakaoSmallSans-Bold.ttf",
-      weight: "700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-kakao-small-sans",
-  display: "swap",
-  fallback: ["Apple SD Gothic Neo", "Noto Sans KR", "sans-serif"],
-});
+export const KAKAO_SMALL_SANS_STYLESHEET = "/fonts/kakao-small-sans-v2.002.css";

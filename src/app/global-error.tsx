@@ -4,7 +4,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
-import { kakaoSmallSans } from "./fonts";
+import { KAKAO_SMALL_SANS_STYLESHEET } from "./fonts";
 import "./globals.css";
 
 type GlobalErrorProps = {
@@ -18,7 +18,11 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   }, [error]);
 
   return (
-    <html lang="ko" className={kakaoSmallSans.variable}>
+    <html lang="ko">
+      <head>
+        {/* 클라이언트에서 렌더링될 수 있어 인라인 스크립트 대신 일반 stylesheet로 폰트 정의 연결 */}
+        <link rel="stylesheet" href={KAKAO_SMALL_SANS_STYLESHEET} />
+      </head>
       <body>
         <main className="mobile-layout page-content items-center justify-center text-center">
           <h1 className="text-heading-2 font-bold text-foreground">문제가 발생했어요.</h1>
