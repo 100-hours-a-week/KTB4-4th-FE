@@ -1,4 +1,4 @@
-/* 애플리케이션 전역에서 사용하는 카카오 작은글씨 웹폰트의 글자 범위별 조각 정의 (scripts/fonts/split_fonts.py로 생성, SIL OFL 1.1, public/fonts/OFL.txt) */
+/* 애플리케이션 전역에서 사용하는 카카오 작은글씨 웹폰트의 글자 범위별 조각 정의 (scripts/fonts/split_fonts.py로 생성, SIL OFL 1.1, /fonts/OFL.txt) */
 
 @font-face {
   font-family: "Kakao Small Sans";
