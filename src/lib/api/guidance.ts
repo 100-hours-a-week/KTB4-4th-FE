@@ -14,7 +14,7 @@ export interface GuidanceData {
   guidance: Guidance;
 }
 
-interface GuidanceResponse {
+export interface GuidanceResponse {
   message: string;
   data: GuidanceData;
 }
