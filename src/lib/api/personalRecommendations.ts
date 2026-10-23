@@ -35,7 +35,7 @@ export interface PersonalRecommendationsPage extends PersonalRecommendationsData
   hasNext: boolean;
 }
 
-interface PersonalRecommendationsResponse {
+export interface PersonalRecommendationsResponse {
   message: string;
   data: PersonalRecommendationsData;
   nextCursor: string | null;

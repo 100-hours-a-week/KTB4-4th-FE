@@ -4,8 +4,10 @@ import { NextResponse } from "next/server";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import {
   isLoginSessionResponse,
+  LOGIN_SESSION_USER_HEADER,
   LOGIN_SESSION_USER_ID_HEADER,
   type LoginSessionData,
+  type LoginUser,
 } from "@/lib/api/loginSession";
 
 import type { NextRequest } from "next/server";
@@ -199,13 +201,20 @@ function createNextResponse(
   request: NextRequest,
   cookies: Map<string, string>,
   setCookieHeaders: string[],
-  userId: number,
+  user: LoginUser,
 ) {
   const requestHeaders = new Headers(request.headers);
   const cookieHeader = serializeCookies(cookies);
+  const { id, nickname, profileImageUrl, onboardingCompleted } = user;
 
   requestHeaders.delete(LOGIN_SESSION_USER_ID_HEADER);
-  requestHeaders.set(LOGIN_SESSION_USER_ID_HEADER, String(userId));
+  requestHeaders.set(LOGIN_SESSION_USER_ID_HEADER, String(id));
+  // 브라우저가 보낸 같은 이름의 헤더를 지우고, 한글 닉네임도 담을 수 있도록 인코딩한 JSON으로 전달
+  requestHeaders.delete(LOGIN_SESSION_USER_HEADER);
+  requestHeaders.set(
+    LOGIN_SESSION_USER_HEADER,
+    encodeURIComponent(JSON.stringify({ id, nickname, profileImageUrl, onboardingCompleted })),
+  );
 
   if (cookieHeader) {
     requestHeaders.set("cookie", cookieHeader);
@@ -256,11 +265,11 @@ function routeByLoginSession(
   if (session.user.onboardingCompleted) {
     return isOnboardingPath
       ? createRedirectResponse(request, HOME_PATH, responseCookieHeaders)
-      : createNextResponse(request, cookies, responseCookieHeaders, session.user.id);
+      : createNextResponse(request, cookies, responseCookieHeaders, session.user);
   }
 
   if (isOnboardingPath) {
-    return createNextResponse(request, cookies, responseCookieHeaders, session.user.id);
+    return createNextResponse(request, cookies, responseCookieHeaders, session.user);
   }
 
   return createRedirectResponse(request, ONBOARDING_PATH, responseCookieHeaders);

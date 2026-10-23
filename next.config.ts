@@ -1,4 +1,4 @@
-// 보안·정적 아이콘·웹폰트 캐시 응답 헤더와 로컬 개발용 백엔드 API 중계를 관리하는 Next.js 설정
+// 보안·정적 아이콘·웹폰트 캐시 응답 헤더, 렌더링 차단 CSS 인라인, 로컬 개발용 백엔드 API 중계를 관리하는 Next.js 설정
 import { withSentryConfig } from "@sentry/nextjs/config";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
@@ -29,6 +29,9 @@ function createNextConfig(phase: string): NextConfig {
     },
     turbopack: {
       root: process.cwd(),
+    },
+    experimental: {
+      inlineCss: true,
     },
     async headers() {
       return [
