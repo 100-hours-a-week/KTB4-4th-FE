@@ -7,10 +7,8 @@ type CalendarEventColorInfo = {
   hex: string;
 };
 
-// 색을 지정하지 않은 일정에 쓰는 카카오 톡캘린더 기본 색상
 export const DEFAULT_CALENDAR_EVENT_COLOR: CalendarEventColor = "BLUE";
 
-// 객체 순서는 카카오 문서의 색상 순서이며, 일정 추가 시 색 선택 목록 순서로도 사용
 export const CALENDAR_EVENT_COLORS = {
   BLUE: { label: "파랑", hex: "#2C88DE" },
   ROYAL_BLUE: { label: "로열 블루", hex: "#2D69E0" },
