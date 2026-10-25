@@ -6,6 +6,12 @@ import PersonalProductDetailContent from "@/components/products/PersonalProductD
 import { getProductDetail, type ProductDetailContext } from "@/lib/api/productDetail";
 import { handleServerPageError } from "@/lib/serverPageError";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "상품 상세",
+};
+
 type ProductDetailPageProps = {
   params: Promise<{ productId: string }>;
   searchParams: Promise<{

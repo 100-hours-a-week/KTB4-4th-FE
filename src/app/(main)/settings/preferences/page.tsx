@@ -6,6 +6,12 @@ import SavedPreferencesFlow from "@/components/preferences/SavedPreferencesFlow"
 import { getGiftPreferences } from "@/lib/api/giftPreferences";
 import { ServerApiError } from "@/lib/api/serverClient";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "취향 설정",
+};
+
 interface SavedPreferencesPageProps {
   searchParams: Promise<{
     step?: string | string[];

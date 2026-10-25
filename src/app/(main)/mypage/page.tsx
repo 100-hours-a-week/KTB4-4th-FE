@@ -8,6 +8,12 @@ import ProfileSection from "@/components/mypage/ProfileSection";
 import { getMyPage } from "@/lib/api/myPage";
 import { ServerApiError } from "@/lib/api/serverClient";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "마이페이지",
+};
+
 async function getMyPageOrRedirect() {
   try {
     return await getMyPage();

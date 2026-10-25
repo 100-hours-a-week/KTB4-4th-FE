@@ -8,6 +8,12 @@ import { getProductCategories } from "@/lib/api/productCategories";
 import { ServerApiError } from "@/lib/api/serverClient";
 import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "상품 추천",
+};
+
 type ProductsPageProps = {
   searchParams: Promise<{
     targetType?: string;
