@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import PageIntro from "@/components/common/PageIntro";
 import HomeProductCard from "@/components/home/HomeProductCard";
+import MainCalendar from "@/components/home/MainCalendar";
 import type { PersonalRecommendation } from "@/lib/api/personalRecommendations";
 
 type PersonalizedHomeProps = {
@@ -58,6 +59,10 @@ export default function PersonalizedHome({
           </div>
         </section>
       )}
+
+      <div className="mt-8">
+        <MainCalendar />
+      </div>
     </>
   );
 }
