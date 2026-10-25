@@ -1,10 +1,11 @@
-// 캘린더 일정 요약·날짜별 일정 목록 API 연동 전 UI 확인용 임시 데이터
+// 캘린더 일정 요약·날짜별 일정 목록·일정 상세 API 연동 전 UI 확인용 임시 데이터
 
 import { formatDateKey } from "@/lib/formatDateKey";
 import { mockDelay } from "@/mocks/config";
 import type {
   CalendarDaySummary,
   CalendarEventColor,
+  CalendarEventDetail,
   CalendarEventList,
   CalendarEventListItem,
   CalendarSummary,
@@ -12,6 +13,7 @@ import type {
 
 type MockCalendarEventSeed = {
   title: string;
+  description: string | null;
   startDay: number;
   endDay: number;
   color: CalendarEventColor | null;
@@ -19,30 +21,130 @@ type MockCalendarEventSeed = {
 };
 
 const mockEventSeeds: MockCalendarEventSeed[] = [
-  { title: "민지 생일", startDay: 4, endDay: 4, color: null, createdOrder: 1 },
-  { title: "준호 생일", startDay: 9, endDay: 9, color: null, createdOrder: 2 },
-  { title: "선물 구매", startDay: 18, endDay: 18, color: "GREEN", createdOrder: 3 },
-  { title: "팀 회식", startDay: 27, endDay: 27, color: "ROYAL_BLUE", createdOrder: 4 },
-  { title: "서연 생일", startDay: 27, endDay: 27, color: null, createdOrder: 5 },
-  { title: "집들이 선물 준비", startDay: 27, endDay: 27, color: "PINK", createdOrder: 6 },
-  { title: "출장", startDay: 24, endDay: 28, color: "VIOLET", createdOrder: 7 },
-  { title: "제주 여행", startDay: 26, endDay: 30, color: "ORANGE", createdOrder: 8 },
-  { title: "병원 예약", startDay: 27, endDay: 27, color: "MINT", createdOrder: 9 },
-  { title: "가족 여행", startDay: 30, endDay: 33, color: "RED", createdOrder: 10 },
-  { title: "정기 검진", startDay: 31, endDay: 31, color: "GRAY", createdOrder: 0 },
-  { title: "엄마 생신 케이크 예약", startDay: 27, endDay: 27, color: "RED", createdOrder: 11 },
-  { title: "동아리 모임", startDay: 27, endDay: 27, color: "LIME", createdOrder: 12 },
-  { title: "택배 수령", startDay: 27, endDay: 27, color: "BROWN", createdOrder: 13 },
-  { title: "헬스장 PT", startDay: 27, endDay: 27, color: "NAVY_BLUE", createdOrder: 14 },
+  { title: "민지 생일", description: null, startDay: 4, endDay: 4, color: null, createdOrder: 1 },
+  { title: "준호 생일", description: null, startDay: 9, endDay: 9, color: null, createdOrder: 2 },
+  {
+    title: "선물 구매",
+    description: "민지 생일 선물 미리 주문",
+    startDay: 18,
+    endDay: 18,
+    color: "GREEN",
+    createdOrder: 3,
+  },
+  {
+    title: "팀 회식",
+    description: "강남역 2번 출구 앞 고깃집",
+    startDay: 27,
+    endDay: 27,
+    color: "ROYAL_BLUE",
+    createdOrder: 4,
+  },
+  { title: "서연 생일", description: null, startDay: 27, endDay: 27, color: null, createdOrder: 5 },
+  {
+    title: "집들이 선물 준비",
+    description: "디퓨저나 핸드워시 세트 알아보기",
+    startDay: 27,
+    endDay: 27,
+    color: "PINK",
+    createdOrder: 6,
+  },
+  {
+    title: "출장",
+    description: "부산 지사 방문, 숙소는 해운대 근처",
+    startDay: 24,
+    endDay: 28,
+    color: "VIOLET",
+    createdOrder: 7,
+  },
+  {
+    title: "제주 여행",
+    description: "렌터카 예약 완료, 첫날 저녁은 흑돼지",
+    startDay: 26,
+    endDay: 30,
+    color: "ORANGE",
+    createdOrder: 8,
+  },
+  {
+    title: "병원 예약",
+    description: null,
+    startDay: 27,
+    endDay: 27,
+    color: "MINT",
+    createdOrder: 9,
+  },
+  {
+    title: "가족 여행",
+    description: "부모님 모시고 강릉, 숙소 체크인 오후 3시",
+    startDay: 30,
+    endDay: 33,
+    color: "RED",
+    createdOrder: 10,
+  },
+  {
+    title: "정기 검진",
+    description: "검진 전날 저녁 9시 이후 금식",
+    startDay: 31,
+    endDay: 31,
+    color: "GRAY",
+    createdOrder: 0,
+  },
+  {
+    title: "엄마 생신 케이크 예약",
+    description: "동네 빵집에 생크림 케이크 2호 예약",
+    startDay: 27,
+    endDay: 27,
+    color: "RED",
+    createdOrder: 11,
+  },
+  {
+    title: "동아리 모임",
+    description: null,
+    startDay: 27,
+    endDay: 27,
+    color: "LIME",
+    createdOrder: 12,
+  },
+  {
+    title: "택배 수령",
+    description: "경비실 보관",
+    startDay: 27,
+    endDay: 27,
+    color: "BROWN",
+    createdOrder: 13,
+  },
+  {
+    title: "헬스장 PT",
+    description: null,
+    startDay: 27,
+    endDay: 27,
+    color: "NAVY_BLUE",
+    createdOrder: 14,
+  },
   {
     title: "결혼기념일 선물 고르기 및 레스토랑 예약 확인",
+    description:
+      "레스토랑은 창가 자리로 요청하고, 선물은 지난번에 이야기했던 손목시계 후보 세 가지 중에서 고르기",
     startDay: 27,
     endDay: 27,
     color: "MAGENTA",
     createdOrder: 15,
   },
-  { title: "스터디 발표 준비", startDay: 27, endDay: 27, color: "OLIVE", createdOrder: 16 },
-  { title: "친구 집들이", startDay: 27, endDay: 27, color: "LAVENDER", createdOrder: 17 },
+  {
+    title: "스터디 발표 준비",
+    description: "발표 자료 10장 이내",
+    startDay: 27,
+    endDay: 27,
+    color: "OLIVE",
+    createdOrder: 16,
+  },
+  {
+    title: "친구 집들이",
+    description: "저녁 7시, 휴지 사 가기",
+    startDay: 27,
+    endDay: 27,
+    color: "LAVENDER",
+    createdOrder: 17,
+  },
 ];
 
 type MockCalendarEvent = CalendarEventListItem & { createdOrder: number };
@@ -104,4 +206,24 @@ export async function getMockCalendarEventList(date: Date): Promise<CalendarEven
   const events = collectMockEventsByDate(date, date).get(formatDateKey(date)) ?? [];
 
   return { items: events.map(({ eventId, title, color }) => ({ eventId, title, color })) };
+}
+
+export async function getMockCalendarEventDetail(eventId: string): Promise<CalendarEventDetail> {
+  await mockDelay();
+
+  const [, year, month, seedIndex] = eventId.split("-").map(Number);
+  const seed = mockEventSeeds[seedIndex];
+
+  if (!seed || Number.isNaN(year) || Number.isNaN(month)) {
+    throw new Error("일정을 찾을 수 없습니다.");
+  }
+
+  return {
+    eventId,
+    title: seed.title,
+    description: seed.description,
+    startDate: formatDateKey(new Date(year, month - 1, seed.startDay)),
+    endDate: formatDateKey(new Date(year, month - 1, seed.endDay)),
+    color: seed.color,
+  };
 }
