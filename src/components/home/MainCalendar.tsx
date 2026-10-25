@@ -13,8 +13,16 @@ import CalendarBottomSheet, {
 import CalendarEventListSheet from "@/components/home/CalendarEventListSheet";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
-import { getMockCalendarEventList, getMockCalendarSummary } from "@/mocks/calendar";
-import type { CalendarDaySummary, CalendarEventListItem } from "@/types/calendar";
+import {
+  getMockCalendarEventDetail,
+  getMockCalendarEventList,
+  getMockCalendarSummary,
+} from "@/mocks/calendar";
+import type {
+  CalendarDaySummary,
+  CalendarEventDetail,
+  CalendarEventListItem,
+} from "@/types/calendar";
 
 import styles from "./MainCalendar.module.css";
 
@@ -273,6 +281,11 @@ export default function MainCalendar() {
   const [isEventListLoading, setIsEventListLoading] = useState(false);
   const [eventListErrorMessage, setEventListErrorMessage] = useState<string | null>(null);
   const eventListRequestIdRef = useRef(0);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [eventDetail, setEventDetail] = useState<CalendarEventDetail | null>(null);
+  const [isEventDetailLoading, setIsEventDetailLoading] = useState(false);
+  const [eventDetailErrorMessage, setEventDetailErrorMessage] = useState<string | null>(null);
+  const eventDetailRequestIdRef = useRef(0);
 
   useEffect(() => {
     let isCurrent = true;
@@ -294,6 +307,7 @@ export default function MainCalendar() {
     const requestId = eventListRequestIdRef.current + 1;
 
     eventListRequestIdRef.current = requestId;
+    closeEventDetail();
     setEventListState("open");
     setEventListDate(date);
     setEventListItems([]);
@@ -316,8 +330,10 @@ export default function MainCalendar() {
 
   const closeEventList = () => {
     eventListRequestIdRef.current += 1;
+    eventDetailRequestIdRef.current += 1;
     setEventListState("closing");
     setIsEventListLoading(false);
+    setIsEventDetailLoading(false);
   };
 
   const clearEventList = () => {
@@ -325,7 +341,39 @@ export default function MainCalendar() {
     setEventListDate(null);
     setEventListItems([]);
     setEventListErrorMessage(null);
+    closeEventDetail();
   };
+
+  const openEventDetail = async (eventId: string) => {
+    const requestId = eventDetailRequestIdRef.current + 1;
+
+    eventDetailRequestIdRef.current = requestId;
+    setSelectedEventId(eventId);
+    setEventDetail(null);
+    setEventDetailErrorMessage(null);
+    setIsEventDetailLoading(true);
+
+    try {
+      // TODO: 카카오 캘린더 일정 상세 조회 API 연동 후 mock 조회 대체
+      const detail = await getMockCalendarEventDetail(eventId);
+
+      if (eventDetailRequestIdRef.current === requestId) setEventDetail(detail);
+    } catch {
+      if (eventDetailRequestIdRef.current === requestId) {
+        setEventDetailErrorMessage("일정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    } finally {
+      if (eventDetailRequestIdRef.current === requestId) setIsEventDetailLoading(false);
+    }
+  };
+
+  function closeEventDetail() {
+    eventDetailRequestIdRef.current += 1;
+    setSelectedEventId(null);
+    setEventDetail(null);
+    setEventDetailErrorMessage(null);
+    setIsEventDetailLoading(false);
+  }
 
   const labelDayButtonWithEvents: Labels["labelDayButton"] = (
     date,
@@ -405,6 +453,14 @@ export default function MainCalendar() {
         events={eventListItems}
         isLoading={isEventListLoading}
         errorMessage={eventListErrorMessage}
+        detail={{
+          isOpen: selectedEventId !== null,
+          event: eventDetail,
+          isLoading: isEventDetailLoading,
+          errorMessage: eventDetailErrorMessage,
+        }}
+        onSelectEvent={(eventId) => void openEventDetail(eventId)}
+        onBack={closeEventDetail}
         onClose={closeEventList}
         onClosed={clearEventList}
       />
