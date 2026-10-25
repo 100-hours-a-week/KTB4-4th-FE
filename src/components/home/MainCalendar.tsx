@@ -1,25 +1,20 @@
 // 메인페이지에서 월별 이벤트 일정을 확인하는 캘린더 컴포넌트
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { DayPicker, labelDayButton, type DayButtonProps, type Labels } from "react-day-picker";
 import { ko } from "react-day-picker/locale";
 import Picker from "react-mobile-picker";
 
 import ActionButton from "@/components/common/ActionButton";
-import useDialogControl from "@/hooks/useDialogControl";
+import CalendarBottomSheet, {
+  type CalendarBottomSheetState,
+} from "@/components/home/CalendarBottomSheet";
+import CalendarEventListSheet from "@/components/home/CalendarEventListSheet";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
-import { getMockCalendarSummary } from "@/mocks/calendar";
-import type { CalendarDaySummary } from "@/types/calendar";
+import { getMockCalendarEventList, getMockCalendarSummary } from "@/mocks/calendar";
+import type { CalendarDaySummary, CalendarEventListItem } from "@/types/calendar";
 
 import styles from "./MainCalendar.module.css";
 
@@ -265,64 +260,19 @@ function MonthWheelPicker({ initialMonth, onConfirm }: MonthWheelPickerProps) {
   );
 }
 
-type MonthPickerSheetState = "closed" | "open" | "closing";
-
-type MonthPickerSheetProps = {
-  state: MonthPickerSheetState;
-  month: Date;
-  onClose: () => void;
-  onClosed: () => void;
-  onConfirm: (value: MonthPickerValue) => void;
-};
-
-function MonthPickerSheet({ state, month, onClose, onClosed, onConfirm }: MonthPickerSheetProps) {
-  const dialogRef = useDialogControl({ open: state !== "closed" });
-  const titleId = useId();
-
-  return (
-    <>
-      {state !== "closed" && (
-        <div
-          aria-hidden="true"
-          data-state={state}
-          className={`${styles.overlay} pointer-events-none fixed inset-y-0 left-1/2 z-50 w-full max-w-[var(--app-max-width)] -translate-x-1/2 bg-overlay`}
-        />
-      )}
-      <dialog
-        ref={dialogRef}
-        data-modal
-        data-state={state}
-        aria-labelledby={titleId}
-        onCancel={(event) => {
-          event.preventDefault();
-          onClose();
-        }}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) onClose();
-        }}
-        onAnimationEnd={(event) => {
-          if (event.target === event.currentTarget && state === "closing") onClosed();
-        }}
-        className={`${styles.sheet} fixed inset-x-0 top-auto bottom-0 z-[60] m-0 mx-auto max-h-none w-full max-w-[var(--app-max-width)] rounded-t-xl border-0 bg-surface p-0 text-foreground`}
-      >
-        <div className="px-page pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <h2 id={titleId} className="sr-only">
-            연월 선택
-          </h2>
-          {state !== "closed" && <MonthWheelPicker initialMonth={month} onConfirm={onConfirm} />}
-        </div>
-      </dialog>
-    </>
-  );
-}
-
 export default function MainCalendar() {
   const [month, setMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [monthPickerState, setMonthPickerState] = useState<MonthPickerSheetState>("closed");
+  const [monthPickerState, setMonthPickerState] = useState<CalendarBottomSheetState>("closed");
   const [daySummaries, setDaySummaries] = useState<ReadonlyMap<string, CalendarDaySummary>>(
     () => new Map(),
   );
+  const [eventListState, setEventListState] = useState<CalendarBottomSheetState>("closed");
+  const [eventListDate, setEventListDate] = useState<Date | null>(null);
+  const [eventListItems, setEventListItems] = useState<CalendarEventListItem[]>([]);
+  const [isEventListLoading, setIsEventListLoading] = useState(false);
+  const [eventListErrorMessage, setEventListErrorMessage] = useState<string | null>(null);
+  const eventListRequestIdRef = useRef(0);
 
   useEffect(() => {
     let isCurrent = true;
@@ -337,6 +287,45 @@ export default function MainCalendar() {
       isCurrent = false;
     };
   }, [month]);
+
+  const openEventList = async (date: Date) => {
+    if ((daySummaries.get(formatDateKey(date))?.eventCount ?? 0) === 0) return;
+
+    const requestId = eventListRequestIdRef.current + 1;
+
+    eventListRequestIdRef.current = requestId;
+    setEventListState("open");
+    setEventListDate(date);
+    setEventListItems([]);
+    setEventListErrorMessage(null);
+    setIsEventListLoading(true);
+
+    try {
+      // TODO: 카카오 캘린더 날짜별 일정 목록 조회 API 연동 후 mock 조회 대체
+      const { items } = await getMockCalendarEventList(date);
+
+      if (eventListRequestIdRef.current === requestId) setEventListItems(items);
+    } catch {
+      if (eventListRequestIdRef.current === requestId) {
+        setEventListErrorMessage("일정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    } finally {
+      if (eventListRequestIdRef.current === requestId) setIsEventListLoading(false);
+    }
+  };
+
+  const closeEventList = () => {
+    eventListRequestIdRef.current += 1;
+    setEventListState("closing");
+    setIsEventListLoading(false);
+  };
+
+  const clearEventList = () => {
+    setEventListState("closed");
+    setEventListDate(null);
+    setEventListItems([]);
+    setEventListErrorMessage(null);
+  };
 
   const labelDayButtonWithEvents: Labels["labelDayButton"] = (
     date,
@@ -380,6 +369,7 @@ export default function MainCalendar() {
           onMonthChange={setMonth}
           selected={selectedDate}
           onSelect={setSelectedDate}
+          onDayClick={(date) => void openEventList(date)}
           showOutsideDays
           fixedWeeks
           hideNavigation
@@ -409,16 +399,31 @@ export default function MainCalendar() {
         />
       </DaySummaryContext>
 
-      <MonthPickerSheet
+      <CalendarEventListSheet
+        state={eventListState}
+        date={eventListDate}
+        events={eventListItems}
+        isLoading={isEventListLoading}
+        errorMessage={eventListErrorMessage}
+        onClose={closeEventList}
+        onClosed={clearEventList}
+      />
+
+      <CalendarBottomSheet
         state={monthPickerState}
-        month={month}
+        title="연월 선택"
+        isTitleHidden
         onClose={() => setMonthPickerState("closing")}
         onClosed={() => setMonthPickerState("closed")}
-        onConfirm={({ year, month: pickedMonth }) => {
-          setMonth(new Date(year, pickedMonth - 1, 1));
-          setMonthPickerState("closing");
-        }}
-      />
+      >
+        <MonthWheelPicker
+          initialMonth={month}
+          onConfirm={({ year, month: pickedMonth }) => {
+            setMonth(new Date(year, pickedMonth - 1, 1));
+            setMonthPickerState("closing");
+          }}
+        />
+      </CalendarBottomSheet>
     </section>
   );
 }

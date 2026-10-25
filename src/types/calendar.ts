@@ -1,4 +1,4 @@
-// 메인페이지 캘린더에 표시하는 일정 요약 데이터 타입
+// 메인페이지 캘린더에 표시하는 일정 요약·날짜별 일정 목록 데이터 타입
 
 export type CalendarEventColor =
   | "BLUE"
@@ -32,4 +32,14 @@ export interface CalendarDaySummary {
 export interface CalendarSummary {
   timezone: string;
   items: CalendarDaySummary[];
+}
+
+export interface CalendarEventListItem {
+  eventId: string;
+  title: string;
+  color: CalendarEventColor | null;
+}
+
+export interface CalendarEventList {
+  items: CalendarEventListItem[];
 }
