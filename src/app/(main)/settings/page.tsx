@@ -14,6 +14,12 @@ import type {
 } from "@/lib/api/notificationSettingTypes";
 import { ServerApiError } from "@/lib/api/serverClient";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "설정",
+};
+
 const notificationSettingTypes = [
   "FRIEND_BIRTHDAY",
   "FRIEND_JOINED",

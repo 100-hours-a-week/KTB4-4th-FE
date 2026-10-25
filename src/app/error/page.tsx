@@ -1,5 +1,11 @@
 import ErrorPage from "@/components/common/ErrorPage";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "오류",
+};
+
 export default function ErrorRoute() {
   return (
     <ErrorPage
