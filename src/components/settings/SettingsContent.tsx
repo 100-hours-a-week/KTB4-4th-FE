@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import Modal from "@/components/common/Modal";
 import WebPushSettingItem from "@/components/settings/WebPushSettingItem";
 import WithdrawalModal from "@/components/settings/WithdrawalModal";
+import useLogout from "@/hooks/useLogout";
 import useWithdrawal from "@/hooks/useWithdrawal";
 import { ApiRequestError } from "@/lib/api/client";
 import type { ConsentContent } from "@/lib/api/consents";
@@ -79,6 +80,7 @@ export default function SettingsContent({
   );
   const hasPolicyModalQueryRef = useRef(initialPolicyModal !== null);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+  const { isPending: isLoggingOut, logout } = useLogout();
   const withdrawal = useWithdrawal();
   const activePolicyTitle = openPolicyModal ? policyModalTitles[openPolicyModal] : null;
   const activePolicyConsents = openPolicyModal ? policyConsents[openPolicyModal] : null;
@@ -263,13 +265,25 @@ export default function SettingsContent({
         </div>
       </section>
 
-      <button
-        type="button"
-        className="mt-7 self-start border-0 bg-transparent p-0 text-muted"
-        onClick={handleWithdrawalClick}
-      >
-        <span className="text-caption">탈퇴하기</span>
-      </button>
+      <div className="mt-7 flex flex-col items-start gap-3">
+        <button
+          type="button"
+          aria-busy={isLoggingOut}
+          disabled={isLoggingOut}
+          className="border-0 bg-transparent p-0 text-danger disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => void logout()}
+        >
+          <span className="text-caption">로그아웃</span>
+        </button>
+
+        <button
+          type="button"
+          className="border-0 bg-transparent p-0 text-muted"
+          onClick={handleWithdrawalClick}
+        >
+          <span className="text-caption">탈퇴하기</span>
+        </button>
+      </div>
 
       <Modal
         open={activePolicyTitle !== null}

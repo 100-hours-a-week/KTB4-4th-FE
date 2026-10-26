@@ -19,7 +19,7 @@ export default function useLogout() {
 
   // 로그아웃 API가 실패하면 현재 화면에 남고, 이미 정리한 알림 연결과 웹 푸시 구독은 복구하지 않음
   // 성공 시 전체 페이지 이동으로 CSRF 토큰 캐시와 Context 상태까지 초기화함
-  // 호출한 화면에서 실패 후 처리(사이드바 닫기 등)를 할 수 있도록 성공 여부를 반환함
+  // 호출한 화면에서 실패 후 후속 처리를 할 수 있도록 성공 여부를 반환함
   const logoutAndRedirect = async () => {
     if (isPendingRef.current) return false;
 

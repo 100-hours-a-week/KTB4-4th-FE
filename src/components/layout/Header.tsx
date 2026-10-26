@@ -12,10 +12,8 @@ import { ApiRequestError } from "@/lib/api/client";
 import { updateFriendFavorite } from "@/lib/api/friends";
 
 import NotificationDropdown from "./NotificationDropdown";
-import Sidebar, { type SidebarAnimationState } from "./Sidebar";
 
 const pathsWithoutBackButton = new Set(["/", "/friends"]);
-const sidebarId = "main-sidebar";
 const friendDetailPathPattern = /^\/friends\/\d+\/?$/;
 
 type FriendDetailHeaderActionProps = {
@@ -119,63 +117,17 @@ function FriendDetailHeaderAction({ userId }: FriendDetailHeaderActionProps) {
 }
 
 function HomeHeaderActions() {
-  const [sidebarState, setSidebarState] = useState<SidebarAnimationState>("closed");
-  const isSidebarVisible = sidebarState !== "closed";
-
   return (
     <>
-      <button
-        type="button"
-        aria-label={isSidebarVisible ? "사이드바 닫기" : "사이드바 열기"}
-        aria-controls={sidebarId}
-        aria-expanded={sidebarState === "open"}
+      <Link
+        href="/settings"
+        aria-label="설정으로 이동"
         className="touch-target absolute right-page z-[70] flex items-center justify-end border-0 bg-transparent p-0 text-foreground"
-        onClick={() =>
-          setSidebarState((currentState) => (currentState === "open" ? "closing" : "open"))
-        }
       >
-        {isSidebarVisible ? (
-          <svg
-            aria-hidden="true"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M6 6L18 18M18 6L6 18"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        ) : (
-          <svg
-            aria-hidden="true"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M4 6H20M4 12H20M4 18H20"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        )}
-      </button>
+        <Image src="/icons/icon-settings.svg" alt="" width={24} height={24} />
+      </Link>
 
       <NotificationDropdown />
-      <Sidebar
-        id={sidebarId}
-        state={sidebarState}
-        onClose={() => setSidebarState("closing")}
-        onClosed={() => setSidebarState("closed")}
-      />
     </>
   );
 }
