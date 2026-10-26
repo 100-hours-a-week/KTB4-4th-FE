@@ -1,0 +1,5 @@
+<!-- 마이페이지 하단 내비게이션 아이콘 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60" fill="none">
+  <circle cx="30" cy="20" r="9" stroke="#111111" stroke-width="3.2"/>
+  <path d="M13 48C13 38.611 20.611 31 30 31C39.389 31 47 38.611 47 48" stroke="#111111" stroke-width="3.2" stroke-linecap="round"/>
+</svg>
