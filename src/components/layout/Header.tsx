@@ -13,7 +13,8 @@ import { updateFriendFavorite } from "@/lib/api/friends";
 
 import NotificationDropdown from "./NotificationDropdown";
 
-const pathsWithoutBackButton = new Set(["/", "/friends"]);
+// 하단 내비게이션으로 바로 이동하는 페이지는 뒤로 가기 버튼을 표시하지 않음
+const pathsWithoutBackButton = new Set(["/", "/friends", "/ai", "/chat", "/mypage"]);
 const friendDetailPathPattern = /^\/friends\/\d+\/?$/;
 
 type FriendDetailHeaderActionProps = {
