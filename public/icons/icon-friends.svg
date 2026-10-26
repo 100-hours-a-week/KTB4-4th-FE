@@ -1,0 +1,7 @@
+<!-- 친구 목록 하단 내비게이션 아이콘 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60" fill="none">
+  <circle cx="25" cy="22" r="8" stroke="#111111" stroke-width="3.2"/>
+  <circle cx="40" cy="25" r="6" stroke="#111111" stroke-width="3.2"/>
+  <path d="M10 47C10 38.716 16.716 32 25 32C33.284 32 40 38.716 40 47" stroke="#111111" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M39 35C45.075 35 50 39.925 50 46" stroke="#111111" stroke-width="3.2" stroke-linecap="round"/>
+</svg>

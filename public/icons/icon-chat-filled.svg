@@ -1,0 +1,7 @@
+<!-- 활성 채팅 하단 내비게이션 아이콘 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60" fill="none">
+  <path d="M12 14H48V40H29L19 48V40H12V14Z" fill="#111111" stroke="#111111" stroke-width="3.2" stroke-linejoin="round"/>
+  <circle cx="23" cy="27" r="2.2" fill="white"/>
+  <circle cx="30" cy="27" r="2.2" fill="white"/>
+  <circle cx="37" cy="27" r="2.2" fill="white"/>
+</svg>

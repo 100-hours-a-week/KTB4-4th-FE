@@ -20,12 +20,29 @@ const navigationItems = [
     activeIcon: "/icons/icon-home-filled.svg",
   },
   {
-    label: "AI",
+    label: "친구",
+    href: "/friends",
+    icon: "/icons/icon-friends.svg",
+    activeIcon: "/icons/icon-friends-filled.svg",
+  },
+  {
+    label: "AI 대화",
     href: "/ai",
     icon: "/images/Needu_profile.png",
     startsConversation: true,
   },
-  { label: "친구", href: "/friends", icon: "/icons/icon-user.svg" },
+  {
+    label: "채팅",
+    href: "/chat",
+    icon: "/icons/icon-chat.svg",
+    activeIcon: "/icons/icon-chat-filled.svg",
+  },
+  {
+    label: "마이페이지",
+    href: "/mypage",
+    icon: "/icons/icon-mypage.svg",
+    activeIcon: "/icons/icon-mypage-filled.svg",
+  },
 ] as const;
 
 const NAVIGATION_ICON_SIZE = 28;
