@@ -1,4 +1,4 @@
-// 캘린더 일정 요약·날짜별 일정 목록·일정 상세·일정 생성 API 연동 전 UI 확인용 임시 데이터
+// 캘린더 일정 요약·날짜별 일정 목록·일정 상세·일정 생성·수정·삭제 API 연동 전 UI 확인용 임시 데이터
 
 import { formatDateKey } from "@/lib/formatDateKey";
 import { mockDelay } from "@/mocks/config";
@@ -10,6 +10,7 @@ import type {
   CalendarEventDetail,
   CalendarEventList,
   CalendarEventListItem,
+  CalendarEventUpdateRequest,
   CalendarSummary,
 } from "@/types/calendar";
 
@@ -151,18 +152,72 @@ const mockEventSeeds: MockCalendarEventSeed[] = [
 
 type MockCalendarEvent = CalendarEventListItem & { createdOrder: number };
 
-type MockCreatedCalendarEvent = Omit<CalendarEventDetail, "eventId"> & {
-  eventId: string;
-  createdOrder: number;
-};
+type MockSavedCalendarEvent = CalendarEventDetail & { createdOrder: number };
 
 const CREATED_EVENT_ID_PREFIX = "created-";
-const mockCreatedEvents: MockCreatedCalendarEvent[] = [];
+const MOCK_EVENT_START_TIME = "19:00";
+const MOCK_EVENT_END_TIME = "20:00";
+const mockSavedEvents = new Map<string, MockSavedCalendarEvent>();
+const mockDeletedEventIds = new Set<string>();
+let mockCreatedCount = 0;
 
 function parseDateKey(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
 
   return new Date(year, month - 1, day);
+}
+
+function toMockDateTime(dateKey: string, time: string) {
+  return `${dateKey}T${time}:00+09:00`;
+}
+
+function toSavedEvent(
+  eventId: string,
+  request: CalendarEventCreateRequest,
+  createdOrder: number,
+): MockSavedCalendarEvent {
+  return {
+    eventId,
+    title: request.title,
+    description: request.description,
+    startDate: request.startAt.slice(0, 10),
+    endDate: request.endAt.slice(0, 10),
+    startAt: request.startAt,
+    endAt: request.endAt,
+    allDay: request.allDay,
+    color: request.color,
+    createdOrder,
+  };
+}
+
+function getSeedEvent(eventId: string): MockSavedCalendarEvent | null {
+  const [, year, month, seedIndex] = eventId.split("-").map(Number);
+  const seed = mockEventSeeds[seedIndex];
+
+  if (!seed || Number.isNaN(year) || Number.isNaN(month)) return null;
+
+  const startDate = formatDateKey(new Date(year, month - 1, seed.startDay));
+  const endDate = formatDateKey(new Date(year, month - 1, seed.endDay));
+  const allDay = seed.startDay !== seed.endDay || seed.title.includes("생일");
+
+  return {
+    eventId,
+    title: seed.title,
+    description: seed.description,
+    startDate,
+    endDate,
+    startAt: toMockDateTime(startDate, allDay ? "00:00" : MOCK_EVENT_START_TIME),
+    endAt: toMockDateTime(endDate, allDay ? "00:00" : MOCK_EVENT_END_TIME),
+    allDay,
+    color: seed.color,
+    createdOrder: seed.createdOrder,
+  };
+}
+
+function findMockEvent(eventId: string) {
+  if (mockDeletedEventIds.has(eventId)) return null;
+
+  return mockSavedEvents.get(eventId) ?? getSeedEvent(eventId);
 }
 
 function collectMockEventsByDate(from: Date, to: Date) {
@@ -180,6 +235,8 @@ function collectMockEventsByDate(from: Date, to: Date) {
 
       const eventId = `mock-${year}-${monthIndex + 1}-${seedIndex}`;
 
+      if (mockDeletedEventIds.has(eventId) || mockSavedEvents.has(eventId)) return;
+
       for (let day = startDay; day <= endDay; day += 1) {
         const dateKey = formatDateKey(new Date(year, monthIndex, day));
 
@@ -195,7 +252,7 @@ function collectMockEventsByDate(from: Date, to: Date) {
     cursor.setMonth(monthIndex + 1);
   }
 
-  mockCreatedEvents.forEach(({ eventId, title, color, startDate, endDate, createdOrder }) => {
+  mockSavedEvents.forEach(({ eventId, title, color, startDate, endDate, createdOrder }) => {
     const day = parseDateKey(startDate);
 
     while (formatDateKey(day) <= endDate) {
@@ -244,31 +301,13 @@ export async function getMockCalendarEventList(date: Date): Promise<CalendarEven
 export async function getMockCalendarEventDetail(eventId: string): Promise<CalendarEventDetail> {
   await mockDelay();
 
-  if (eventId.startsWith(CREATED_EVENT_ID_PREFIX)) {
-    const createdEvent = mockCreatedEvents.find((event) => event.eventId === eventId);
+  const event = findMockEvent(eventId);
 
-    if (!createdEvent) throw new Error("일정을 찾을 수 없습니다.");
+  if (!event) throw new Error("캘린더 일정을 찾을 수 없습니다.");
 
-    const { createdOrder: _createdOrder, ...detail } = createdEvent;
+  const { createdOrder: _createdOrder, ...detail } = event;
 
-    return detail;
-  }
-
-  const [, year, month, seedIndex] = eventId.split("-").map(Number);
-  const seed = mockEventSeeds[seedIndex];
-
-  if (!seed || Number.isNaN(year) || Number.isNaN(month)) {
-    throw new Error("일정을 찾을 수 없습니다.");
-  }
-
-  return {
-    eventId,
-    title: seed.title,
-    description: seed.description,
-    startDate: formatDateKey(new Date(year, month - 1, seed.startDay)),
-    endDate: formatDateKey(new Date(year, month - 1, seed.endDay)),
-    color: seed.color,
-  };
+  return detail;
 }
 
 export async function createMockCalendarEvent(
@@ -276,18 +315,34 @@ export async function createMockCalendarEvent(
 ): Promise<CalendarEventCreateResult> {
   await mockDelay();
 
-  const createdOrder = 1000 + mockCreatedEvents.length;
+  mockCreatedCount += 1;
+
+  const createdOrder = 1000 + mockCreatedCount;
   const eventId = `${CREATED_EVENT_ID_PREFIX}${createdOrder}`;
 
-  mockCreatedEvents.push({
-    eventId,
-    title: request.title,
-    description: request.description,
-    startDate: request.startAt.slice(0, 10),
-    endDate: request.endAt.slice(0, 10),
-    color: request.color,
-    createdOrder,
-  });
+  mockSavedEvents.set(eventId, toSavedEvent(eventId, request, createdOrder));
 
   return { eventId };
+}
+
+export async function updateMockCalendarEvent(
+  eventId: string,
+  request: CalendarEventUpdateRequest,
+): Promise<void> {
+  await mockDelay();
+
+  const event = findMockEvent(eventId);
+
+  if (!event) throw new Error("캘린더 일정을 찾을 수 없습니다.");
+
+  mockSavedEvents.set(eventId, toSavedEvent(eventId, request, event.createdOrder));
+}
+
+export async function deleteMockCalendarEvent(eventId: string): Promise<void> {
+  await mockDelay();
+
+  if (!findMockEvent(eventId)) throw new Error("캘린더 일정을 찾을 수 없습니다.");
+
+  mockSavedEvents.delete(eventId);
+  mockDeletedEventIds.add(eventId);
 }

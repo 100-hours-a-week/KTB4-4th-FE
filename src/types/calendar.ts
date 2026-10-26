@@ -1,4 +1,4 @@
-// 메인페이지 캘린더의 일정 요약·날짜별 일정 목록·일정 상세·일정 생성 데이터 타입
+// 메인페이지 캘린더의 일정 요약·날짜별 일정 목록·일정 상세·일정 생성·수정 데이터 타입
 
 export type CalendarEventColor =
   | "BLUE"
@@ -44,13 +44,16 @@ export interface CalendarEventList {
   items: CalendarEventListItem[];
 }
 
-// TODO: 일정 상세 조회 API 응답 스펙이 바뀔 수 있으므로 확정 후 필드 재확인
+// TODO: 일정 상세 조회 API 응답 스펙이 바뀔 수 있으므로 확정 후 필드 재확인 (startAt·endAt·allDay는 수정 화면용으로 추가 요청 필요)
 export interface CalendarEventDetail {
   eventId: string;
   title: string;
   description: string | null;
   startDate: string;
   endDate: string;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
   color: CalendarEventColor | null;
 }
 
@@ -67,3 +70,6 @@ export interface CalendarEventCreateRequest {
 export interface CalendarEventCreateResult {
   eventId: string;
 }
+
+// TODO: 일정 수정 API 요청에 allDay 필드 추가 여부를 백엔드와 확인
+export type CalendarEventUpdateRequest = CalendarEventCreateRequest;

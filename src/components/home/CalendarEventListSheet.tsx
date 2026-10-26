@@ -10,6 +10,8 @@ import CalendarEventDetailView from "@/components/home/CalendarEventDetailView";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import type { CalendarEventDetail, CalendarEventListItem } from "@/types/calendar";
 
+import type { ReactNode } from "react";
+
 type CalendarEventDetailState = {
   isOpen: boolean;
   event: CalendarEventDetail | null;
@@ -26,6 +28,9 @@ type CalendarEventListSheetProps = {
   detail: CalendarEventDetailState;
   onSelectEvent: (eventId: string) => void;
   onBack: () => void;
+  onEditEvent: () => void;
+  onDeleteEvent: () => void;
+  detailOverlay?: ReactNode;
   onClose: () => void;
   onClosed: () => void;
 };
@@ -43,6 +48,9 @@ export default function CalendarEventListSheet({
   detail,
   onSelectEvent,
   onBack,
+  onEditEvent,
+  onDeleteEvent,
+  detailOverlay,
   onClose,
   onClosed,
 }: CalendarEventListSheetProps) {
@@ -73,7 +81,9 @@ export default function CalendarEventListSheet({
             </svg>
           </button>
         }
-        headerEnd={detail.event && <CalendarEventActionMenu />}
+        headerEnd={
+          detail.event && <CalendarEventActionMenu onEdit={onEditEvent} onDelete={onDeleteEvent} />
+        }
         onClose={onClose}
         onClosed={onClosed}
       >
@@ -82,6 +92,7 @@ export default function CalendarEventListSheet({
           isLoading={detail.isLoading}
           errorMessage={detail.errorMessage}
         />
+        {detailOverlay}
       </CalendarBottomSheet>
     );
   }
