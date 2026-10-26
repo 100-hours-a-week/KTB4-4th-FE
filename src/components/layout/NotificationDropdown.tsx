@@ -2,7 +2,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import PurchaseCheckModal from "@/components/products/PurchaseCheckModal";
 import { useNotificationContext } from "@/contexts/NotificationContext";
@@ -11,8 +17,21 @@ import { getPurchaseCheck, type PurchaseCheck } from "@/lib/api/purchaseChecks";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
 import { getNotificationDisplay } from "@/lib/notificationDisplay";
 import { getNotificationTargetPath, getPurchaseCheckTargetId } from "@/lib/notificationTarget";
+import type { NotificationCategoryFilter } from "@/types/notification";
 
 import NotificationItem from "./NotificationItem";
+
+const NOTIFICATION_CATEGORY_TABS = [
+  { label: "전체", value: "ALL" },
+  { label: "이벤트", value: "EVENT" },
+  { label: "콕", value: "POKE" },
+  { label: "구매여부", value: "PURCHASE_STATUS" },
+  { label: "채팅", value: "CHAT" },
+  { label: "친구가입", value: "FRIEND_JOINED" },
+] as const satisfies ReadonlyArray<{
+  label: string;
+  value: NotificationCategoryFilter;
+}>;
 
 export default function NotificationDropdown() {
   const {
@@ -32,6 +51,7 @@ export default function NotificationDropdown() {
   } = useNotificationContext();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<NotificationCategoryFilter>("ALL");
   const [revealedNotificationId, setRevealedNotificationId] = useState<number | null>(null);
   const [purchaseCheck, setPurchaseCheck] = useState<PurchaseCheck | null>(null);
   const [isLoadingPurchaseCheck, setIsLoadingPurchaseCheck] = useState(false);
@@ -43,6 +63,11 @@ export default function NotificationDropdown() {
   const headingId = useId();
   // 첫 조회 결과를 받기 전에는 빈 목록 문구 대신 로딩 문구를 보여줌
   const isWaitingInitialList = isInitialLoading || (!isListLoaded && !errorMessage);
+  // TODO: 카테고리별 알림 목록 API 연동 후 selectedCategory를 조회 조건으로 전달하고 클라이언트 필터링 제거
+  const filteredNotifications =
+    selectedCategory === "ALL"
+      ? notifications
+      : notifications.filter((notification) => notification.category === selectedCategory);
 
   const deleteNotification = (notificationId: number) => {
     void deleteNotificationItem(notificationId);
@@ -99,6 +124,32 @@ export default function NotificationDropdown() {
   const markAllNotificationsAsRead = () => {
     void markAllNotificationItemsAsRead();
     setRevealedNotificationId(null);
+  };
+
+  const handleCategoryKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const currentIndex = NOTIFICATION_CATEGORY_TABS.findIndex(
+      (tab) => tab.value === selectedCategory,
+    );
+    let nextIndex: number | null = null;
+
+    if (event.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % NOTIFICATION_CATEGORY_TABS.length;
+    } else if (event.key === "ArrowLeft") {
+      nextIndex =
+        (currentIndex - 1 + NOTIFICATION_CATEGORY_TABS.length) % NOTIFICATION_CATEGORY_TABS.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = NOTIFICATION_CATEGORY_TABS.length - 1;
+    }
+
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    setSelectedCategory(NOTIFICATION_CATEGORY_TABS[nextIndex].value);
+
+    const tabs = event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='tab']");
+    tabs[nextIndex]?.focus();
   };
 
   // 드롭다운을 처음 열 때 알림 목록 첫 페이지를 조회함
@@ -202,13 +253,46 @@ export default function NotificationDropdown() {
             알림
           </h2>
 
-          {notifications.length > 0 ? (
+          <div
+            role="tablist"
+            aria-label="알림 카테고리"
+            onKeyDown={handleCategoryKeyDown}
+            className="flex items-center justify-between px-5 pb-3 whitespace-nowrap"
+          >
+            {NOTIFICATION_CATEGORY_TABS.map((tab) => {
+              const isSelected = selectedCategory === tab.value;
+
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={isSelected}
+                  tabIndex={isSelected ? 0 : -1}
+                  className={`relative shrink-0 cursor-pointer border-0 bg-transparent p-0 text-body transition-colors ${
+                    isSelected ? "text-foreground" : "text-muted"
+                  }`}
+                  onClick={() => setSelectedCategory(tab.value)}
+                >
+                  <span className="font-bold">{tab.label}</span>
+                  {isSelected && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute right-0 bottom-1 left-0 h-0.5 rounded-full bg-primary"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {filteredNotifications.length > 0 ? (
             <>
               <ul
                 ref={listRef}
-                className={`m-0 list-none border-t border-border p-0 ${notifications.length >= 4 ? "max-h-72 overflow-y-auto overscroll-contain" : ""}`}
+                className={`m-0 list-none border-t border-border p-0 ${filteredNotifications.length >= 4 ? "max-h-72 overflow-y-auto overscroll-contain" : ""}`}
               >
-                {notifications.map((notification) => {
+                {filteredNotifications.map((notification) => {
                   const { title, titleParts, description, thumbnail } =
                     getNotificationDisplay(notification);
 
