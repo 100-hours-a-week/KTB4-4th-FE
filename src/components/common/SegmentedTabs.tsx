@@ -8,12 +8,33 @@ export type SegmentedTabItem<T extends string> = {
   label: ReactNode;
 };
 
+// pill은 둥근 배경 안에서 선택 탭을 강조하고, underline은 선택 탭 아래 막대로 강조함
+type SegmentedTabsVariant = "pill" | "underline";
+
 type SegmentedTabsProps<T extends string> = {
   items: readonly SegmentedTabItem<T>[];
   value: T;
   onChange: (value: T) => void;
   ariaLabel: string;
   className?: string;
+  variant?: SegmentedTabsVariant;
+};
+
+const VARIANT_CLASS_NAMES: Record<
+  SegmentedTabsVariant,
+  { list: string; indicator: string; tab: string }
+> = {
+  pill: {
+    list: "rounded-full bg-background-subtle p-1",
+    indicator: "top-1 bottom-1 left-1 rounded-full bg-surface shadow-sm",
+    tab: "rounded-full px-3 py-2.5",
+  },
+  underline: {
+    list: "",
+    indicator:
+      "bottom-0 left-0 h-[3px] px-4 before:block before:size-full before:rounded-full before:bg-primary",
+    tab: "px-3 pt-3 pb-3.5",
+  },
 };
 
 export default function SegmentedTabs<T extends string>({
@@ -22,7 +43,12 @@ export default function SegmentedTabs<T extends string>({
   onChange,
   ariaLabel,
   className = "",
+  variant = "pill",
 }: SegmentedTabsProps<T>) {
+  const variantClassNames = VARIANT_CLASS_NAMES[variant];
+  // pill은 목록 안쪽 여백(p-1)만큼 표시 막대 너비에서 제외함
+  const indicatorWidth =
+    variant === "pill" ? `calc((100% - 0.5rem) / ${items.length})` : `calc(100% / ${items.length})`;
   const selectedIndex = Math.max(
     items.findIndex((item) => item.value === value),
     0,
@@ -63,14 +89,14 @@ export default function SegmentedTabs<T extends string>({
       role="tablist"
       aria-label={ariaLabel}
       onKeyDown={handleKeyDown}
-      className={`relative flex w-full overflow-hidden rounded-full bg-background-subtle p-1 ${className}`}
+      className={`relative flex w-full overflow-hidden ${variantClassNames.list} ${className}`}
     >
       {items.length > 0 && (
         <span
           aria-hidden="true"
-          className="absolute top-1 bottom-1 left-1 rounded-full bg-surface shadow-sm transition-transform duration-200 ease-standard"
+          className={`absolute transition-transform duration-200 ease-standard ${variantClassNames.indicator}`}
           style={{
-            width: `calc((100% - 0.5rem) / ${items.length})`,
+            width: indicatorWidth,
             transform: `translateX(${selectedIndex * 100}%)`,
           }}
         />
@@ -86,7 +112,7 @@ export default function SegmentedTabs<T extends string>({
             aria-selected={isSelected}
             tabIndex={isSelected ? 0 : -1}
             onClick={() => onChange(item.value)}
-            className={`relative z-10 min-w-0 flex-1 cursor-pointer rounded-full border-0 bg-transparent px-3 py-2.5 text-center text-body transition-colors ${
+            className={`relative z-10 min-w-0 flex-1 cursor-pointer border-0 bg-transparent text-center text-body transition-colors ${variantClassNames.tab} ${
               isSelected ? "text-foreground" : "text-muted"
             }`}
           >
