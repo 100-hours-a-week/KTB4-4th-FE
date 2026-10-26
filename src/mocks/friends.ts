@@ -6,6 +6,7 @@ import type {
   FriendListItem,
   FriendsPage,
   GetFriendsParams,
+  UpcomingBirthdayFriend,
 } from "@/lib/api/friends";
 import { mockDelay } from "@/mocks/config";
 
@@ -35,6 +36,18 @@ type MockCursor = {
 
 function sortFriends(left: FriendListItem, right: FriendListItem) {
   return left.name.localeCompare(right.name, "ko");
+}
+
+function createMockBirthDate(daysFromToday: number) {
+  const date = new Date();
+
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + daysFromToday);
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `2000-${month}-${day}`;
 }
 
 function parseMockCursor(cursor: string | undefined, favorite: boolean, keyword: string) {
@@ -87,6 +100,27 @@ export async function getMockFriendsPage({
       : null,
     hasNext,
   } satisfies FriendsPage;
+}
+
+export async function getMockUpcomingBirthdayFriends(signal?: AbortSignal) {
+  await mockDelay();
+
+  if (signal?.aborted) {
+    throw new DOMException("요청이 취소되었습니다.", "AbortError");
+  }
+
+  const birthdayOffsets = [0, 3, 7] as const;
+
+  return birthdayOffsets.map((daysFromToday, index) => {
+    const friend = mockFriends[index];
+
+    return {
+      userId: friend.userId,
+      name: friend.name,
+      profileImageUrl: friend.profileImageUrl,
+      birthDate: createMockBirthDate(daysFromToday),
+    } satisfies UpcomingBirthdayFriend;
+  });
 }
 
 export async function getMockFriendDetail(userId: number) {

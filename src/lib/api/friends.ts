@@ -21,6 +21,13 @@ export interface FriendFavorite {
   isFavorite: boolean;
 }
 
+export interface UpcomingBirthdayFriend {
+  userId: number;
+  name: string;
+  profileImageUrl: string | null;
+  birthDate: string;
+}
+
 interface FriendsData {
   items: FriendListItem[];
   isKakaoFriendSynced: boolean;
@@ -218,6 +225,13 @@ export async function getFriends({
     nextCursor,
     hasNext,
   } satisfies FriendsPage;
+}
+
+export async function getUpcomingBirthdayFriends(signal?: AbortSignal) {
+  // TODO(#545): 백엔드 API 구현 후 목업 대신 전용 endpoint와 확정된 응답 스펙 연동
+  const { getMockUpcomingBirthdayFriends } = await import("@/mocks/friends");
+
+  return getMockUpcomingBirthdayFriends(signal);
 }
 
 export async function getFriendDetail(userId: number) {

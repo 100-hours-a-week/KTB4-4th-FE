@@ -9,7 +9,9 @@ import FriendSearchField from "@/components/friends/FriendSearchField";
 import FriendsList from "@/components/friends/FriendsList";
 import FriendsListSkeleton from "@/components/friends/FriendsListSkeleton";
 import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectButton";
-import type { FriendsPage } from "@/lib/api/friends";
+import UpcomingBirthdaySection from "@/components/friends/UpcomingBirthdaySection";
+import { getUpcomingBirthdayFriends, type FriendsPage } from "@/lib/api/friends";
+import { filterUpcomingBirthdays, type UpcomingBirthday } from "@/lib/upcomingBirthdays";
 
 type FriendsTab = "all" | "favorite";
 
@@ -72,6 +74,8 @@ export default function FriendsPageContent({ initialFriendsPromise }: FriendsPag
   const [hasFriends, setHasFriends] = useState<boolean | null>(null);
   const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
   const [friendCounts, setFriendCounts] = useState<FriendCounts | null>(null);
+  // TODO(#545): 다가오는 생일 API 구현 후 Suspense와 전용 스켈레톤 fallback으로 로딩 UI 구성
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState<UpcomingBirthday[]>([]);
   const [hasLeftInitialList, setHasLeftInitialList] = useState(false);
   const listKey = `${selectedTab}:${searchKeyword}`;
 
@@ -110,6 +114,26 @@ export default function FriendsPageContent({ initialFriendsPromise }: FriendsPag
     },
     [],
   );
+
+  useEffect(() => {
+    const requestController = new AbortController();
+
+    const loadUpcomingBirthdays = async () => {
+      try {
+        const friends = await getUpcomingBirthdayFriends(requestController.signal);
+
+        setUpcomingBirthdays(filterUpcomingBirthdays(friends));
+      } catch (error) {
+        if (!(error instanceof Error && error.name === "AbortError")) {
+          setUpcomingBirthdays([]);
+        }
+      }
+    };
+
+    void loadUpcomingBirthdays();
+
+    return () => requestController.abort();
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -152,6 +176,7 @@ export default function FriendsPageContent({ initialFriendsPromise }: FriendsPag
       <div className="mt-2 flex h-touch justify-end px-1">
         {!isKakaoConnectButtonVisible && <KakaoFriendConnectButton variant="sync" />}
       </div>
+      <UpcomingBirthdaySection friends={upcomingBirthdays} />
       <SegmentedTabs
         items={friendsTabs}
         value={selectedTab}
