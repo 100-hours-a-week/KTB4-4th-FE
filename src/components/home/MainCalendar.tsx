@@ -9,7 +9,8 @@ import ActionButton from "@/components/common/ActionButton";
 import CalendarBottomSheet, {
   type CalendarBottomSheetState,
 } from "@/components/home/CalendarBottomSheet";
-import CalendarEventCreateSheet from "@/components/home/CalendarEventCreateSheet";
+import CalendarEventDeleteModal from "@/components/home/CalendarEventDeleteModal";
+import CalendarEventFormModal from "@/components/home/CalendarEventFormModal";
 import CalendarEventListSheet from "@/components/home/CalendarEventListSheet";
 import CalendarWheelPicker, {
   type CalendarWheelColumn,
@@ -18,6 +19,8 @@ import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
 import {
   createMockCalendarEvent,
+  deleteMockCalendarEvent,
+  updateMockCalendarEvent,
   getMockCalendarEventDetail,
   getMockCalendarEventList,
   getMockCalendarSummary,
@@ -25,6 +28,7 @@ import {
 import type {
   CalendarDaySummary,
   CalendarEventCreateRequest,
+  CalendarEventUpdateRequest,
   CalendarEventDetail,
   CalendarEventListItem,
 } from "@/types/calendar";
@@ -139,6 +143,11 @@ export default function MainCalendar() {
   const [eventCreateState, setEventCreateState] = useState<CalendarBottomSheetState>("closed");
   const [eventCreateFormKey, setEventCreateFormKey] = useState(0);
   const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
+  const [eventEditState, setEventEditState] = useState<CalendarBottomSheetState>("closed");
+  const [eventEditFormKey, setEventEditFormKey] = useState(0);
+  const [isEventDeleteModalOpen, setIsEventDeleteModalOpen] = useState(false);
+  const [isEventDeleting, setIsEventDeleting] = useState(false);
+  const [eventDeleteErrorMessage, setEventDeleteErrorMessage] = useState<string | null>(null);
   const [daySummaries, setDaySummaries] = useState<ReadonlyMap<string, CalendarDaySummary>>(
     () => new Map(),
   );
@@ -186,6 +195,11 @@ export default function MainCalendar() {
     setEventListState("open");
     setEventListDate(date);
     setEventListItems([]);
+    await loadEventList(date, requestId);
+  };
+
+  const loadEventList = async (date: Date, requestId = eventListRequestIdRef.current + 1) => {
+    eventListRequestIdRef.current = requestId;
     setEventListErrorMessage(null);
     setIsEventListLoading(true);
 
@@ -194,10 +208,14 @@ export default function MainCalendar() {
       const { items } = await getMockCalendarEventList(date);
 
       if (eventListRequestIdRef.current === requestId) setEventListItems(items);
+
+      return items;
     } catch {
       if (eventListRequestIdRef.current === requestId) {
         setEventListErrorMessage("일정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
       }
+
+      return null;
     } finally {
       if (eventListRequestIdRef.current === requestId) setIsEventListLoading(false);
     }
@@ -239,6 +257,57 @@ export default function MainCalendar() {
       }
     } finally {
       if (eventDetailRequestIdRef.current === requestId) setIsEventDetailLoading(false);
+    }
+  };
+
+  const openEventEdit = () => {
+    setEventEditFormKey((currentKey) => currentKey + 1);
+    setEventEditState("open");
+  };
+
+  const updateEvent = async (request: CalendarEventUpdateRequest) => {
+    if (!eventDetail) return;
+
+    // TODO: 카카오 캘린더 일정 수정 API 연동 후 mock 수정 대체
+    await updateMockCalendarEvent(eventDetail.eventId, request);
+
+    setEventEditState("closing");
+    setSummaryRefreshKey((currentKey) => currentKey + 1);
+    void openEventDetail(eventDetail.eventId);
+
+    if (eventListDate) void loadEventList(eventListDate);
+  };
+
+  const openEventDelete = () => {
+    setEventDeleteErrorMessage(null);
+    setIsEventDeleteModalOpen(true);
+  };
+
+  const deleteEvent = async () => {
+    if (!eventDetail || isEventDeleting) return;
+
+    setIsEventDeleting(true);
+    setEventDeleteErrorMessage(null);
+
+    try {
+      // TODO: 카카오 캘린더 일정 삭제 API 연동 후 mock 삭제 대체 (401 로그인 이동, 403 CSRF 재발급 후 1회 재시도, 404 목록 재조회, 429 retryAfterSeconds 안내, 500 목록 유지)
+      await deleteMockCalendarEvent(eventDetail.eventId);
+
+      setIsEventDeleteModalOpen(false);
+      closeEventDetail();
+      setSummaryRefreshKey((currentKey) => currentKey + 1);
+
+      const items = eventListDate ? await loadEventList(eventListDate) : [];
+
+      if (items?.length === 0) closeEventList();
+    } catch (error) {
+      setEventDeleteErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "일정을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    } finally {
+      setIsEventDeleting(false);
     }
   };
 
@@ -344,7 +413,7 @@ export default function MainCalendar() {
         />
       </DaySummaryContext>
 
-      <CalendarEventCreateSheet
+      <CalendarEventFormModal
         key={eventCreateFormKey}
         state={eventCreateState}
         initialDate={selectedDate ?? new Date()}
@@ -367,6 +436,30 @@ export default function MainCalendar() {
         }}
         onSelectEvent={(eventId) => void openEventDetail(eventId)}
         onBack={closeEventDetail}
+        onEditEvent={openEventEdit}
+        onDeleteEvent={openEventDelete}
+        detailOverlay={
+          eventDetail && (
+            <>
+              <CalendarEventFormModal
+                key={eventEditFormKey}
+                state={eventEditState}
+                initialDate={new Date(eventDetail.startAt)}
+                initialEvent={eventDetail}
+                onSubmit={updateEvent}
+                onClose={() => setEventEditState("closing")}
+                onClosed={() => setEventEditState("closed")}
+              />
+              <CalendarEventDeleteModal
+                open={isEventDeleteModalOpen}
+                isDeleting={isEventDeleting}
+                errorMessage={eventDeleteErrorMessage}
+                onClose={() => setIsEventDeleteModalOpen(false)}
+                onConfirm={() => void deleteEvent()}
+              />
+            </>
+          )
+        }
         onClose={closeEventList}
         onClosed={clearEventList}
       />
