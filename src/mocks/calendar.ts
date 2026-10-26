@@ -1,10 +1,12 @@
-// 캘린더 일정 요약·날짜별 일정 목록·일정 상세 API 연동 전 UI 확인용 임시 데이터
+// 캘린더 일정 요약·날짜별 일정 목록·일정 상세·일정 생성 API 연동 전 UI 확인용 임시 데이터
 
 import { formatDateKey } from "@/lib/formatDateKey";
 import { mockDelay } from "@/mocks/config";
 import type {
   CalendarDaySummary,
   CalendarEventColor,
+  CalendarEventCreateRequest,
+  CalendarEventCreateResult,
   CalendarEventDetail,
   CalendarEventList,
   CalendarEventListItem,
@@ -149,6 +151,20 @@ const mockEventSeeds: MockCalendarEventSeed[] = [
 
 type MockCalendarEvent = CalendarEventListItem & { createdOrder: number };
 
+type MockCreatedCalendarEvent = Omit<CalendarEventDetail, "eventId"> & {
+  eventId: string;
+  createdOrder: number;
+};
+
+const CREATED_EVENT_ID_PREFIX = "created-";
+const mockCreatedEvents: MockCreatedCalendarEvent[] = [];
+
+function parseDateKey(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+
+  return new Date(year, month - 1, day);
+}
+
 function collectMockEventsByDate(from: Date, to: Date) {
   const fromKey = formatDateKey(from);
   const toKey = formatDateKey(to);
@@ -178,6 +194,23 @@ function collectMockEventsByDate(from: Date, to: Date) {
 
     cursor.setMonth(monthIndex + 1);
   }
+
+  mockCreatedEvents.forEach(({ eventId, title, color, startDate, endDate, createdOrder }) => {
+    const day = parseDateKey(startDate);
+
+    while (formatDateKey(day) <= endDate) {
+      const dateKey = formatDateKey(day);
+
+      if (dateKey >= fromKey && dateKey <= toKey) {
+        const events = eventsByDate.get(dateKey) ?? [];
+
+        events.push({ eventId, title, color, createdOrder });
+        eventsByDate.set(dateKey, events);
+      }
+
+      day.setDate(day.getDate() + 1);
+    }
+  });
 
   eventsByDate.forEach((events) =>
     events.sort((left, right) => right.createdOrder - left.createdOrder),
@@ -211,6 +244,16 @@ export async function getMockCalendarEventList(date: Date): Promise<CalendarEven
 export async function getMockCalendarEventDetail(eventId: string): Promise<CalendarEventDetail> {
   await mockDelay();
 
+  if (eventId.startsWith(CREATED_EVENT_ID_PREFIX)) {
+    const createdEvent = mockCreatedEvents.find((event) => event.eventId === eventId);
+
+    if (!createdEvent) throw new Error("일정을 찾을 수 없습니다.");
+
+    const { createdOrder: _createdOrder, ...detail } = createdEvent;
+
+    return detail;
+  }
+
   const [, year, month, seedIndex] = eventId.split("-").map(Number);
   const seed = mockEventSeeds[seedIndex];
 
@@ -226,4 +269,25 @@ export async function getMockCalendarEventDetail(eventId: string): Promise<Calen
     endDate: formatDateKey(new Date(year, month - 1, seed.endDay)),
     color: seed.color,
   };
+}
+
+export async function createMockCalendarEvent(
+  request: CalendarEventCreateRequest,
+): Promise<CalendarEventCreateResult> {
+  await mockDelay();
+
+  const createdOrder = 1000 + mockCreatedEvents.length;
+  const eventId = `${CREATED_EVENT_ID_PREFIX}${createdOrder}`;
+
+  mockCreatedEvents.push({
+    eventId,
+    title: request.title,
+    description: request.description,
+    startDate: request.startAt.slice(0, 10),
+    endDate: request.endAt.slice(0, 10),
+    color: request.color,
+    createdOrder,
+  });
+
+  return { eventId };
 }
