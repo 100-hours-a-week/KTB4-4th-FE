@@ -74,6 +74,7 @@ export default function FriendsPageContent({ initialFriendsPromise }: FriendsPag
   const [hasFriends, setHasFriends] = useState<boolean | null>(null);
   const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
   const [friendCounts, setFriendCounts] = useState<FriendCounts | null>(null);
+  // TODO(#545): 다가오는 생일 API 구현 후 Suspense와 전용 스켈레톤 fallback으로 로딩 UI 구성
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<UpcomingBirthday[]>([]);
   const [hasLeftInitialList, setHasLeftInitialList] = useState(false);
   const listKey = `${selectedTab}:${searchKeyword}`;
