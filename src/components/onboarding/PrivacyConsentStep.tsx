@@ -22,6 +22,12 @@ export default function PrivacyConsentStep({ consents }: PrivacyConsentStepProps
   const allRequiredConsentsAgreed = consents.every(
     ({ id, required }) => !required || agreedConsentIds.has(id),
   );
+  const isAllConsentsAgreed =
+    consents.length > 0 && consents.every(({ id }) => agreedConsentIds.has(id));
+
+  const toggleAllConsents = () => {
+    setAgreedConsentIds(isAllConsentsAgreed ? new Set() : new Set(consents.map(({ id }) => id)));
+  };
 
   const toggleConsent = (id: number) => {
     setAgreedConsentIds((currentIds) => {
@@ -112,6 +118,33 @@ export default function PrivacyConsentStep({ consents }: PrivacyConsentStepProps
             </label>
           </article>
         ))}
+
+        <label className="mt-1 ml-auto flex min-h-11 w-fit cursor-pointer items-center gap-2 text-body text-foreground">
+          <span className="font-bold">전체 동의</span>
+          <input
+            type="checkbox"
+            name="consent-all"
+            checked={isAllConsentsAgreed}
+            onChange={toggleAllConsents}
+            disabled={isSaving || consents.length === 0}
+            aria-label="약관 전체 동의"
+            className="peer sr-only"
+          />
+          <span
+            aria-hidden="true"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-transparent text-transparent transition-colors peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-foreground"
+          >
+            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none">
+              <path
+                d="m3.25 8.25 3 3 6.5-6.5"
+                stroke="currentColor"
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+        </label>
       </section>
 
       <div className="sticky bottom-0 shrink-0 bg-background pt-4 pb-[max(16px,env(safe-area-inset-bottom))]">
