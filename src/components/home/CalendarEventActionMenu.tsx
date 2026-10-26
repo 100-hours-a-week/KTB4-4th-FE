@@ -3,7 +3,15 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
-export default function CalendarEventActionMenu() {
+type CalendarEventActionMenuProps = {
+  onEdit: () => void;
+  onDelete: () => void;
+};
+
+export default function CalendarEventActionMenu({
+  onEdit,
+  onDelete,
+}: CalendarEventActionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -20,9 +28,9 @@ export default function CalendarEventActionMenu() {
     return () => document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
   }, [isOpen]);
 
-  // TODO: 수정하기는 일정 수정 화면, 삭제하기는 삭제 확인 및 삭제 API와 연결
-  const handleMenuItemClick = () => {
+  const handleMenuItemClick = (action?: () => void) => {
     setIsOpen(false);
+    action?.();
   };
 
   return (
@@ -65,7 +73,7 @@ export default function CalendarEventActionMenu() {
               type="button"
               role="menuitem"
               className="flex w-full cursor-pointer items-center border-0 bg-transparent px-4 text-left text-foreground transition-colors active:bg-background-subtle"
-              onClick={handleMenuItemClick}
+              onClick={() => handleMenuItemClick(onEdit)}
             >
               <span className="text-body">수정하기</span>
             </button>
@@ -75,7 +83,7 @@ export default function CalendarEventActionMenu() {
               type="button"
               role="menuitem"
               className="flex w-full cursor-pointer items-center border-0 bg-transparent px-4 text-left text-danger transition-colors active:bg-background-subtle"
-              onClick={handleMenuItemClick}
+              onClick={() => handleMenuItemClick(onDelete)}
             >
               <span className="text-body">삭제하기</span>
             </button>

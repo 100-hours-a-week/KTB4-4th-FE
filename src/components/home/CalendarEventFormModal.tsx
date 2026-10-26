@@ -1,4 +1,4 @@
-// 캘린더에 새 일정을 추가하는 가운데 모달 입력 폼
+// 캘린더 일정을 추가하거나 수정하는 가운데 모달 입력 폼
 "use client";
 
 import { useId, useState } from "react";
@@ -17,11 +17,16 @@ import {
   getCalendarEventColorHex,
 } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
-import type { CalendarEventColor, CalendarEventCreateRequest } from "@/types/calendar";
+import type {
+  CalendarEventColor,
+  CalendarEventCreateRequest,
+  CalendarEventDetail,
+} from "@/types/calendar";
 
-type CalendarEventCreateSheetProps = {
+type CalendarEventFormModalProps = {
   state: CalendarBottomSheetState;
   initialDate: Date;
+  initialEvent?: CalendarEventDetail;
   onSubmit: (request: CalendarEventCreateRequest) => Promise<void>;
   onClose: () => void;
   onClosed: () => void;
@@ -112,25 +117,48 @@ function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-export default function CalendarEventCreateSheet({
+const formTextByMode = {
+  create: {
+    title: "일정 추가",
+    submit: "저장",
+    submitting: "저장 중",
+    error: "일정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  },
+  edit: {
+    title: "일정 수정",
+    submit: "수정",
+    submitting: "수정 중",
+    error: "일정을 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  },
+};
+
+export default function CalendarEventFormModal({
   state,
   initialDate,
+  initialEvent,
   onSubmit,
   onClose,
   onClosed,
-}: CalendarEventCreateSheetProps) {
+}: CalendarEventFormModalProps) {
+  const formText = formTextByMode[initialEvent ? "edit" : "create"];
   const titleInputId = useId();
   const allDayLabelId = useId();
   const descriptionInputId = useId();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState<CalendarEventColor>(DEFAULT_CALENDAR_EVENT_COLOR);
-  const [colorSheetState, setColorSheetState] = useState<CalendarBottomSheetState>("closed");
-  const [startAt, setStartAt] = useState(() => getInitialStartAt(initialDate));
-  const [endAt, setEndAt] = useState(
-    () => new Date(getInitialStartAt(initialDate).getTime() + HOUR_IN_MS),
+  const [title, setTitle] = useState(initialEvent?.title ?? "");
+  const [description, setDescription] = useState(initialEvent?.description ?? "");
+  const [color, setColor] = useState<CalendarEventColor>(
+    initialEvent?.color ?? DEFAULT_CALENDAR_EVENT_COLOR,
   );
-  const [isAllDay, setIsAllDay] = useState(false);
+  const [colorSheetState, setColorSheetState] = useState<CalendarBottomSheetState>("closed");
+  const [startAt, setStartAt] = useState(() =>
+    initialEvent ? new Date(initialEvent.startAt) : getInitialStartAt(initialDate),
+  );
+  const [endAt, setEndAt] = useState(() =>
+    initialEvent
+      ? new Date(initialEvent.endAt)
+      : new Date(getInitialStartAt(initialDate).getTime() + HOUR_IN_MS),
+  );
+  const [isAllDay, setIsAllDay] = useState(initialEvent?.allDay ?? false);
   const [expandedField, setExpandedField] = useState<ExpandedField | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
@@ -152,7 +180,7 @@ export default function CalendarEventCreateSheet({
         color,
       });
     } catch {
-      setSaveErrorMessage("일정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      setSaveErrorMessage(formText.error);
       setIsSaving(false);
     }
   };
@@ -183,13 +211,13 @@ export default function CalendarEventCreateSheet({
   return (
     <CalendarBottomSheet
       state={state}
-      title="일정 추가"
+      title={formText.title}
       isTitleHidden
       isCenteredModal
       headerStart={
         <button
           type="button"
-          aria-label="일정 추가 닫기"
+          aria-label={`${formText.title} 닫기`}
           className="touch-target flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-foreground transition-colors active:bg-background-subtle"
           onClick={onClose}
         >
@@ -211,7 +239,9 @@ export default function CalendarEventCreateSheet({
           className="touch-target flex cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent px-2 text-foreground transition-colors active:bg-background-subtle disabled:cursor-not-allowed disabled:text-muted"
           onClick={() => void saveEvent()}
         >
-          <span className="text-body-lg font-bold">{isSaving ? "저장 중" : "저장"}</span>
+          <span className="text-body-lg font-bold">
+            {isSaving ? formText.submitting : formText.submit}
+          </span>
         </button>
       }
       onClose={onClose}
