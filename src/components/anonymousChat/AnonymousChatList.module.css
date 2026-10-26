@@ -1,0 +1,19 @@
+/* 대화 목록 영역의 세로 스크롤바 스타일 */
+
+.chatList {
+  scrollbar-color: var(--color-disabled) transparent;
+  scrollbar-width: thin;
+}
+
+.chatList::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.chatList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chatList::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--color-disabled);
+}
