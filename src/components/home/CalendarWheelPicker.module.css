@@ -1,0 +1,5 @@
+/* 캘린더 휠 다이얼에서 라이브러리 기본 선택 줄 구분선 숨김 처리 */
+
+.picker > div:last-child {
+  display: none;
+}

@@ -6,6 +6,12 @@ import FriendDetailContent from "@/components/friends/FriendDetailContent";
 import { getServerFriendDetail } from "@/lib/api/friendDetail";
 import { handleServerPageError } from "@/lib/serverPageError";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "친구 상세",
+};
+
 type FriendDetailPageProps = {
   params: Promise<{ friendId: string }>;
 };

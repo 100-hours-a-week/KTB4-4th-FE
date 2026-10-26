@@ -9,6 +9,12 @@ import { getConsents } from "@/lib/api/consents";
 import { LOGIN_SESSION_USER_ID_HEADER } from "@/lib/api/loginSession";
 import { ServerApiError } from "@/lib/api/serverClient";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "시작하기",
+};
+
 async function getConsentsOrRedirect() {
   try {
     return await getConsents();

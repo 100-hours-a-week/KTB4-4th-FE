@@ -5,6 +5,17 @@ import KakaoLoginButton from "@/components/auth/KakaoLoginButton";
 
 import styles from "./LoginPage.module.css";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "로그인",
+  // 루트의 기본 noindex를 덮어써 검색 노출 허용
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+
 export default function LoginPage() {
   return (
     <main className="page-content flex min-h-0 flex-1 flex-col overflow-y-auto bg-background pt-[88px] pb-[max(16px,env(safe-area-inset-bottom))] text-foreground">

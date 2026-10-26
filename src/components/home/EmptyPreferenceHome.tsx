@@ -6,6 +6,7 @@ import Image from "next/image";
 
 import ActionButton from "@/components/common/ActionButton";
 import PageIntro from "@/components/common/PageIntro";
+import MainCalendar from "@/components/home/MainCalendar";
 import useAiConversationStart from "@/hooks/useAiConversationStart";
 
 type EmptyPreferenceHomeProps = {
@@ -55,6 +56,10 @@ export default function EmptyPreferenceHome({ title, description }: EmptyPrefere
           </p>
         )}
       </section>
+
+      <div className="mt-5">
+        <MainCalendar />
+      </div>
     </>
   );
 }
