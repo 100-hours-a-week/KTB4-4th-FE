@@ -1,5 +1,0 @@
-/* 캘린더 연월 선택 휠 다이얼의 기본 구분선 숨김 처리 */
-
-.picker > div:last-child {
-  display: none;
-}

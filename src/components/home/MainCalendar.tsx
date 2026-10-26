@@ -1,30 +1,33 @@
 // 메인페이지에서 월별 이벤트 일정을 확인하는 캘린더 컴포넌트
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { DayPicker, labelDayButton, type DayButtonProps, type Labels } from "react-day-picker";
 import { ko } from "react-day-picker/locale";
-import Picker from "react-mobile-picker";
 
 import ActionButton from "@/components/common/ActionButton";
 import CalendarBottomSheet, {
   type CalendarBottomSheetState,
 } from "@/components/home/CalendarBottomSheet";
+import CalendarEventCreateSheet from "@/components/home/CalendarEventCreateSheet";
 import CalendarEventListSheet from "@/components/home/CalendarEventListSheet";
+import CalendarWheelPicker, {
+  type CalendarWheelColumn,
+} from "@/components/home/CalendarWheelPicker";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
 import {
+  createMockCalendarEvent,
   getMockCalendarEventDetail,
   getMockCalendarEventList,
   getMockCalendarSummary,
 } from "@/mocks/calendar";
 import type {
   CalendarDaySummary,
+  CalendarEventCreateRequest,
   CalendarEventDetail,
   CalendarEventListItem,
 } from "@/types/calendar";
-
-import styles from "./MainCalendar.module.css";
 
 const VISIBLE_DAY_COUNT = 42;
 
@@ -87,51 +90,25 @@ function CalendarDayButton({ day, modifiers, children, ...buttonProps }: DayButt
 }
 
 const PICKER_YEAR_RANGE = 10;
-const PICKER_ITEM_HEIGHT = 44;
-const PICKER_HEIGHT = PICKER_ITEM_HEIGHT * 5;
 const PICKER_MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
-const PICKER_WHEEL_STEP_DELTA = 80;
-const PICKER_WHEEL_RESET_MS = 200;
-const WHEEL_LINE_HEIGHT = 16;
 
 type MonthPickerValue = {
   year: number;
   month: number;
 };
 
-type MonthPickerColumn = {
-  name: keyof MonthPickerValue;
-  label: string;
-  unit: string;
-  options: number[];
-};
-
-function getPickerColumns(): MonthPickerColumn[] {
+function getMonthPickerColumns(): CalendarWheelColumn<keyof MonthPickerValue>[] {
   const startYear = new Date().getFullYear() - PICKER_YEAR_RANGE;
 
   return [
     {
       name: "year",
       label: "연도",
-      unit: "년",
       options: Array.from({ length: PICKER_YEAR_RANGE * 2 + 1 }, (_, index) => startYear + index),
+      formatOption: (option) => `${option}년`,
     },
-    { name: "month", label: "월", unit: "월", options: PICKER_MONTHS },
+    { name: "month", label: "월", options: PICKER_MONTHS, formatOption: (option) => `${option}월` },
   ];
-}
-
-function movePickerValue(
-  value: MonthPickerValue,
-  name: keyof MonthPickerValue,
-  offset: number,
-): MonthPickerValue {
-  const options = getPickerColumns().find((column) => column.name === name)?.options ?? [];
-  const nextIndex = Math.min(
-    Math.max(options.indexOf(value[name]) + offset, 0),
-    options.length - 1,
-  );
-
-  return { ...value, [name]: options[nextIndex] };
 }
 
 type MonthWheelPickerProps = {
@@ -144,123 +121,10 @@ function MonthWheelPicker({ initialMonth, onConfirm }: MonthWheelPickerProps) {
     year: initialMonth.getFullYear(),
     month: initialMonth.getMonth() + 1,
   });
-  const pickerRef = useRef<HTMLDivElement>(null);
-  const columns = getPickerColumns();
-
-  useEffect(() => {
-    const picker = pickerRef.current;
-
-    if (!picker) return;
-
-    const accumulatedDelta: Record<keyof MonthPickerValue, number> = { year: 0, month: 0 };
-    let resetTimer: number | undefined;
-
-    const handleWheel = (event: WheelEvent) => {
-      event.preventDefault();
-
-      const columnName = (event.target as HTMLElement).closest<HTMLElement>("[data-picker-column]")
-        ?.dataset.pickerColumn as keyof MonthPickerValue | undefined;
-
-      if (!columnName) return;
-
-      accumulatedDelta[columnName] +=
-        event.deltaMode === WheelEvent.DOM_DELTA_LINE
-          ? event.deltaY * WHEEL_LINE_HEIGHT
-          : event.deltaY;
-
-      window.clearTimeout(resetTimer);
-      resetTimer = window.setTimeout(() => {
-        accumulatedDelta.year = 0;
-        accumulatedDelta.month = 0;
-      }, PICKER_WHEEL_RESET_MS);
-
-      if (Math.abs(accumulatedDelta[columnName]) < PICKER_WHEEL_STEP_DELTA) return;
-
-      const offset = Math.sign(accumulatedDelta[columnName]);
-
-      accumulatedDelta[columnName] = 0;
-      setValue((currentValue) => movePickerValue(currentValue, columnName, offset));
-    };
-
-    picker.addEventListener("wheel", handleWheel, { passive: false });
-
-    return () => {
-      picker.removeEventListener("wheel", handleWheel);
-      window.clearTimeout(resetTimer);
-    };
-  }, []);
-
-  const handleColumnKeyDown = (
-    event: KeyboardEvent<HTMLDivElement>,
-    { name, options }: MonthPickerColumn,
-  ) => {
-    const currentIndex = options.indexOf(value[name]);
-    const nextIndexByKey: Record<string, number> = {
-      ArrowUp: currentIndex - 1,
-      ArrowDown: currentIndex + 1,
-      Home: 0,
-      End: options.length - 1,
-    };
-    const nextIndex = nextIndexByKey[event.key];
-
-    if (nextIndex === undefined) return;
-
-    event.preventDefault();
-    setValue((currentValue) =>
-      movePickerValue(currentValue, name, nextIndex - options.indexOf(currentValue[name])),
-    );
-  };
 
   return (
     <>
-      <div ref={pickerRef}>
-        <Picker
-          value={value}
-          onChange={setValue}
-          height={PICKER_HEIGHT}
-          itemHeight={PICKER_ITEM_HEIGHT}
-          className={styles.picker}
-        >
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-md bg-background-subtle"
-            style={{ height: PICKER_ITEM_HEIGHT }}
-          />
-          {columns.map((column) => (
-            <Picker.Column
-              key={column.name}
-              name={column.name}
-              data-picker-column={column.name}
-              role="spinbutton"
-              tabIndex={0}
-              aria-label={column.label}
-              aria-valuemin={column.options[0]}
-              aria-valuemax={column.options[column.options.length - 1]}
-              aria-valuenow={value[column.name]}
-              aria-valuetext={`${value[column.name]}${column.unit}`}
-              onKeyDown={(event) => handleColumnKeyDown(event, column)}
-              className="cursor-grab outline-none"
-            >
-              {column.options.map((option) => (
-                <Picker.Item key={option} value={option} aria-hidden="true">
-                  {({ selected }) => (
-                    <span
-                      className={`tabular-nums transition-colors ${
-                        selected
-                          ? "text-heading-2 font-bold text-foreground"
-                          : "text-heading-3 text-muted"
-                      }`}
-                    >
-                      {option}
-                      {column.unit}
-                    </span>
-                  )}
-                </Picker.Item>
-              ))}
-            </Picker.Column>
-          ))}
-        </Picker>
-      </div>
+      <CalendarWheelPicker columns={getMonthPickerColumns()} value={value} onChange={setValue} />
       <ActionButton className="mt-6" onClick={() => onConfirm(value)}>
         확인
       </ActionButton>
@@ -272,6 +136,9 @@ export default function MainCalendar() {
   const [month, setMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [monthPickerState, setMonthPickerState] = useState<CalendarBottomSheetState>("closed");
+  const [eventCreateState, setEventCreateState] = useState<CalendarBottomSheetState>("closed");
+  const [eventCreateFormKey, setEventCreateFormKey] = useState(0);
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
   const [daySummaries, setDaySummaries] = useState<ReadonlyMap<string, CalendarDaySummary>>(
     () => new Map(),
   );
@@ -299,7 +166,15 @@ export default function MainCalendar() {
     return () => {
       isCurrent = false;
     };
-  }, [month]);
+  }, [month, summaryRefreshKey]);
+
+  const createEvent = async (request: CalendarEventCreateRequest) => {
+    // TODO: 카카오 캘린더 일정 생성 API 연동 후 mock 저장 대체
+    await createMockCalendarEvent(request);
+
+    setEventCreateState("closing");
+    setSummaryRefreshKey((currentKey) => currentKey + 1);
+  };
 
   const openEventList = async (date: Date) => {
     if ((daySummaries.get(formatDateKey(date))?.eventCount ?? 0) === 0) return;
@@ -393,21 +268,43 @@ export default function MainCalendar() {
 
   return (
     <section aria-label="이벤트 캘린더" className="bg-surface">
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={monthPickerState === "open"}
-        aria-label={`${month.getFullYear()}년 ${month.getMonth() + 1}월, 연월 선택`}
-        className="touch-target -ml-1 flex cursor-pointer items-center gap-1 rounded-sm border-0 bg-transparent px-1 text-foreground transition-colors active:bg-background-subtle"
-        onClick={() => setMonthPickerState("open")}
-      >
-        <span className="text-heading-2 font-bold">
-          {month.getFullYear()}년 {month.getMonth() + 1}월
-        </span>
-        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M3.5 6h9L8 11z" />
-        </svg>
-      </button>
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={monthPickerState === "open"}
+          aria-label={`${month.getFullYear()}년 ${month.getMonth() + 1}월, 연월 선택`}
+          className="touch-target -ml-1 flex cursor-pointer items-center gap-1 rounded-sm border-0 bg-transparent px-1 text-foreground transition-colors active:bg-background-subtle"
+          onClick={() => setMonthPickerState("open")}
+        >
+          <span className="text-heading-2 font-bold">
+            {month.getFullYear()}년 {month.getMonth() + 1}월
+          </span>
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M3.5 6h9L8 11z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          aria-label="일정 추가"
+          aria-haspopup="dialog"
+          aria-expanded={eventCreateState === "open"}
+          className="touch-target -mr-2 flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-foreground transition-colors active:bg-background-subtle"
+          onClick={() => {
+            setEventCreateFormKey((currentKey) => currentKey + 1);
+            setEventCreateState("open");
+          }}
+        >
+          <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 5V19M5 12H19"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      </div>
 
       <DaySummaryContext value={daySummaries}>
         <DayPicker
@@ -446,6 +343,15 @@ export default function MainCalendar() {
           }}
         />
       </DaySummaryContext>
+
+      <CalendarEventCreateSheet
+        key={eventCreateFormKey}
+        state={eventCreateState}
+        initialDate={selectedDate ?? new Date()}
+        onSubmit={createEvent}
+        onClose={() => setEventCreateState("closing")}
+        onClosed={() => setEventCreateState("closed")}
+      />
 
       <CalendarEventListSheet
         state={eventListState}
