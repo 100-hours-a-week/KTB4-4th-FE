@@ -23,6 +23,9 @@ export const API_ENDPOINTS = {
     loginValidity: `${API_V1_PREFIX}/auth/session`,
     logout: `${API_V1_PREFIX}/auth/logout`,
   },
+  calendar: {
+    events: `${API_V1_PREFIX}/calendar/events`,
+  },
   errorReports: `${API_V1_PREFIX}/error-reports`,
   friends: {
     list: `${API_V1_PREFIX}/friends`,

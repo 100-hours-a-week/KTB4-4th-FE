@@ -1,7 +1,7 @@
 // 캘린더 일정을 추가하거나 수정하는 가운데 모달 입력 폼
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import CalendarBottomSheet, {
   type CalendarBottomSheetState,
@@ -11,6 +11,7 @@ import CalendarEventInlineDatePicker from "@/components/home/CalendarEventInline
 import CalendarWheelPicker, {
   type CalendarWheelColumn,
 } from "@/components/home/CalendarWheelPicker";
+import { ApiRequestError } from "@/lib/api/client";
 import {
   CALENDAR_EVENT_COLORS,
   DEFAULT_CALENDAR_EVENT_COLOR,
@@ -42,6 +43,8 @@ type TimeValue = {
 
 const HOUR_IN_MS = 60 * 60 * 1000;
 const MINUTE_STEP = 5;
+const MAX_TITLE_LENGTH = 50;
+const ERROR_DISPLAY_DURATION_MS = 3000;
 
 const timeColumns: CalendarWheelColumn<keyof TimeValue>[] = [
   {
@@ -117,6 +120,16 @@ function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function getSaveErrorMessage(error: unknown, fallbackMessage: string) {
+  if (!(error instanceof ApiRequestError)) return fallbackMessage;
+
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
+
+  return error.message;
+}
+
 const formTextByMode = {
   create: {
     title: "일정 추가",
@@ -167,6 +180,16 @@ export default function CalendarEventFormModal({
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const isSaveDisabled = title.trim() === "" || isSaving;
 
+  useEffect(() => {
+    if (!saveErrorMessage) return;
+
+    const timer = window.setTimeout(() => {
+      setSaveErrorMessage(null);
+    }, ERROR_DISPLAY_DURATION_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [saveErrorMessage]);
+
   const saveEvent = async () => {
     if (isSaveDisabled) return;
 
@@ -181,9 +204,10 @@ export default function CalendarEventFormModal({
         allDay: isAllDay,
         description: description.trim() || null,
         color,
+        notificationEnabled: isNotificationEnabled,
       });
-    } catch {
-      setSaveErrorMessage(formText.error);
+    } catch (error) {
+      setSaveErrorMessage(getSaveErrorMessage(error, formText.error));
       setIsSaving(false);
     }
   };
@@ -255,14 +279,6 @@ export default function CalendarEventFormModal({
       onClosed={onClosed}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-        {saveErrorMessage && (
-          <p
-            role="alert"
-            className="m-0 mb-3 rounded-sm bg-danger-subtle px-3 py-2 text-body-sm text-danger"
-          >
-            {saveErrorMessage}
-          </p>
-        )}
         <div className="flex items-center gap-2 border-b border-border-strong pb-2">
           <button
             type="button"
@@ -288,6 +304,7 @@ export default function CalendarEventFormModal({
               value={title}
               placeholder="일정 제목을 입력해 주세요."
               autoComplete="off"
+              maxLength={MAX_TITLE_LENGTH}
               className="w-full border-0 bg-transparent p-0 text-foreground outline-none select-text placeholder:text-muted"
               onChange={(event) => setTitle(event.target.value)}
             />
@@ -463,6 +480,14 @@ export default function CalendarEventFormModal({
               className="block w-full resize-none border-0 bg-transparent p-0 text-foreground outline-none select-text placeholder:text-muted"
               onChange={(event) => setDescription(event.target.value)}
             />
+            {saveErrorMessage && (
+              <p
+                role="alert"
+                className="m-0 mt-3 rounded-sm bg-danger-subtle px-3 py-2 text-body-sm text-danger"
+              >
+                {saveErrorMessage}
+              </p>
+            )}
           </div>
         </div>
       </div>
