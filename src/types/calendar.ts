@@ -65,6 +65,7 @@ export interface CalendarEventCreateRequest {
   allDay: boolean;
   description: string | null;
   color: CalendarEventColor;
+  notificationEnabled: boolean;
 }
 
 export interface CalendarEventCreateResult {

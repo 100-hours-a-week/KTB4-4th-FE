@@ -1,6 +1,7 @@
 // 메인페이지에서 월별 이벤트 일정을 확인하는 캘린더 컴포넌트
 "use client";
 
+import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { DayPicker, labelDayButton, type DayButtonProps, type Labels } from "react-day-picker";
 import { ko } from "react-day-picker/locale";
@@ -15,10 +16,12 @@ import CalendarEventListSheet from "@/components/home/CalendarEventListSheet";
 import CalendarWheelPicker, {
   type CalendarWheelColumn,
 } from "@/components/home/CalendarWheelPicker";
+import { useToastContext } from "@/contexts/ToastContext";
+import { createCalendarEvent, type CreatedCalendarEvent } from "@/lib/api/calendarEvents";
+import { ApiRequestError } from "@/lib/api/client";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
 import {
-  createMockCalendarEvent,
   deleteMockCalendarEvent,
   updateMockCalendarEvent,
   getMockCalendarEventDetail,
@@ -36,6 +39,7 @@ import type {
 const VISIBLE_DAY_COUNT = 42;
 
 const MAX_VISIBLE_INDICATORS = 5;
+const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
 
 const DaySummaryContext = createContext<ReadonlyMap<string, CalendarDaySummary>>(new Map());
 
@@ -50,6 +54,19 @@ function getVisibleRange(month: Date) {
   to.setDate(to.getDate() + VISIBLE_DAY_COUNT - 1);
 
   return { from, to };
+}
+
+function getEventDateKeys(startAt: string, endAt: string) {
+  const endDateKey = endAt.slice(0, 10);
+  const date = new Date(`${startAt.slice(0, 10)}T00:00:00`);
+  const dateKeys: string[] = [];
+
+  while (formatDateKey(date) <= endDateKey) {
+    dateKeys.push(formatDateKey(date));
+    date.setDate(date.getDate() + 1);
+  }
+
+  return dateKeys;
 }
 
 function CalendarDayButton({ day, modifiers, children, ...buttonProps }: DayButtonProps) {
@@ -137,6 +154,8 @@ function MonthWheelPicker({ initialMonth, onConfirm }: MonthWheelPickerProps) {
 }
 
 export default function MainCalendar() {
+  const router = useRouter();
+  const { showToast } = useToastContext();
   const [month, setMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [monthPickerState, setMonthPickerState] = useState<CalendarBottomSheetState>("closed");
@@ -178,11 +197,46 @@ export default function MainCalendar() {
   }, [month, summaryRefreshKey]);
 
   const createEvent = async (request: CalendarEventCreateRequest) => {
-    // TODO: 카카오 캘린더 일정 생성 API 연동 후 mock 저장 대체
-    await createMockCalendarEvent(request);
+    const { description, ...requiredPayload } = request;
+    let createdEvent: CreatedCalendarEvent;
+
+    try {
+      createdEvent = await createCalendarEvent({
+        ...requiredPayload,
+        ...(description ? { description } : {}),
+      });
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+      } else if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+      }
+
+      throw error;
+    }
 
     setEventCreateState("closing");
-    setSummaryRefreshKey((currentKey) => currentKey + 1);
+    setDaySummaries((currentSummaries) => {
+      const nextSummaries = new Map(currentSummaries);
+      const indicator = { eventId: String(createdEvent.eventId), color: request.color };
+
+      getEventDateKeys(request.startAt, request.endAt).forEach((date) => {
+        const currentSummary = nextSummaries.get(date);
+
+        nextSummaries.set(date, {
+          date,
+          eventCount: (currentSummary?.eventCount ?? 0) + 1,
+          indicators: [indicator, ...(currentSummary?.indicators ?? [])],
+        });
+      });
+
+      return nextSummaries;
+    });
+    showToast("캘린더 일정을 등록했습니다.");
   };
 
   const openEventList = async (date: Date) => {
