@@ -63,8 +63,4 @@ export interface CalendarEventCreateRequest {
   notificationEnabled: boolean;
 }
 
-export interface CalendarEventCreateResult {
-  eventId: string;
-}
-
 export type CalendarEventUpdateRequest = CalendarEventCreateRequest;
