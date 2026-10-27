@@ -22,11 +22,12 @@ import {
   getCalendarDailyEvents,
   getCalendarEventDetail,
   getCalendarSummary,
+  updateCalendarEvent,
 } from "@/lib/api/calendarEvents";
 import { ApiRequestError } from "@/lib/api/client";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
-import { deleteMockCalendarEvent, updateMockCalendarEvent } from "@/mocks/calendar";
+import { deleteMockCalendarEvent } from "@/mocks/calendar";
 import type {
   CalendarDaySummary,
   CalendarEventCreateRequest,
@@ -412,11 +413,30 @@ export default function MainCalendar() {
   const updateEvent = async (request: CalendarEventUpdateRequest) => {
     if (!eventDetail) return;
 
-    await updateMockCalendarEvent(eventDetail.eventId, request);
+    let updatedEventId: number;
+
+    try {
+      ({ eventId: updatedEventId } = await updateCalendarEvent(
+        Number(eventDetail.eventId),
+        request,
+      ));
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+      } else if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+      }
+
+      throw error;
+    }
 
     setEventEditState("closing");
     setSummaryRefreshKey((currentKey) => currentKey + 1);
-    void openEventDetail(eventDetail.eventId);
+    void openEventDetail(String(updatedEventId));
 
     if (eventListDate) void loadEventList(eventListDate);
   };

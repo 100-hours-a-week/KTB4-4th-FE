@@ -1,4 +1,4 @@
-// 캘린더 일정 등록·월별 요약·날짜별 목록·상세 API 요청과 응답 처리
+// 캘린더 일정 등록·월별 요약·날짜별 목록·상세·수정 API 요청과 응답 처리
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -61,6 +61,20 @@ export interface CalendarEventDetailResult {
   color: CalendarEventColor | null;
 }
 
+export interface UpdateCalendarEventRequest {
+  title: string;
+  description: string | null;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+  color: CalendarEventColor;
+  notificationEnabled: boolean;
+}
+
+export interface UpdatedCalendarEvent {
+  eventId: number;
+}
+
 interface CreateCalendarEventResponse {
   message: string;
   data: CreatedCalendarEvent;
@@ -79,6 +93,11 @@ interface CalendarDailyEventListResponse {
 interface CalendarEventDetailResponse {
   message: string;
   data: CalendarEventDetailResult;
+}
+
+interface UpdateCalendarEventResponse {
+  message: string;
+  data: UpdatedCalendarEvent;
 }
 
 interface CalendarEventErrorResponse {
@@ -173,6 +192,25 @@ export async function getCalendarEventDetail(eventId: number) {
   }
 
   const { data } = (await response.json()) as CalendarEventDetailResponse;
+
+  return data;
+}
+
+export async function updateCalendarEvent(eventId: number, payload: UpdateCalendarEventRequest) {
+  const response = await apiFetch(API_ENDPOINTS.calendar.event(eventId), {
+    method: "PATCH",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await toCalendarEventError(response, "캘린더 일정을 수정하지 못했습니다.");
+  }
+
+  const { data } = (await response.json()) as UpdateCalendarEventResponse;
 
   return data;
 }
