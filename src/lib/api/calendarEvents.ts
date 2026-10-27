@@ -1,4 +1,4 @@
-// 캘린더 일정 등록·월별 요약·날짜별 목록·상세·수정 API 요청과 응답 처리
+// 캘린더 일정 등록·월별 요약·날짜별 목록·상세·수정·삭제 API 요청과 응답 처리
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -213,6 +213,17 @@ export async function updateCalendarEvent(eventId: number, payload: UpdateCalend
   const { data } = (await response.json()) as UpdateCalendarEventResponse;
 
   return data;
+}
+
+export async function deleteCalendarEvent(eventId: number) {
+  const response = await apiFetch(API_ENDPOINTS.calendar.event(eventId), {
+    method: "DELETE",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await toCalendarEventError(response, "캘린더 일정을 삭제하지 못했습니다.");
+  }
 }
 
 export async function createCalendarEvent(payload: CreateCalendarEventRequest) {

@@ -19,6 +19,7 @@ import CalendarWheelPicker, {
 import { useToastContext } from "@/contexts/ToastContext";
 import {
   createCalendarEvent,
+  deleteCalendarEvent,
   getCalendarDailyEvents,
   getCalendarEventDetail,
   getCalendarSummary,
@@ -27,7 +28,6 @@ import {
 import { ApiRequestError } from "@/lib/api/client";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
-import { deleteMockCalendarEvent } from "@/mocks/calendar";
 import type {
   CalendarDaySummary,
   CalendarEventCreateRequest,
@@ -72,6 +72,18 @@ function getEventListErrorMessage(error: unknown) {
 function getEventDetailErrorMessage(error: unknown) {
   if (!(error instanceof ApiRequestError)) {
     return "캘린더 일정을 불러오지 못했습니다.";
+  }
+
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
+
+  return error.message;
+}
+
+function getEventDeleteErrorMessage(error: unknown) {
+  if (!(error instanceof ApiRequestError)) {
+    return "캘린더 일정을 삭제하지 못했습니다.";
   }
 
   if (error.status === 429 && error.retryAfterSeconds !== undefined) {
@@ -453,7 +465,7 @@ export default function MainCalendar() {
     setEventDeleteErrorMessage(null);
 
     try {
-      await deleteMockCalendarEvent(eventDetail.eventId);
+      await deleteCalendarEvent(Number(eventDetail.eventId));
 
       setIsEventDeleteModalOpen(false);
       closeEventDetail();
@@ -463,11 +475,21 @@ export default function MainCalendar() {
 
       if (items?.length === 0) closeEventList();
     } catch (error) {
-      setEventDeleteErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "일정을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-      );
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      setEventDeleteErrorMessage(getEventDeleteErrorMessage(error));
     } finally {
       setIsEventDeleting(false);
     }
