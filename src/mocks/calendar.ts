@@ -1,11 +1,10 @@
-// 캘린더 UI의 일정 수정·삭제용 메모리 기반 임시 CRUD 모듈
+// 캘린더 UI의 일정 생성·삭제용 메모리 기반 임시 CRUD 모듈
 
 import { mockDelay } from "@/mocks/config";
 import type {
   CalendarEventCreateRequest,
   CalendarEventCreateResult,
   CalendarEventDetail,
-  CalendarEventUpdateRequest,
 } from "@/types/calendar";
 
 type MockSavedCalendarEvent = CalendarEventDetail & { createdOrder: number };
@@ -51,19 +50,6 @@ export async function createMockCalendarEvent(
   mockSavedEvents.set(eventId, toSavedEvent(eventId, request, createdOrder));
 
   return { eventId };
-}
-
-export async function updateMockCalendarEvent(
-  eventId: string,
-  request: CalendarEventUpdateRequest,
-): Promise<void> {
-  await mockDelay();
-
-  const event = findMockEvent(eventId);
-
-  if (!event) throw new Error("캘린더 일정을 찾을 수 없습니다.");
-
-  mockSavedEvents.set(eventId, toSavedEvent(eventId, request, event.createdOrder));
 }
 
 export async function deleteMockCalendarEvent(eventId: string): Promise<void> {
