@@ -20,16 +20,13 @@ import { useToastContext } from "@/contexts/ToastContext";
 import {
   createCalendarEvent,
   getCalendarDailyEvents,
+  getCalendarEventDetail,
   getCalendarSummary,
 } from "@/lib/api/calendarEvents";
 import { ApiRequestError } from "@/lib/api/client";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
-import {
-  deleteMockCalendarEvent,
-  updateMockCalendarEvent,
-  getMockCalendarEventDetail,
-} from "@/mocks/calendar";
+import { deleteMockCalendarEvent, updateMockCalendarEvent } from "@/mocks/calendar";
 import type {
   CalendarDaySummary,
   CalendarEventCreateRequest,
@@ -69,6 +66,30 @@ function getEventListErrorMessage(error: unknown) {
   }
 
   return error.message;
+}
+
+function getEventDetailErrorMessage(error: unknown) {
+  if (!(error instanceof ApiRequestError)) {
+    return "캘린더 일정을 불러오지 못했습니다.";
+  }
+
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
+
+  return error.message;
+}
+
+function formatKstDateKey(dateTime: string) {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(dateTime));
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function CalendarDayButton({ day, modifiers, children, ...buttonProps }: DayButtonProps) {
@@ -345,14 +366,39 @@ export default function MainCalendar() {
     setIsEventDetailLoading(true);
 
     try {
-      // TODO: 카카오 캘린더 일정 상세 조회 API 연동 후 mock 조회 대체
-      const detail = await getMockCalendarEventDetail(eventId);
+      const detail = await getCalendarEventDetail(Number(eventId));
+      const mappedDetail: CalendarEventDetail = {
+        eventId: String(detail.eventId),
+        title: detail.title,
+        description: detail.description,
+        startDate: formatKstDateKey(detail.startAt),
+        endDate: formatKstDateKey(detail.endAt),
+        startAt: detail.startAt,
+        endAt: detail.endAt,
+        allDay: detail.isAllDay,
+        notificationEnabled: detail.isNotificationEnabled,
+        color: detail.color,
+      };
 
-      if (eventDetailRequestIdRef.current === requestId) setEventDetail(detail);
-    } catch {
-      if (eventDetailRequestIdRef.current === requestId) {
-        setEventDetailErrorMessage("일정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      if (eventDetailRequestIdRef.current === requestId) setEventDetail(mappedDetail);
+    } catch (error) {
+      if (eventDetailRequestIdRef.current !== requestId) return;
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
       }
+
+      if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      setEventDetailErrorMessage(getEventDetailErrorMessage(error));
     } finally {
       if (eventDetailRequestIdRef.current === requestId) setIsEventDetailLoading(false);
     }
@@ -366,7 +412,6 @@ export default function MainCalendar() {
   const updateEvent = async (request: CalendarEventUpdateRequest) => {
     if (!eventDetail) return;
 
-    // TODO: 카카오 캘린더 일정 수정 API 연동 후 mock 수정 대체
     await updateMockCalendarEvent(eventDetail.eventId, request);
 
     setEventEditState("closing");
@@ -388,7 +433,6 @@ export default function MainCalendar() {
     setEventDeleteErrorMessage(null);
 
     try {
-      // TODO: 카카오 캘린더 일정 삭제 API 연동 후 mock 삭제 대체 (401 로그인 이동, 403 CSRF 재발급 후 1회 재시도, 404 목록 재조회, 429 retryAfterSeconds 안내, 500 목록 유지)
       await deleteMockCalendarEvent(eventDetail.eventId);
 
       setIsEventDeleteModalOpen(false);

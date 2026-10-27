@@ -40,7 +40,6 @@ export interface CalendarEventListItem {
   color: CalendarEventColor | null;
 }
 
-// TODO: 일정 상세 조회 API 응답 스펙이 바뀔 수 있으므로 확정 후 필드 재확인 (startAt·endAt·allDay는 수정 화면용으로 추가 요청 필요)
 export interface CalendarEventDetail {
   eventId: string;
   title: string;
@@ -50,10 +49,10 @@ export interface CalendarEventDetail {
   startAt: string;
   endAt: string;
   allDay: boolean;
+  notificationEnabled: boolean;
   color: CalendarEventColor | null;
 }
 
-// TODO: 일정 생성 API 요청·응답 스펙 확정 후 하루 종일 일정의 startAt·endAt 형식과 응답 필드 재확인
 export interface CalendarEventCreateRequest {
   title: string;
   startAt: string;
@@ -68,5 +67,4 @@ export interface CalendarEventCreateResult {
   eventId: string;
 }
 
-// TODO: 일정 수정 API 요청에 allDay 필드 추가 여부를 백엔드와 확인
 export type CalendarEventUpdateRequest = CalendarEventCreateRequest;
