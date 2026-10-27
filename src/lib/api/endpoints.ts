@@ -13,6 +13,9 @@ export const API_ENDPOINTS = {
     conversationConfirmation: (conversationId: number) =>
       `${API_V1_PREFIX}/ai/conversations/${conversationId}/confirm`,
   },
+  anonymousChats: {
+    report: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/reports`,
+  },
   analytics: {
     productLinkClicks: `${API_V1_PREFIX}/analytics/product-link-clicks`,
   },

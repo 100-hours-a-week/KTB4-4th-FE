@@ -9,12 +9,13 @@ import {
   reportAnonymousChatUser,
   type AnonymousChatReportReason,
 } from "@/lib/api/anonymousChatModeration";
+import { ApiRequestError } from "@/lib/api/client";
 
 type AnonymousChatReportModalProps = {
   open: boolean;
   chatId: number;
   onClose: () => void;
-  onReported: () => void;
+  onReported: (message?: string) => void;
 };
 
 const REPORT_REASON_OPTIONS: { value: AnonymousChatReportReason; label: string }[] = [
@@ -69,8 +70,18 @@ export default function AnonymousChatReportModal({
       });
       resetForm();
       onReported();
-    } catch {
-      setErrorMessage("신고를 접수하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 409) {
+        resetForm();
+        onReported(error.message);
+        return;
+      }
+
+      setErrorMessage(
+        error instanceof ApiRequestError
+          ? error.message
+          : "신고를 접수하지 못했어요. 잠시 후 다시 시도해 주세요.",
+      );
     } finally {
       setIsSubmitting(false);
     }
