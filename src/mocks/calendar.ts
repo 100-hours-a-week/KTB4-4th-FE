@@ -3,14 +3,12 @@
 import { formatDateKey } from "@/lib/formatDateKey";
 import { mockDelay } from "@/mocks/config";
 import type {
-  CalendarDaySummary,
   CalendarEventCreateRequest,
   CalendarEventCreateResult,
   CalendarEventDetail,
   CalendarEventList,
   CalendarEventListItem,
   CalendarEventUpdateRequest,
-  CalendarSummary,
 } from "@/types/calendar";
 
 type MockCalendarEvent = CalendarEventListItem & { createdOrder: number };
@@ -76,20 +74,6 @@ function collectMockEventsByDate(from: Date, to: Date) {
   );
 
   return eventsByDate;
-}
-
-export async function getMockCalendarSummary(from: Date, to: Date): Promise<CalendarSummary> {
-  await mockDelay();
-
-  const items: CalendarDaySummary[] = [...collectMockEventsByDate(from, to).entries()]
-    .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate))
-    .map(([date, events]) => ({
-      date,
-      eventCount: events.length,
-      indicators: events.map(({ eventId, color }) => ({ eventId, color })),
-    }));
-
-  return { timezone: "Asia/Seoul", items };
 }
 
 export async function getMockCalendarEventList(date: Date): Promise<CalendarEventList> {
