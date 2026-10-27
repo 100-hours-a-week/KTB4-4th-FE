@@ -25,7 +25,7 @@ export default function PreferenceAnalysisBar({
   return (
     <section
       aria-labelledby="preference-analysis-title"
-      className="relative shrink-0 rounded-lg border border-border bg-surface/80 px-4 py-3 shadow-md backdrop-blur-sm"
+      className="relative shrink-0 rounded-lg border border-border bg-surface/80 px-4 py-3 opacity-75 shadow-md backdrop-blur-sm"
     >
       <div className="flex items-center gap-1 pr-10">
         <div className="flex items-baseline gap-1">
