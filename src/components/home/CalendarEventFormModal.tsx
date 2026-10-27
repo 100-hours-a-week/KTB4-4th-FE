@@ -108,7 +108,6 @@ function formatFormTime(dateTime: Date) {
   return dateTime.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
 }
 
-// TODO: 사용자 시간대 처리 방식이 확정되면 한국 시간(+09:00) 고정 대신 실제 시간대 반영
 function toKstIsoString(dateTime: Date) {
   const hour = String(dateTime.getHours()).padStart(2, "0");
   const minute = String(dateTime.getMinutes()).padStart(2, "0");
@@ -174,7 +173,9 @@ export default function CalendarEventFormModal({
       : new Date(getInitialStartAt(initialDate).getTime() + HOUR_IN_MS),
   );
   const [isAllDay, setIsAllDay] = useState(initialEvent?.allDay ?? false);
-  const [isNotificationEnabled, setIsNotificationEnabled] = useState(false);
+  const [isNotificationEnabled, setIsNotificationEnabled] = useState(
+    initialEvent?.notificationEnabled ?? false,
+  );
   const [expandedField, setExpandedField] = useState<ExpandedField | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);

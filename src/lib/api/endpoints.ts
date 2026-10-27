@@ -26,11 +26,11 @@ export const API_ENDPOINTS = {
   calendar: {
     events: `${API_V1_PREFIX}/calendar/events`,
     dailyEvents: `${API_V1_PREFIX}/calendar/events/daily`,
+    event: (eventId: number) => `${API_V1_PREFIX}/calendar/events/${eventId}`,
   },
   errorReports: `${API_V1_PREFIX}/error-reports`,
   friends: {
     list: `${API_V1_PREFIX}/friends`,
-    // TODO(#545): 다가오는 친구 생일 조회 API 구현 후 확정된 endpoint로 교체
     upcomingBirthdays: `${API_V1_PREFIX}/friends/upcoming-birthdays`,
     detail: (userId: number) => `${API_V1_PREFIX}/friends/${userId}`,
     favorite: (userId: number) => `${API_V1_PREFIX}/friends/${userId}/favorite`,

@@ -1,4 +1,4 @@
-// 캘린더 일정 등록·월별 요약·날짜별 목록 API 요청과 응답 처리
+// 캘린더 일정 등록·월별 요약·날짜별 목록·상세 API 요청과 응답 처리
 "use client";
 
 import { apiFetch, ApiRequestError } from "@/lib/api/client";
@@ -50,6 +50,17 @@ export interface CalendarDailyEventListResult {
   items: CalendarDailyEvent[];
 }
 
+export interface CalendarEventDetailResult {
+  eventId: number;
+  title: string;
+  description: string | null;
+  startAt: string;
+  endAt: string;
+  isAllDay: boolean;
+  isNotificationEnabled: boolean;
+  color: CalendarEventColor | null;
+}
+
 interface CreateCalendarEventResponse {
   message: string;
   data: CreatedCalendarEvent;
@@ -65,6 +76,11 @@ interface CalendarDailyEventListResponse {
   data: CalendarDailyEventListResult;
 }
 
+interface CalendarEventDetailResponse {
+  message: string;
+  data: CalendarEventDetailResult;
+}
+
 interface CalendarEventErrorResponse {
   message?: string;
   data?: {
@@ -76,7 +92,7 @@ const DEFAULT_ERROR_MESSAGES: Partial<Record<number, string>> = {
   400: "요청 형식이 올바르지 않습니다.",
   401: "로그인이 필요합니다.",
   403: "요청을 처리할 권한이 없습니다.",
-  404: "요청한 리소스를 찾을 수 없습니다.",
+  404: "캘린더 일정을 찾을 수 없습니다.",
   422: "입력 값이 유효하지 않습니다. 입력한 내용을 확인해 주세요.",
   429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   500: "요청을 처리하지 못했습니다.",
@@ -142,6 +158,21 @@ export async function getCalendarDailyEvents(date: string) {
   }
 
   const { data } = (await response.json()) as CalendarDailyEventListResponse;
+
+  return data;
+}
+
+export async function getCalendarEventDetail(eventId: number) {
+  const response = await apiFetch(API_ENDPOINTS.calendar.event(eventId), {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await toCalendarEventError(response, "캘린더 일정을 불러오지 못했습니다.");
+  }
+
+  const { data } = (await response.json()) as CalendarEventDetailResponse;
 
   return data;
 }
