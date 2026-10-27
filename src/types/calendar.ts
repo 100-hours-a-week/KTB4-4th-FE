@@ -34,11 +34,10 @@ export interface CalendarDaySummary {
 export interface CalendarEventListItem {
   eventId: string;
   title: string;
+  startAt: string;
+  endAt: string;
+  createdAt: string;
   color: CalendarEventColor | null;
-}
-
-export interface CalendarEventList {
-  items: CalendarEventListItem[];
 }
 
 // TODO: 일정 상세 조회 API 응답 스펙이 바뀔 수 있으므로 확정 후 필드 재확인 (startAt·endAt·allDay는 수정 화면용으로 추가 요청 필요)

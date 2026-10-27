@@ -17,7 +17,11 @@ import CalendarWheelPicker, {
   type CalendarWheelColumn,
 } from "@/components/home/CalendarWheelPicker";
 import { useToastContext } from "@/contexts/ToastContext";
-import { createCalendarEvent, getCalendarSummary } from "@/lib/api/calendarEvents";
+import {
+  createCalendarEvent,
+  getCalendarDailyEvents,
+  getCalendarSummary,
+} from "@/lib/api/calendarEvents";
 import { ApiRequestError } from "@/lib/api/client";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
@@ -25,7 +29,6 @@ import {
   deleteMockCalendarEvent,
   updateMockCalendarEvent,
   getMockCalendarEventDetail,
-  getMockCalendarEventList,
 } from "@/mocks/calendar";
 import type {
   CalendarDaySummary,
@@ -47,6 +50,18 @@ function formatTargetMonth(month: Date) {
 function getSummaryErrorMessage(error: unknown) {
   if (!(error instanceof ApiRequestError)) {
     return "캘린더 일정 요약을 불러오지 못했습니다.";
+  }
+
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
+
+  return error.message;
+}
+
+function getEventListErrorMessage(error: unknown) {
+  if (!(error instanceof ApiRequestError)) {
+    return "캘린더 일정 목록을 불러오지 못했습니다.";
   }
 
   if (error.status === 429 && error.retryAfterSeconds !== undefined) {
@@ -266,16 +281,37 @@ export default function MainCalendar() {
     setIsEventListLoading(true);
 
     try {
-      // TODO: 카카오 캘린더 날짜별 일정 목록 조회 API 연동 후 mock 조회 대체
-      const { items } = await getMockCalendarEventList(date);
+      const { items } = await getCalendarDailyEvents(formatDateKey(date));
+      const sortedItems: CalendarEventListItem[] = [...items]
+        .sort(
+          (left, right) =>
+            right.startAt.localeCompare(left.startAt) ||
+            right.createdAt.localeCompare(left.createdAt) ||
+            right.eventId - left.eventId,
+        )
+        .map((item) => ({ ...item, eventId: String(item.eventId) }));
 
-      if (eventListRequestIdRef.current === requestId) setEventListItems(items);
+      if (eventListRequestIdRef.current === requestId) setEventListItems(sortedItems);
 
-      return items;
-    } catch {
-      if (eventListRequestIdRef.current === requestId) {
-        setEventListErrorMessage("일정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      return sortedItems;
+    } catch (error) {
+      if (eventListRequestIdRef.current !== requestId) return null;
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return null;
       }
+
+      if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+        return null;
+      }
+
+      setEventListErrorMessage(getEventListErrorMessage(error));
 
       return null;
     } finally {

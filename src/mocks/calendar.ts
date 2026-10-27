@@ -1,29 +1,18 @@
-// 캘린더 UI에서 사용자가 등록한 일정의 메모리 기반 임시 CRUD 모듈
+// 캘린더 UI의 일정 상세·수정·삭제용 메모리 기반 임시 CRUD 모듈
 
-import { formatDateKey } from "@/lib/formatDateKey";
 import { mockDelay } from "@/mocks/config";
 import type {
   CalendarEventCreateRequest,
   CalendarEventCreateResult,
   CalendarEventDetail,
-  CalendarEventList,
-  CalendarEventListItem,
   CalendarEventUpdateRequest,
 } from "@/types/calendar";
-
-type MockCalendarEvent = CalendarEventListItem & { createdOrder: number };
 
 type MockSavedCalendarEvent = CalendarEventDetail & { createdOrder: number };
 
 const CREATED_EVENT_ID_PREFIX = "created-";
 const mockSavedEvents = new Map<string, MockSavedCalendarEvent>();
 let mockCreatedCount = 0;
-
-function parseDateKey(dateKey: string) {
-  const [year, month, day] = dateKey.split("-").map(Number);
-
-  return new Date(year, month - 1, day);
-}
 
 function toSavedEvent(
   eventId: string,
@@ -46,42 +35,6 @@ function toSavedEvent(
 
 function findMockEvent(eventId: string) {
   return mockSavedEvents.get(eventId) ?? null;
-}
-
-function collectMockEventsByDate(from: Date, to: Date) {
-  const fromKey = formatDateKey(from);
-  const toKey = formatDateKey(to);
-  const eventsByDate = new Map<string, MockCalendarEvent[]>();
-  mockSavedEvents.forEach(({ eventId, title, color, startDate, endDate, createdOrder }) => {
-    const day = parseDateKey(startDate);
-
-    while (formatDateKey(day) <= endDate) {
-      const dateKey = formatDateKey(day);
-
-      if (dateKey >= fromKey && dateKey <= toKey) {
-        const events = eventsByDate.get(dateKey) ?? [];
-
-        events.push({ eventId, title, color, createdOrder });
-        eventsByDate.set(dateKey, events);
-      }
-
-      day.setDate(day.getDate() + 1);
-    }
-  });
-
-  eventsByDate.forEach((events) =>
-    events.sort((left, right) => right.createdOrder - left.createdOrder),
-  );
-
-  return eventsByDate;
-}
-
-export async function getMockCalendarEventList(date: Date): Promise<CalendarEventList> {
-  await mockDelay();
-
-  const events = collectMockEventsByDate(date, date).get(formatDateKey(date)) ?? [];
-
-  return { items: events.map(({ eventId, title, color }) => ({ eventId, title, color })) };
 }
 
 export async function getMockCalendarEventDetail(eventId: string): Promise<CalendarEventDetail> {

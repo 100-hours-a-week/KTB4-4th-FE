@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
   },
   calendar: {
     events: `${API_V1_PREFIX}/calendar/events`,
+    dailyEvents: `${API_V1_PREFIX}/calendar/events/daily`,
   },
   errorReports: `${API_V1_PREFIX}/error-reports`,
   friends: {
