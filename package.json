@@ -22,7 +22,8 @@
     "react-day-picker": "^10.0.2",
     "react-dom": "19.2.8",
     "react-mobile-picker": "^1.2.0",
-    "react-swipeable": "^7.0.2"
+    "react-swipeable": "^7.0.2",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.1",
