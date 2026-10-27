@@ -16,7 +16,7 @@ function getSentAt(elapsedMs: number) {
   return new Date(Date.now() - elapsedMs).toISOString();
 }
 
-function createMockChats(): Record<AnonymousChatType, AnonymousChatListItem[]> {
+export function createMockChats(): Record<AnonymousChatType, AnonymousChatListItem[]> {
   return {
     SENT: [
       {

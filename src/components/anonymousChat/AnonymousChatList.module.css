@@ -1,4 +1,4 @@
-/* 대화 목록 영역의 세로 스크롤바 스타일 */
+/* 대화 목록과 채팅방 메시지 영역의 세로 스크롤바 스타일 */
 
 .chatList {
   scrollbar-color: var(--color-disabled) transparent;
