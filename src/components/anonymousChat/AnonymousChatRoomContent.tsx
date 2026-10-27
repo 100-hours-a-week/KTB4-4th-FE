@@ -1,15 +1,18 @@
 // 채팅방 정보를 조회해 헤더·안내 카드·상품 카드·메시지 목록·입력창을 조립하는 클라이언트 화면
 "use client";
 
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import AnonymousChatBlockModal from "@/components/anonymousChat/AnonymousChatBlockModal";
 import AnonymousChatComposer from "@/components/anonymousChat/AnonymousChatComposer";
 import AnonymousChatGuideCard from "@/components/anonymousChat/AnonymousChatGuideCard";
 import AnonymousChatMessageList from "@/components/anonymousChat/AnonymousChatMessageList";
 import AnonymousChatProductCard from "@/components/anonymousChat/AnonymousChatProductCard";
+import AnonymousChatReportModal from "@/components/anonymousChat/AnonymousChatReportModal";
 import AnonymousChatRoomHeader from "@/components/anonymousChat/AnonymousChatRoomHeader";
 import AnonymousChatStartGuide from "@/components/anonymousChat/AnonymousChatStartGuide";
+import { useToastContext } from "@/contexts/ToastContext";
 import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
 import {
   getAnonymousChatRoom,
@@ -29,6 +32,9 @@ type RoomState =
 
 export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomContentProps) {
   const [roomState, setRoomState] = useState<RoomState>({ status: "loading" });
+  const [openModal, setOpenModal] = useState<"report" | "block" | null>(null);
+  const router = useRouter();
+  const { showToast } = useToastContext();
 
   useVisualViewportHeight();
 
@@ -64,11 +70,19 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
     );
   };
 
-  // TODO: 신고하기 모달 구현 후 연결
-  const handleReport = () => {};
+  const closeModal = () => setOpenModal(null);
 
-  // TODO: 차단하기 모달 구현 후 연결
-  const handleBlock = () => {};
+  const handleReported = () => {
+    setOpenModal(null);
+    showToast("신고가 접수됐어요.");
+  };
+
+  // 차단한 상대와는 더 이상 대화할 수 없으므로 대화 목록으로 돌아감
+  const handleBlocked = () => {
+    setOpenModal(null);
+    showToast("차단했어요.");
+    router.replace("/chat");
+  };
 
   if (roomState.status !== "loaded") {
     return (
@@ -97,8 +111,8 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatRoomHeader
           counterpartName={room.counterpartName}
           type={room.type}
-          onReport={handleReport}
-          onBlock={handleBlock}
+          onReport={() => setOpenModal("report")}
+          onBlock={() => setOpenModal("block")}
         />
       </div>
 
@@ -118,6 +132,19 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       )}
 
       <AnonymousChatComposer chatId={room.chatId} onMessageSent={appendMessage} />
+
+      <AnonymousChatReportModal
+        open={openModal === "report"}
+        chatId={room.chatId}
+        onClose={closeModal}
+        onReported={handleReported}
+      />
+      <AnonymousChatBlockModal
+        open={openModal === "block"}
+        chatId={room.chatId}
+        onClose={closeModal}
+        onBlocked={handleBlocked}
+      />
     </main>
   );
 }
