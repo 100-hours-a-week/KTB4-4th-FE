@@ -16,6 +16,7 @@ import NotificationDropdown from "./NotificationDropdown";
 // 하단 내비게이션으로 바로 이동하는 페이지는 뒤로 가기 버튼을 표시하지 않음
 const pathsWithoutBackButton = new Set(["/", "/friends", "/ai", "/chat", "/mypage"]);
 const friendDetailPathPattern = /^\/friends\/\d+\/?$/;
+const anonymousChatRoomPathPattern = /^\/chat\/\d+\/?$/;
 
 type FriendDetailHeaderActionProps = {
   userId: number;
@@ -148,6 +149,8 @@ export default function Header() {
 
     router.back();
   };
+
+  if (anonymousChatRoomPathPattern.test(pathname)) return null;
 
   return (
     <header className="relative flex h-[60px] shrink-0 items-center justify-center bg-surface px-page">
