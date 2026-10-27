@@ -39,8 +39,13 @@ export default function AnonymousChatRoomMenu({ onReport, onBlock }: AnonymousCh
   const menuId = useId();
 
   const menuItems = [
-    { label: "신고하기", icon: <ReportIcon />, onSelect: onReport },
-    { label: "차단하기", icon: <BlockIcon />, onSelect: onBlock },
+    { label: "신고하기", icon: <ReportIcon />, onSelect: onReport, colorClassName: "text-danger" },
+    {
+      label: "차단하기",
+      icon: <BlockIcon />,
+      onSelect: onBlock,
+      colorClassName: "text-foreground",
+    },
   ];
 
   useEffect(() => {
@@ -89,11 +94,11 @@ export default function AnonymousChatRoomMenu({ onReport, onBlock }: AnonymousCh
           id={menuId}
           className="absolute top-[calc(100%+0.25rem)] right-0 z-50 m-0 w-44 list-none overflow-hidden rounded-md border border-border-strong bg-surface p-1 shadow-lg"
         >
-          {menuItems.map(({ label, icon, onSelect }) => (
+          {menuItems.map(({ label, icon, onSelect, colorClassName }) => (
             <li key={label}>
               <button
                 type="button"
-                className="flex h-touch w-full items-center gap-3 rounded-sm border-0 bg-transparent px-3 text-left text-body text-foreground transition-colors hover:bg-background-subtle"
+                className={`flex h-touch w-full items-center gap-3 rounded-sm border-0 bg-transparent px-3 text-left text-body transition-colors hover:bg-background-subtle ${colorClassName}`}
                 onClick={() => {
                   setIsOpen(false);
                   onSelect();
