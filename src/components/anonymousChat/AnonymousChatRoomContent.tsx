@@ -72,9 +72,9 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
 
   const closeModal = () => setOpenModal(null);
 
-  const handleReported = () => {
+  const handleReported = (message = "신고가 접수됐어요.") => {
     setOpenModal(null);
-    showToast("신고가 접수됐어요.");
+    showToast(message);
   };
 
   // 차단한 상대와는 더 이상 대화할 수 없으므로 대화 목록으로 돌아감
