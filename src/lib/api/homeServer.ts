@@ -1,13 +1,15 @@
 // 메인 페이지의 안내 문구와 내 추천 상품을 서버에서 조회하는 서버 API 요청
 import "server-only";
 
+import { redirect } from "next/navigation";
+
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import type { GuidanceResponse } from "@/lib/api/guidance";
 import type {
   PersonalRecommendation,
   PersonalRecommendationsResponse,
 } from "@/lib/api/personalRecommendations";
-import { serverApiRequest } from "@/lib/api/serverClient";
+import { ServerApiError, serverApiRequest } from "@/lib/api/serverClient";
 import { USE_MOCK_DATA } from "@/mocks/config";
 
 // 메인 페이지에 표시하는 내 추천 상품 수
@@ -40,4 +42,13 @@ export async function getHomeRecommendations(): Promise<PersonalRecommendation[]
   );
 
   return data.items;
+}
+
+// 메인 데이터 조회 실패 시 인증 만료는 로그인 페이지, 그 외 오류는 에러 페이지로 이동
+export function redirectOnHomeDataError(error: unknown): never {
+  if (error instanceof ServerApiError && error.status === 401) {
+    redirect("/login");
+  }
+
+  redirect("/error");
 }
