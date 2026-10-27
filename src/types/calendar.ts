@@ -18,20 +18,17 @@ export type CalendarEventColor =
   | "GRAY";
 
 export interface CalendarEventIndicator {
-  eventId: string;
-  color: CalendarEventColor | null;
+  eventId: number;
+  createdAt: string;
+  startDate: string;
+  endDate: string;
+  color: CalendarEventColor;
 }
 
 export interface CalendarDaySummary {
   date: string;
   eventCount: number;
-  // TODO: 최근 추가한 일정이 앞에 오도록 서버에서 정렬해 내려주는지 백엔드와 확인
   indicators: CalendarEventIndicator[];
-}
-
-export interface CalendarSummary {
-  timezone: string;
-  items: CalendarDaySummary[];
 }
 
 export interface CalendarEventListItem {

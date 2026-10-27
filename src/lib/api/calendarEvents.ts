@@ -19,9 +19,32 @@ export interface CreatedCalendarEvent {
   eventId: number;
 }
 
+export interface CalendarSummaryIndicator {
+  eventId: number;
+  createdAt: string;
+  startDate: string;
+  endDate: string;
+  color: CalendarEventColor;
+}
+
+export interface CalendarSummaryItem {
+  date: string;
+  eventCount: number;
+  indicators: CalendarSummaryIndicator[];
+}
+
+export interface CalendarSummaryResult {
+  items: CalendarSummaryItem[];
+}
+
 interface CreateCalendarEventResponse {
   message: string;
   data: CreatedCalendarEvent;
+}
+
+interface CalendarSummaryResponse {
+  message: string;
+  data: CalendarSummaryResult;
 }
 
 interface CalendarEventErrorResponse {
@@ -57,6 +80,34 @@ function getRetryAfterSeconds(
   return Number.isFinite(retryAfterSeconds) ? Math.max(0, Math.ceil(retryAfterSeconds)) : undefined;
 }
 
+async function toCalendarEventError(response: Response, fallbackMessage: string) {
+  const errorResponse = (await response
+    .json()
+    .catch(() => null)) as CalendarEventErrorResponse | null;
+
+  return new ApiRequestError(
+    errorResponse?.message ?? DEFAULT_ERROR_MESSAGES[response.status] ?? fallbackMessage,
+    response.status,
+    getRetryAfterSeconds(response, errorResponse),
+  );
+}
+
+export async function getCalendarSummary(targetMonth: string) {
+  const searchParams = new URLSearchParams({ targetMonth });
+  const response = await apiFetch(`${API_ENDPOINTS.calendar.events}?${searchParams.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await toCalendarEventError(response, "캘린더 일정 요약을 불러오지 못했습니다.");
+  }
+
+  const { data } = (await response.json()) as CalendarSummaryResponse;
+
+  return data;
+}
+
 export async function createCalendarEvent(payload: CreateCalendarEventRequest) {
   const response = await apiFetch(API_ENDPOINTS.calendar.events, {
     method: "POST",
@@ -68,17 +119,7 @@ export async function createCalendarEvent(payload: CreateCalendarEventRequest) {
   });
 
   if (!response.ok) {
-    const errorResponse = (await response
-      .json()
-      .catch(() => null)) as CalendarEventErrorResponse | null;
-
-    throw new ApiRequestError(
-      errorResponse?.message ??
-        DEFAULT_ERROR_MESSAGES[response.status] ??
-        "캘린더 일정을 등록하지 못했습니다.",
-      response.status,
-      getRetryAfterSeconds(response, errorResponse),
-    );
+    throw await toCalendarEventError(response, "캘린더 일정을 등록하지 못했습니다.");
   }
 
   const { data } = (await response.json()) as CreateCalendarEventResponse;
