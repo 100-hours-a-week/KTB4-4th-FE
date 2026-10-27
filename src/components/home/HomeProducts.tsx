@@ -1,0 +1,60 @@
+// 메인 페이지 맞춤 상품을 서버에서 조회해 표시하는 영역 (Suspense 경계 안에서 안내 문구보다 늦게 표시)
+
+import Link from "next/link";
+
+import HomeProductCard from "@/components/home/HomeProductCard";
+import { getHomeRecommendations, redirectOnHomeDataError } from "@/lib/api/homeServer";
+
+type HomeProductsProps = {
+  userId: number;
+  userName: string;
+};
+
+async function getHomeProductsOrRedirect() {
+  try {
+    return await getHomeRecommendations();
+  } catch (error) {
+    redirectOnHomeDataError(error);
+  }
+}
+
+export default async function HomeProducts({ userId, userName }: HomeProductsProps) {
+  const products = await getHomeProductsOrRedirect();
+
+  if (products.length === 0) {
+    return (
+      <div
+        role="status"
+        className="mt-8 flex min-h-20 items-center justify-center rounded-sm bg-background-subtle px-4 text-center"
+      >
+        <p className="text-body text-muted">현재 추천 상품이 없어요</p>
+      </div>
+    );
+  }
+
+  return (
+    <section aria-labelledby="personalized-products-title" className="mt-8">
+      <div className="flex items-center justify-between gap-3">
+        <h2
+          id="personalized-products-title"
+          className="flex min-w-0 items-center text-heading-3 font-bold whitespace-nowrap text-foreground"
+        >
+          <span className="min-w-0 truncate text-[#4684e9]">{userName}</span>
+          <span className="shrink-0">님을 위한 맞춤 상품</span>
+        </h2>
+        <Link
+          href={`/products?targetType=SELF&targetUserId=${userId}`}
+          className="shrink-0 rounded-sm bg-background-subtle px-2 py-0.5 text-body-sm text-foreground-secondary"
+        >
+          더보기
+        </Link>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        {products.map((product) => (
+          <HomeProductCard key={product.recommendationId} product={product} />
+        ))}
+      </div>
+    </section>
+  );
+}
