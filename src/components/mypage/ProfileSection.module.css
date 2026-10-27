@@ -1,0 +1,21 @@
+/* 마이페이지 프로필 이미지의 스쿼클 마스크와 외곽선 */
+
+.profileImage {
+  -webkit-mask-image: url("/images/profile-squircle-mask.svg");
+  mask-image: url("/images/profile-squircle-mask.svg");
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.profileImage::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgb(0 0 0 / 2%);
+  border-radius: 42%;
+  content: "";
+}
