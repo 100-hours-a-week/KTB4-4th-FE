@@ -6,7 +6,7 @@ import type {
   MyGiftRecommendation,
 } from "@/lib/api/giftRecommendations";
 import type { PersonalRecommendationsPage } from "@/lib/api/personalRecommendations";
-import { mockDelay } from "@/mocks/config";
+import { MOCK_PRODUCT_IMAGE_FORMAT, mockDelay } from "@/mocks/config";
 
 const MOCK_PRODUCT_COUNT = 1000;
 const MOCK_PRODUCT_ID_START = 900_001;
@@ -81,7 +81,7 @@ const mockProducts: GiftRecommendation[] = mockCategoryCodes.map((category, inde
     recommendationId: productId,
     productId,
     // 같은 이미지를 여러 상품이 써도 브라우저 캐시에 묶이지 않도록 상품마다 주소를 다르게 지정함
-    productImageUrl: `/images/mock/product-${imageOrder}.jpg?id=${productId}`,
+    productImageUrl: `/images/mock/product-${imageOrder}.${MOCK_PRODUCT_IMAGE_FORMAT}?id=${productId}`,
     purchaseUrl: "https://example.com/",
     category,
     name:
