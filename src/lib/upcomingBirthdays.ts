@@ -1,17 +1,10 @@
-// 친구 생일 날짜를 검증하고 다가오는 생일 목록을 계산하는 유틸리티
-
-import type { UpcomingBirthdayFriend } from "@/lib/api/friends";
+// 친구 생일 날짜를 검증하고 다음 생일까지 남은 일수를 계산하는 유틸리티
 
 const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
-export const UPCOMING_BIRTHDAY_MAX_DAYS = 7;
 
 export type Birthday = {
   month: number;
   day: number;
-};
-
-export type UpcomingBirthday = UpcomingBirthdayFriend & {
-  daysUntilBirthday: number;
 };
 
 export function parseBirthday(birthDate: string | null): Birthday | null {
@@ -57,30 +50,4 @@ export function getDaysUntilBirthday(month: number, day: number, today = new Dat
   }
 
   return Math.round((birthdayAtUtc - todayAtUtc) / MILLISECONDS_PER_DAY);
-}
-
-export function filterUpcomingBirthdays(
-  friends: readonly UpcomingBirthdayFriend[],
-  today = new Date(),
-): UpcomingBirthday[] {
-  return friends
-    .flatMap((friend) => {
-      const birthday = parseBirthday(friend.birthDate);
-
-      if (!birthday) {
-        return [];
-      }
-
-      const daysUntilBirthday = getDaysUntilBirthday(birthday.month, birthday.day, today);
-
-      return daysUntilBirthday <= UPCOMING_BIRTHDAY_MAX_DAYS
-        ? [{ ...friend, daysUntilBirthday }]
-        : [];
-    })
-    .sort(
-      (left, right) =>
-        left.daysUntilBirthday - right.daysUntilBirthday ||
-        left.name.localeCompare(right.name, "ko") ||
-        left.userId - right.userId,
-    );
 }

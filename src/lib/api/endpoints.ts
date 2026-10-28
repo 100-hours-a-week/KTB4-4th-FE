@@ -34,7 +34,7 @@ export const API_ENDPOINTS = {
   errorReports: `${API_V1_PREFIX}/error-reports`,
   friends: {
     list: `${API_V1_PREFIX}/friends`,
-    upcomingBirthdays: `${API_V1_PREFIX}/friends/upcoming-birthdays`,
+    upcomingEvents: `${API_V1_PREFIX}/friends/upcoming-events`,
     detail: (userId: number) => `${API_V1_PREFIX}/friends/${userId}`,
     favorite: (userId: number) => `${API_V1_PREFIX}/friends/${userId}/favorite`,
     pokes: (userId: number) => `${API_V1_PREFIX}/friends/${userId}/pokes`,

@@ -21,11 +21,15 @@ export interface FriendFavorite {
   isFavorite: boolean;
 }
 
-export interface UpcomingBirthdayFriend {
-  userId: number;
-  name: string;
-  profileImageUrl: string | null;
-  birthDate: string;
+export interface UpcomingFriendEvent {
+  eventType: "BIRTHDAY";
+  eventDate: string;
+  daysRemaining: number;
+  friend: {
+    userId: number;
+    nickname: string;
+    profileImageUrl: string | null;
+  };
 }
 
 interface FriendsData {
@@ -70,6 +74,13 @@ interface FriendPokeResponse {
 interface FriendFavoriteResponse {
   message: string;
   data: FriendFavorite;
+}
+
+interface UpcomingFriendEventsResponse {
+  message: string;
+  data: {
+    items: UpcomingFriendEvent[];
+  };
 }
 
 export interface GetFriendsParams {
@@ -117,6 +128,14 @@ const FRIEND_POKE_ERROR_MESSAGES: Partial<Record<number, string>> = {
   401: "로그인이 필요합니다.",
   403: "이용이 제한된 계정입니다.",
   404: "친구를 찾을 수 없습니다.",
+  429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+  500: "요청을 처리하지 못했습니다.",
+  503: "일시적으로 서비스를 이용할 수 없습니다.",
+};
+const UPCOMING_FRIEND_EVENTS_ERROR_MESSAGES: Partial<Record<number, string>> = {
+  401: "로그인이 필요합니다.",
+  403: "이용이 제한된 계정입니다.",
+  404: "사용자 정보를 찾을 수 없습니다.",
   429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   500: "요청을 처리하지 못했습니다.",
   503: "일시적으로 서비스를 이용할 수 없습니다.",
@@ -227,11 +246,28 @@ export async function getFriends({
   } satisfies FriendsPage;
 }
 
-export async function getUpcomingBirthdayFriends(signal?: AbortSignal) {
-  // TODO(#545): 백엔드 API 구현 후 목업 대신 전용 endpoint와 확정된 응답 스펙 연동
-  const { getMockUpcomingBirthdayFriends } = await import("@/mocks/friends");
+export async function getUpcomingFriendEvents(signal?: AbortSignal) {
+  const response = await apiFetch(API_ENDPOINTS.friends.upcomingEvents, {
+    method: "GET",
+    cache: "no-store",
+    signal,
+  });
 
-  return getMockUpcomingBirthdayFriends(signal);
+  if (!response.ok) {
+    const errorResponse = (await response.json().catch(() => null)) as FriendsErrorResponse | null;
+
+    throw new ApiRequestError(
+      errorResponse?.message ??
+        UPCOMING_FRIEND_EVENTS_ERROR_MESSAGES[response.status] ??
+        "다가오는 친구 이벤트를 불러오지 못했습니다.",
+      response.status,
+      getRetryAfterSeconds(response, errorResponse),
+    );
+  }
+
+  const { data } = (await response.json()) as UpcomingFriendEventsResponse;
+
+  return data.items;
 }
 
 export async function getFriendDetail(userId: number) {
