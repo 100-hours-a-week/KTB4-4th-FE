@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
       `${API_V1_PREFIX}/ai/conversations/${conversationId}/confirm`,
   },
   anonymousChats: {
+    create: `${API_V1_PREFIX}/anonymous-chats`,
     list: `${API_V1_PREFIX}/anonymous-chats`,
     report: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/reports`,
   },

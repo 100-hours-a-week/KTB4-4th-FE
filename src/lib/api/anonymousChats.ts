@@ -1,4 +1,4 @@
-// 익명 채팅 대화 목록 조회·대화방 나가기 요청과 응답 타입
+// 익명 채팅 대화 목록 조회·대화방 생성·대화방 나가기 요청과 응답 타입
 "use client";
 
 import { ApiRequestError, apiFetch } from "@/lib/api/client";
@@ -37,6 +37,16 @@ export interface AnonymousChatsPage {
   hasNext: boolean;
 }
 
+export interface CreateAnonymousChatRequest {
+  recipientUserId: number;
+  productId: number;
+}
+
+export interface CreatedAnonymousChat {
+  roomId: number;
+  createdAt: string;
+}
+
 interface AnonymousChatsResponse {
   message: string;
   data: {
@@ -44,6 +54,11 @@ interface AnonymousChatsResponse {
   };
   nextCursor: string | null;
   hasNext: boolean;
+}
+
+interface CreateAnonymousChatResponse {
+  message: string;
+  data: CreatedAnonymousChat;
 }
 
 interface AnonymousChatsErrorResponse {
@@ -73,6 +88,17 @@ const ANONYMOUS_CHATS_ERROR_MESSAGES: Partial<Record<number, string>> = {
   422: "입력 값이 유효하지 않습니다. 입력한 내용을 확인해 주세요.",
   429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   500: "요청을 처리하지 못했습니다.",
+};
+const CREATE_ANONYMOUS_CHAT_ERROR_MESSAGES: Partial<Record<number, string>> = {
+  400: "요청 형식이 올바르지 않습니다.",
+  401: "로그인이 필요합니다.",
+  403: "요청을 처리할 권한이 없습니다.",
+  404: "친구 또는 추천 상품을 찾을 수 없습니다.",
+  409: "사용 가능한 익명대화 상대명이 없습니다.",
+  422: "입력 값이 유효하지 않습니다. 입력한 내용을 확인해 주세요.",
+  429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+  500: "요청을 처리하지 못했습니다.",
+  503: "일시적으로 서비스를 이용할 수 없습니다.",
 };
 
 function getRetryAfterSeconds(
@@ -143,6 +169,37 @@ export async function getAnonymousChats({
     nextCursor,
     hasNext,
   };
+}
+
+export async function createAnonymousChat(
+  request: CreateAnonymousChatRequest,
+): Promise<CreatedAnonymousChat> {
+  const response = await apiFetch(API_ENDPOINTS.anonymousChats.create, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorResponse = (await response
+      .json()
+      .catch(() => null)) as AnonymousChatsErrorResponse | null;
+
+    throw new ApiRequestError(
+      errorResponse?.message ??
+        CREATE_ANONYMOUS_CHAT_ERROR_MESSAGES[response.status] ??
+        "익명 대화방을 만들지 못했습니다.",
+      response.status,
+      getRetryAfterSeconds(response, errorResponse),
+    );
+  }
+
+  const { data } = (await response.json()) as CreateAnonymousChatResponse;
+
+  return data;
 }
 
 // TODO: 익명 채팅방 나가기 API 연동 후 서버 요청으로 교체 (나간 뒤 상대에게 보이는 방식 확인 필요)

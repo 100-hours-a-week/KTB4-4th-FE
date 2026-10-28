@@ -1,4 +1,4 @@
-// API 연동 전 채팅방 화면 구성을 위한 익명 채팅방·메시지 임시 데이터
+// TODO: 모든 익명 대화 API 연동 완료 후 anonymousChats.ts와 함께 삭제할 목업 데이터
 
 import type {
   AnonymousChatMessage,
