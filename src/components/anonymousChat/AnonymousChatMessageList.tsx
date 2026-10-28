@@ -23,6 +23,7 @@ type AnonymousChatMessageListProps = {
     canRetry: boolean;
   } | null;
   onLoadPreviousMessages: () => Promise<void>;
+  onLastVisibleCounterpartMessageChange: (messageId: number) => void;
 };
 
 const LOAD_PREVIOUS_SCROLL_THRESHOLD_PX = 80;
@@ -47,7 +48,11 @@ function CounterpartMessage({
   message: AnonymousChatMessage;
 }) {
   return (
-    <article aria-label={`${counterpartName}의 메시지`} className="flex gap-2 pr-12">
+    <article
+      aria-label={`${counterpartName}의 메시지`}
+      data-counterpart-message-id={message.messageId}
+      className="flex gap-2 pr-12"
+    >
       {/* TODO: 상대 프로필 이미지 정책 확정 후 API 응답의 이미지 표시 */}
       <div aria-hidden="true" className="h-9 w-9 shrink-0 rounded-[35%] bg-disabled" />
       <div className="min-w-0">
@@ -93,6 +98,7 @@ export default function AnonymousChatMessageList({
   isLoadingPreviousMessages,
   previousMessagesError,
   onLoadPreviousMessages,
+  onLastVisibleCounterpartMessageChange,
 }: AnonymousChatMessageListProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const previousScrollHeightRef = useRef<number | null>(null);
@@ -140,6 +146,63 @@ export default function AnonymousChatMessageList({
       previousScrollHeightRef.current = null;
     }
   }, [isLoadingPreviousMessages, messages.length]);
+
+  useEffect(() => {
+    const list = listRef.current;
+
+    if (!list) {
+      return;
+    }
+
+    const visibleMessageIds = new Set<number>();
+    const reportLastVisibleMessage = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        const message = messages[index];
+
+        if (!message.isMine && visibleMessageIds.has(message.messageId)) {
+          onLastVisibleCounterpartMessageChange(message.messageId);
+          return;
+        }
+      }
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const messageId = Number((entry.target as HTMLElement).dataset.counterpartMessageId);
+
+          if (!Number.isSafeInteger(messageId)) {
+            return;
+          }
+
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            visibleMessageIds.add(messageId);
+          } else {
+            visibleMessageIds.delete(messageId);
+          }
+        });
+
+        reportLastVisibleMessage();
+      },
+      {
+        root: list,
+        threshold: 0.5,
+      },
+    );
+
+    list
+      .querySelectorAll<HTMLElement>("[data-counterpart-message-id]")
+      .forEach((messageElement) => observer.observe(messageElement));
+    document.addEventListener("visibilitychange", reportLastVisibleMessage);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", reportLastVisibleMessage);
+    };
+  }, [messages, onLastVisibleCounterpartMessageChange]);
 
   const handleScroll = () => {
     const list = listRef.current;

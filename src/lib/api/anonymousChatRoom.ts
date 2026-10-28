@@ -93,6 +93,12 @@ interface GetAnonymousChatRoomMessagesParams {
   signal?: AbortSignal;
 }
 
+interface MarkAnonymousChatMessagesReadParams {
+  roomId: number;
+  lastReadMessageId: number;
+  signal?: AbortSignal;
+}
+
 const ANONYMOUS_CHAT_ROOM_ERROR_MESSAGES: Partial<Record<number, string>> = {
   400: "요청 형식이 올바르지 않습니다.",
   401: "로그인이 필요합니다.",
@@ -228,6 +234,46 @@ export async function getAnonymousChatRoomMessages({
     nextCursor,
     hasNext,
   };
+}
+
+export async function markAnonymousChatMessagesRead({
+  roomId,
+  lastReadMessageId,
+  signal,
+}: MarkAnonymousChatMessagesReadParams): Promise<void> {
+  if (!Number.isSafeInteger(roomId) || roomId <= 0) {
+    throw new ApiRequestError(ANONYMOUS_CHAT_ROOM_ERROR_MESSAGES[400] as string, 400);
+  }
+
+  if (!Number.isSafeInteger(lastReadMessageId) || lastReadMessageId <= 0) {
+    throw new ApiRequestError(ANONYMOUS_CHAT_ROOM_ERROR_MESSAGES[422] as string, 422);
+  }
+
+  const response = await apiFetch(API_ENDPOINTS.anonymousChats.read(roomId), {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ lastReadMessageId }),
+    cache: "no-store",
+    signal,
+  });
+
+  if (response.status === 204) {
+    return;
+  }
+
+  const errorResponse = (await response
+    .json()
+    .catch(() => null)) as AnonymousChatRoomErrorResponse | null;
+
+  throw new ApiRequestError(
+    errorResponse?.message ??
+      ANONYMOUS_CHAT_ROOM_ERROR_MESSAGES[response.status] ??
+      "익명대화 메시지 읽음 상태를 저장하지 못했습니다.",
+    response.status,
+    getRetryAfterSeconds(response, errorResponse),
+  );
 }
 
 // TODO: 익명 채팅 메시지 전송 API 연동 후 서버에 저장된 메시지 반환

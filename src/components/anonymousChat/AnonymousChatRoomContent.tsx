@@ -17,6 +17,7 @@ import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
 import {
   getAnonymousChatRoomInfo,
   getAnonymousChatRoomMessages,
+  markAnonymousChatMessagesRead,
   type AnonymousChatMessage,
   type AnonymousChatRoom,
 } from "@/lib/api/anonymousChatRoom";
@@ -44,6 +45,9 @@ type PreviousMessagesError = {
 };
 
 const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
+const MAX_READ_RETRY_ATTEMPTS = 3;
+const READ_RETRY_BASE_DELAY_MS = 1_000;
+const READ_RETRY_MAX_DELAY_MS = 8_000;
 
 export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomContentProps) {
   const [roomState, setRoomState] = useState<RoomState>({ status: "loading" });
@@ -56,6 +60,14 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   const [openModal, setOpenModal] = useState<"report" | "leave" | null>(null);
   const isLoadingPreviousMessagesRef = useRef(false);
   const previousMessagesControllerRef = useRef<AbortController | null>(null);
+  // TODO: TanStack Query 도입 시 읽음 처리 요청과 재시도를 useMutation으로 이전
+  const latestVisibleCounterpartMessageIdRef = useRef(0);
+  const lastReadMessageIdRef = useRef(0);
+  const isMarkingMessagesReadRef = useRef(false);
+  const readRetryAttemptRef = useRef(0);
+  const readRequestControllerRef = useRef<AbortController | null>(null);
+  const readRetryTimerRef = useRef<number | null>(null);
+  const processReadReceiptRef = useRef<() => void>(() => undefined);
   const router = useRouter();
   const { showToast } = useToastContext();
 
@@ -136,6 +148,14 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       previousMessagesControllerRef.current?.abort();
       previousMessagesControllerRef.current = null;
       isLoadingPreviousMessagesRef.current = false;
+      readRequestControllerRef.current?.abort();
+      readRequestControllerRef.current = null;
+      isMarkingMessagesReadRef.current = false;
+
+      if (readRetryTimerRef.current) {
+        window.clearTimeout(readRetryTimerRef.current);
+        readRetryTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -284,6 +304,127 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
     }
   }, [chatId, roomState, router]);
 
+  const processReadReceipt = useCallback(async () => {
+    if (isMarkingMessagesReadRef.current || readRetryTimerRef.current) {
+      return;
+    }
+
+    const lastReadMessageId = latestVisibleCounterpartMessageIdRef.current;
+
+    if (lastReadMessageId <= lastReadMessageIdRef.current) {
+      return;
+    }
+
+    const requestController = new AbortController();
+    let shouldProcessNextMessage = false;
+
+    readRequestControllerRef.current?.abort();
+    readRequestControllerRef.current = requestController;
+    isMarkingMessagesReadRef.current = true;
+
+    try {
+      await markAnonymousChatMessagesRead({
+        roomId: chatId,
+        lastReadMessageId,
+        signal: requestController.signal,
+      });
+
+      if (readRequestControllerRef.current !== requestController) {
+        return;
+      }
+
+      lastReadMessageIdRef.current = Math.max(lastReadMessageIdRef.current, lastReadMessageId);
+      readRetryAttemptRef.current = 0;
+      shouldProcessNextMessage =
+        latestVisibleCounterpartMessageIdRef.current > lastReadMessageIdRef.current;
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 404) {
+        setRoomState({ status: "notFound" });
+        return;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 403) {
+        setRoomState({
+          status: "failed",
+          message: error.message,
+          retryAfterSeconds: 0,
+          canRetry: false,
+        });
+        return;
+      }
+
+      const isRetryableError =
+        error instanceof ApiRequestError &&
+        (error.status === 429 || error.status === 500 || error.status === 503);
+
+      if (isRetryableError && readRetryAttemptRef.current < MAX_READ_RETRY_ATTEMPTS) {
+        readRetryAttemptRef.current += 1;
+
+        const retryDelay =
+          error.status === 429
+            ? (error.retryAfterSeconds ?? 1) * 1_000
+            : Math.min(
+                READ_RETRY_BASE_DELAY_MS * 2 ** (readRetryAttemptRef.current - 1),
+                READ_RETRY_MAX_DELAY_MS,
+              );
+
+        readRetryTimerRef.current = window.setTimeout(() => {
+          readRetryTimerRef.current = null;
+          void processReadReceiptRef.current();
+        }, retryDelay);
+      }
+    } finally {
+      if (readRequestControllerRef.current === requestController) {
+        readRequestControllerRef.current = null;
+        isMarkingMessagesReadRef.current = false;
+      }
+
+      if (shouldProcessNextMessage) {
+        window.queueMicrotask(() => processReadReceiptRef.current());
+      }
+    }
+  }, [chatId, router]);
+
+  useEffect(() => {
+    processReadReceiptRef.current = () => {
+      void processReadReceipt();
+    };
+  }, [processReadReceipt]);
+
+  const handleLastVisibleCounterpartMessageChange = useCallback((messageId: number) => {
+    if (messageId <= latestVisibleCounterpartMessageIdRef.current) {
+      return;
+    }
+
+    latestVisibleCounterpartMessageIdRef.current = messageId;
+    readRetryAttemptRef.current = 0;
+
+    if (readRetryTimerRef.current) {
+      window.clearTimeout(readRetryTimerRef.current);
+      readRetryTimerRef.current = null;
+    }
+
+    void processReadReceiptRef.current();
+  }, []);
+
   if (roomState.status === "notFound") {
     notFound();
   }
@@ -383,6 +524,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
           isLoadingPreviousMessages={isLoadingPreviousMessages}
           previousMessagesError={previousMessagesError}
           onLoadPreviousMessages={loadPreviousMessages}
+          onLastVisibleCounterpartMessageChange={handleLastVisibleCounterpartMessageChange}
         />
       ) : (
         <AnonymousChatStartGuide />
