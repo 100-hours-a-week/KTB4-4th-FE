@@ -1,4 +1,4 @@
-// 익명 채팅방 화면과 나가기 동작 목업을 위한 임시 데이터
+// TODO: 모든 익명 대화 API 연동 완료 후 anonymousChatRoom.ts와 함께 삭제할 목업 데이터
 
 import type { AnonymousChatType } from "@/lib/api/anonymousChats";
 import { mockDelay } from "@/mocks/config";
