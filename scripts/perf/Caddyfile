@@ -1,0 +1,25 @@
+# 로컬 프로덕션 빌드 성능 측정용 HTTPS·HTTP/2 리버스 프록시 설정
+# 배포 환경 ALB와 같이 /api/v1 요청은 백엔드로, 나머지 요청은 next start 서버로 전달함
+{
+	# 측정 환경이 http 포트(80)를 사용하지 않도록 HTTP→HTTPS 자동 리다이렉트를 끔
+	auto_https disable_redirects
+}
+
+https://localhost:3000 {
+	# Caddy 로컬 인증 기관으로 발급한 인증서 사용
+	tls internal
+
+	# next.config.ts의 HSTS 헤더가 브라우저에 저장되면 재로그인용 http://localhost:3000 개발 서버에 접속할 수 없으므로 제거함
+	header -Strict-Transport-Security
+
+	handle /api/v1/* {
+		reverse_proxy localhost:8080 {
+			# SSE 응답이 버퍼링 없이 바로 전달되도록 즉시 flush
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy localhost:3001
+	}
+}
