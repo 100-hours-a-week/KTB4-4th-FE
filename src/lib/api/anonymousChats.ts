@@ -1,6 +1,6 @@
-// 익명 채팅 대화 목록 조회 요청과 응답 타입
+// 익명 채팅 대화 목록 조회·대화방 나가기 요청과 응답 타입
 
-import { getMockAnonymousChats } from "@/mocks/anonymousChats";
+import { getMockAnonymousChats, leaveMockAnonymousChat } from "@/mocks/anonymousChats";
 
 // SENT는 내가 친구에게 물어본 대화, RECEIVED는 익명의 친구가 나에게 물어본 대화
 export type AnonymousChatType = "SENT" | "RECEIVED";
@@ -33,4 +33,9 @@ export interface AnonymousChatsPage {
 // TODO: 익명 채팅 대화 목록 API 연동 후 목업 데이터 대신 서버 응답 반환 (커서 페이지네이션 여부 확인 필요)
 export async function getAnonymousChats(type: AnonymousChatType): Promise<AnonymousChatsPage> {
   return getMockAnonymousChats(type);
+}
+
+// TODO: 익명 채팅방 나가기 API 연동 후 서버 요청으로 교체 (나간 뒤 상대에게 보이는 방식 확인 필요)
+export async function leaveAnonymousChat(chatId: number) {
+  await leaveMockAnonymousChat(chatId);
 }

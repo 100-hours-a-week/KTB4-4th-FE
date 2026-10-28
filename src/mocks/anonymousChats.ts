@@ -102,8 +102,17 @@ export function createMockChats(): Record<AnonymousChatType, AnonymousChatListIt
   };
 }
 
+// 나간 대화방이 목록을 다시 불러와도 나타나지 않도록 새로고침 전까지 기억함
+const leftChatIds = new Set<number>();
+
 export async function getMockAnonymousChats(type: AnonymousChatType): Promise<AnonymousChatsPage> {
   await mockDelay();
 
-  return { items: createMockChats()[type] };
+  return { items: createMockChats()[type].filter((chat) => !leftChatIds.has(chat.chatId)) };
+}
+
+export async function leaveMockAnonymousChat(chatId: number) {
+  await mockDelay();
+
+  leftChatIds.add(chatId);
 }

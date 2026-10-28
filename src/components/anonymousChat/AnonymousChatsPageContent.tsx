@@ -1,12 +1,14 @@
-// 대화 목록 페이지의 탭 전환과 탭별 대화 목록 조회 상태를 관리하는 클라이언트 화면
+// 대화 목록 페이지의 탭 전환·탭별 대화 목록 조회·대화방 나가기 상태를 관리하는 클라이언트 화면
 "use client";
 
 import { useEffect, useState } from "react";
 
+import AnonymousChatLeaveModal from "@/components/anonymousChat/AnonymousChatLeaveModal";
 import AnonymousChatListItem from "@/components/anonymousChat/AnonymousChatListItem";
 import EmptyAnonymousChats from "@/components/anonymousChat/EmptyAnonymousChats";
 import PageIntro from "@/components/common/PageIntro";
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
+import { useToastContext } from "@/contexts/ToastContext";
 import {
   getAnonymousChats,
   type AnonymousChatsPage,
@@ -44,6 +46,10 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
     Partial<Record<AnonymousChatType, AnonymousChatsPage>>
   >({});
   const [failedType, setFailedType] = useState<AnonymousChatType | null>(null);
+  // 한 번에 한 대화만 나가기 버튼을 열어 두고, 나가기를 누른 대화는 확인 모달에서 처리함
+  const [revealedChatId, setRevealedChatId] = useState<number | null>(null);
+  const [leavingChatId, setLeavingChatId] = useState<number | null>(null);
+  const { showToast } = useToastContext();
   const selectedChats = chatsByType[selectedType];
   const tabPanelLabel = selectedType === "RECEIVED" ? "나에게 물어본 대화" : "내가 물어본 대화";
 
@@ -74,6 +80,7 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
   // 탭 전환마다 기록이 쌓이지 않도록 현재 기록의 URL만 교체함
   const handleTypeChange = (type: AnonymousChatType) => {
     setSelectedType(type);
+    setRevealedChatId(null);
 
     const nextSearchParams = new URLSearchParams(window.location.search);
 
@@ -85,6 +92,23 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
 
     const nextQuery = nextSearchParams.toString();
     window.history.replaceState(null, "", nextQuery ? `?${nextQuery}` : window.location.pathname);
+  };
+
+  // 나간 대화방은 목록에서 바로 지우고 결과를 토스트로 알림
+  const handleLeft = (chatId: number) => {
+    setChatsByType((current) => {
+      const page = current[selectedType];
+
+      return page
+        ? {
+            ...current,
+            [selectedType]: { ...page, items: page.items.filter((chat) => chat.chatId !== chatId) },
+          }
+        : current;
+    });
+    setLeavingChatId(null);
+    setRevealedChatId(null);
+    showToast("채팅방을 나갔어요.");
   };
 
   const renderChatList = () => {
@@ -111,7 +135,13 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
     return (
       <ul className="m-0 list-none p-0">
         {selectedChats.items.map((chat) => (
-          <AnonymousChatListItem key={chat.chatId} chat={chat} />
+          <AnonymousChatListItem
+            key={chat.chatId}
+            chat={chat}
+            isLeaveRevealed={revealedChatId === chat.chatId}
+            onRevealLeave={setRevealedChatId}
+            onLeave={setLeavingChatId}
+          />
         ))}
       </ul>
     );
@@ -144,6 +174,12 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
       >
         {renderChatList()}
       </div>
+
+      <AnonymousChatLeaveModal
+        chatId={leavingChatId}
+        onClose={() => setLeavingChatId(null)}
+        onLeft={handleLeft}
+      />
     </main>
   );
 }

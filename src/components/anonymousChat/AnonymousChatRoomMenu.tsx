@@ -1,11 +1,11 @@
-// 채팅방 헤더의 케밥 버튼과 신고하기·차단하기 메뉴 드롭다운
+// 채팅방 헤더의 케밥 버튼과 신고하기·채팅방 나가기 메뉴 드롭다운
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
 
 type AnonymousChatRoomMenuProps = {
   onReport: () => void;
-  onBlock: () => void;
+  onLeave: () => void;
 };
 
 function ReportIcon() {
@@ -24,27 +24,44 @@ function ReportIcon() {
   );
 }
 
-function BlockIcon() {
+function LeaveIcon() {
   return (
     <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M5.6 5.6L18.4 18.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M9 21H5A2 2 0 0 1 3 19V5A2 2 0 0 1 5 3H9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16 17L21 12L16 7M21 12H9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
 
-export default function AnonymousChatRoomMenu({ onReport, onBlock }: AnonymousChatRoomMenuProps) {
+export default function AnonymousChatRoomMenu({ onReport, onLeave }: AnonymousChatRoomMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
 
   const menuItems = [
-    { label: "신고하기", icon: <ReportIcon />, onSelect: onReport, colorClassName: "text-danger" },
     {
-      label: "차단하기",
-      icon: <BlockIcon />,
-      onSelect: onBlock,
+      label: "신고하기",
+      icon: <ReportIcon />,
+      onSelect: onReport,
       colorClassName: "text-foreground",
+    },
+    {
+      label: "채팅방 나가기",
+      icon: <LeaveIcon />,
+      onSelect: onLeave,
+      colorClassName: "text-danger",
     },
   ];
 
