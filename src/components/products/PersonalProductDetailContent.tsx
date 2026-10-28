@@ -193,11 +193,7 @@ export default function PersonalProductDetailContent({
         </p>
       </section>
 
-      <section
-        aria-labelledby="recommendation-reason-title"
-        // 내 상품 상세는 바로 아래 피드백 영역과 이어지도록 구분선을 표시하지 않음
-        className={`pt-1 pb-4 ${isFriendGift ? "border-b border-border" : ""}`}
-      >
+      <section aria-labelledby="recommendation-reason-title" className="pt-1 pb-4">
         <h2
           id="recommendation-reason-title"
           className="flex min-w-0 text-heading-3 font-bold whitespace-nowrap text-foreground"
@@ -261,6 +257,47 @@ export default function PersonalProductDetailContent({
               {feedbackErrorMessage}
             </p>
           )}
+        </section>
+      )}
+
+      {isFriendGift && (
+        <section
+          aria-labelledby="anonymous-ask-title"
+          className="rounded-md border border-border-strong px-4 py-4"
+        >
+          <h2 id="anonymous-ask-title" className="text-body-lg font-bold text-foreground">
+            친구에게 <span className="text-info">익명</span>으로 이 상품 어떤지 물어볼까요?
+          </h2>
+          {/* TODO: 익명 채팅방 생성 API 연동 후 해당 상품의 슬쩍 물어보기 채팅방으로 이동 */}
+          <button
+            type="button"
+            onClick={() => {}}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-sm border-0 bg-foreground px-4 py-2.5 text-surface transition-opacity hover:opacity-90"
+          >
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M9.09 9A3 3 0 0 1 14.92 10C14.92 12 11.92 13 11.92 13"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M12 17H12.01"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="text-body-sm font-bold">슬쩍 물어보기</span>
+          </button>
         </section>
       )}
 
