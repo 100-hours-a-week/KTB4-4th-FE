@@ -1,11 +1,22 @@
-// API 연동 전 대화 목록 화면 구성을 위한 익명 채팅 임시 데이터
+// 익명 채팅방 화면과 나가기 동작 목업을 위한 임시 데이터
 
-import type {
-  AnonymousChatListItem,
-  AnonymousChatsPage,
-  AnonymousChatType,
-} from "@/lib/api/anonymousChats";
+import type { AnonymousChatType } from "@/lib/api/anonymousChats";
 import { mockDelay } from "@/mocks/config";
+
+export interface MockAnonymousChatListItem {
+  chatId: number;
+  counterpartName: string;
+  product: {
+    productId: number;
+    name: string;
+    price: number;
+  };
+  lastMessage: {
+    content: string;
+    isMine: boolean;
+    sentAt: string;
+  };
+}
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -16,7 +27,7 @@ function getSentAt(elapsedMs: number) {
   return new Date(Date.now() - elapsedMs).toISOString();
 }
 
-export function createMockChats(): Record<AnonymousChatType, AnonymousChatListItem[]> {
+export function createMockChats(): Record<AnonymousChatType, MockAnonymousChatListItem[]> {
   return {
     SENT: [
       {
@@ -28,7 +39,6 @@ export function createMockChats(): Record<AnonymousChatType, AnonymousChatListIt
           isMine: false,
           sentAt: getSentAt(10_000),
         },
-        unreadCount: 2,
       },
       {
         chatId: 2,
@@ -39,7 +49,6 @@ export function createMockChats(): Record<AnonymousChatType, AnonymousChatListIt
           isMine: true,
           sentAt: getSentAt(3 * HOUR_MS),
         },
-        unreadCount: 0,
       },
       {
         chatId: 3,
@@ -50,7 +59,6 @@ export function createMockChats(): Record<AnonymousChatType, AnonymousChatListIt
           isMine: false,
           sentAt: getSentAt(DAY_MS + HOUR_MS),
         },
-        unreadCount: 0,
       },
       {
         chatId: 4,
@@ -61,7 +69,6 @@ export function createMockChats(): Record<AnonymousChatType, AnonymousChatListIt
           isMine: true,
           sentAt: getSentAt(4 * DAY_MS),
         },
-        unreadCount: 0,
       },
     ],
     RECEIVED: [
@@ -74,7 +81,6 @@ export function createMockChats(): Record<AnonymousChatType, AnonymousChatListIt
           isMine: false,
           sentAt: getSentAt(3 * MINUTE_MS),
         },
-        unreadCount: 1,
       },
       {
         chatId: 6,
@@ -85,7 +91,6 @@ export function createMockChats(): Record<AnonymousChatType, AnonymousChatListIt
           isMine: true,
           sentAt: getSentAt(3 * DAY_MS),
         },
-        unreadCount: 0,
       },
       {
         chatId: 7,
@@ -96,23 +101,12 @@ export function createMockChats(): Record<AnonymousChatType, AnonymousChatListIt
           isMine: false,
           sentAt: getSentAt(10 * DAY_MS),
         },
-        unreadCount: 0,
       },
     ],
   };
 }
 
-// 나간 대화방이 목록을 다시 불러와도 나타나지 않도록 새로고침 전까지 기억함
-const leftChatIds = new Set<number>();
-
-export async function getMockAnonymousChats(type: AnonymousChatType): Promise<AnonymousChatsPage> {
-  await mockDelay();
-
-  return { items: createMockChats()[type].filter((chat) => !leftChatIds.has(chat.chatId)) };
-}
-
 export async function leaveMockAnonymousChat(chatId: number) {
   await mockDelay();
-
-  leftChatIds.add(chatId);
+  void chatId;
 }

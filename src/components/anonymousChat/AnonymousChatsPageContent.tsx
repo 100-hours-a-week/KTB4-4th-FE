@@ -1,7 +1,8 @@
 // 대화 목록 페이지의 탭 전환·탭별 대화 목록 조회·대화방 나가기 상태를 관리하는 클라이언트 화면
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import AnonymousChatLeaveModal from "@/components/anonymousChat/AnonymousChatLeaveModal";
 import AnonymousChatListItem from "@/components/anonymousChat/AnonymousChatListItem";
@@ -14,6 +15,7 @@ import {
   type AnonymousChatsPage,
   type AnonymousChatType,
 } from "@/lib/api/anonymousChats";
+import { ApiRequestError } from "@/lib/api/client";
 
 import styles from "./AnonymousChatList.module.css";
 
@@ -23,6 +25,13 @@ type AnonymousChatsPageContentProps = {
 
 const CHAT_TYPE_QUERY_KEY = "tab";
 const RECEIVED_QUERY_VALUE = "received";
+const PAGE_SIZE = 20;
+const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
+
+type ChatRequestError = {
+  message: string;
+  retryAfterSeconds: number;
+};
 
 const CHAT_TABS: readonly SegmentedTabItem<AnonymousChatType>[] = [
   { value: "SENT", label: <span className="text-body-lg">내가 물어본</span> },
@@ -41,41 +50,180 @@ const CHAT_PAGE_COPY: Record<AnonymousChatType, { title: string; description: st
 };
 
 export default function AnonymousChatsPageContent({ initialType }: AnonymousChatsPageContentProps) {
+  const router = useRouter();
   const [selectedType, setSelectedType] = useState<AnonymousChatType>(initialType);
   const [chatsByType, setChatsByType] = useState<
     Partial<Record<AnonymousChatType, AnonymousChatsPage>>
   >({});
-  const [failedType, setFailedType] = useState<AnonymousChatType | null>(null);
+  const [requestErrorsByType, setRequestErrorsByType] = useState<
+    Partial<Record<AnonymousChatType, ChatRequestError>>
+  >({});
+  const [loadingTypes, setLoadingTypes] = useState<Set<AnonymousChatType>>(() => new Set());
   // 한 번에 한 대화만 나가기 버튼을 열어 두고, 나가기를 누른 대화는 확인 모달에서 처리함
   const [revealedChatId, setRevealedChatId] = useState<number | null>(null);
   const [leavingChatId, setLeavingChatId] = useState<number | null>(null);
+  const requestControllersRef = useRef<Partial<Record<AnonymousChatType, AbortController>>>({});
+  const loadingTypesRef = useRef(new Set<AnonymousChatType>());
+  const isRedirectingRef = useRef(false);
+  const chatListRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLLIElement>(null);
   const { showToast } = useToastContext();
   const selectedChats = chatsByType[selectedType];
+  const selectedRequestError = requestErrorsByType[selectedType] ?? null;
+  const isSelectedTypeLoading = loadingTypes.has(selectedType);
   const tabPanelLabel = selectedType === "RECEIVED" ? "나에게 물어본 대화" : "내가 물어본 대화";
 
-  // 처음 여는 탭만 조회하고, 이미 불러온 탭은 저장된 목록을 다시 사용함
-  useEffect(() => {
-    if (chatsByType[selectedType]) return;
+  const loadChats = useCallback(
+    async (type: AnonymousChatType, cursor?: string) => {
+      if (loadingTypesRef.current.has(type)) return;
 
-    let isActive = true;
+      const requestController = new AbortController();
 
-    getAnonymousChats(selectedType)
-      .then((page) => {
-        if (!isActive) return;
+      requestControllersRef.current[type] = requestController;
+      loadingTypesRef.current.add(type);
+      setLoadingTypes(new Set(loadingTypesRef.current));
+      setRequestErrorsByType((current) => ({ ...current, [type]: undefined }));
 
-        setChatsByType((current) => ({ ...current, [selectedType]: page }));
-        setFailedType((current) => (current === selectedType ? null : current));
-      })
-      .catch(() => {
-        if (isActive) {
-          setFailedType(selectedType);
+      try {
+        const page = await getAnonymousChats({
+          type,
+          cursor,
+          size: PAGE_SIZE,
+          signal: requestController.signal,
+        });
+
+        if (requestControllersRef.current[type] !== requestController) return;
+
+        setChatsByType((current) => {
+          const currentPage = current[type];
+          const items = cursor && currentPage ? [...currentPage.items, ...page.items] : page.items;
+
+          return {
+            ...current,
+            [type]: { ...page, items },
+          };
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        if (requestControllersRef.current[type] !== requestController) return;
+
+        if (error instanceof ApiRequestError && error.status === 401) {
+          isRedirectingRef.current = true;
+          router.replace("/login");
+          return;
         }
-      });
+
+        if (
+          error instanceof ApiRequestError &&
+          error.status === 403 &&
+          error.message === ONBOARDING_REQUIRED_MESSAGE
+        ) {
+          isRedirectingRef.current = true;
+          router.replace("/onboarding");
+          return;
+        }
+
+        setRequestErrorsByType((current) => ({
+          ...current,
+          [type]: {
+            message:
+              error instanceof ApiRequestError
+                ? error.message
+                : "대화 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+            retryAfterSeconds:
+              error instanceof ApiRequestError && error.status === 429
+                ? (error.retryAfterSeconds ?? 0)
+                : 0,
+          },
+        }));
+      } finally {
+        if (requestControllersRef.current[type] === requestController) {
+          delete requestControllersRef.current[type];
+          loadingTypesRef.current.delete(type);
+          setLoadingTypes(new Set(loadingTypesRef.current));
+        }
+      }
+    },
+    [router],
+  );
+
+  // 처음 여는 탭만 첫 페이지를 조회하고, 이미 불러온 탭은 저장된 목록을 다시 사용함
+  useEffect(() => {
+    if (
+      isRedirectingRef.current ||
+      selectedChats ||
+      selectedRequestError ||
+      loadingTypesRef.current.has(selectedType)
+    ) {
+      return;
+    }
+
+    void loadChats(selectedType);
+  }, [loadChats, selectedChats, selectedRequestError, selectedType]);
+
+  useEffect(() => {
+    const loadingTypes = loadingTypesRef.current;
 
     return () => {
-      isActive = false;
+      Object.values(requestControllersRef.current).forEach((controller) => controller?.abort());
+      requestControllersRef.current = {};
+      loadingTypes.clear();
     };
-  }, [chatsByType, selectedType]);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedRequestError || selectedRequestError.retryAfterSeconds <= 0) return;
+
+    const timer = window.setInterval(() => {
+      setRequestErrorsByType((current) => {
+        const currentError = current[selectedType];
+
+        if (!currentError) {
+          window.clearInterval(timer);
+          return current;
+        }
+
+        return {
+          ...current,
+          [selectedType]: {
+            ...currentError,
+            retryAfterSeconds: Math.max(0, currentError.retryAfterSeconds - 1),
+          },
+        };
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [selectedRequestError, selectedType]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    const scrollContainer = chatListRef.current;
+
+    if (
+      !sentinel ||
+      !scrollContainer ||
+      !selectedChats?.hasNext ||
+      !selectedChats.nextCursor ||
+      isSelectedTypeLoading ||
+      selectedRequestError ||
+      isRedirectingRef.current
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          void loadChats(selectedType, selectedChats.nextCursor ?? undefined);
+        }
+      },
+      { root: scrollContainer, rootMargin: "200px 0px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [isSelectedTypeLoading, loadChats, selectedChats, selectedRequestError, selectedType]);
 
   // 탭 전환마다 기록이 쌓이지 않도록 현재 기록의 URL만 교체함
   const handleTypeChange = (type: AnonymousChatType) => {
@@ -95,14 +243,17 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
   };
 
   // 나간 대화방은 목록에서 바로 지우고 결과를 토스트로 알림
-  const handleLeft = (chatId: number) => {
+  const handleLeft = (roomId: number) => {
     setChatsByType((current) => {
       const page = current[selectedType];
 
       return page
         ? {
             ...current,
-            [selectedType]: { ...page, items: page.items.filter((chat) => chat.chatId !== chatId) },
+            [selectedType]: {
+              ...page,
+              items: page.items.filter((chat) => chat.roomId !== roomId),
+            },
           }
         : current;
     });
@@ -112,11 +263,23 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
   };
 
   const renderChatList = () => {
-    if (failedType === selectedType) {
+    if (!selectedChats && selectedRequestError) {
       return (
-        <p role="alert" className="pt-8 text-center text-body-sm text-muted">
-          대화 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
-        </p>
+        <div className="pt-8 text-center">
+          <p role="alert" className="text-body-sm text-danger">
+            {selectedRequestError.message}
+          </p>
+          <button
+            type="button"
+            disabled={selectedRequestError.retryAfterSeconds > 0}
+            className="mt-2 rounded-sm border border-border-strong bg-surface px-4 py-2 text-body-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => void loadChats(selectedType)}
+          >
+            {selectedRequestError.retryAfterSeconds > 0
+              ? `${selectedRequestError.retryAfterSeconds}초 후 다시 시도`
+              : "다시 시도"}
+          </button>
+        </div>
       );
     }
 
@@ -136,13 +299,41 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
       <ul className="m-0 list-none p-0">
         {selectedChats.items.map((chat) => (
           <AnonymousChatListItem
-            key={chat.chatId}
+            key={chat.roomId}
             chat={chat}
-            isLeaveRevealed={revealedChatId === chat.chatId}
+            isLeaveRevealed={revealedChatId === chat.roomId}
             onRevealLeave={setRevealedChatId}
             onLeave={setLeavingChatId}
           />
         ))}
+
+        {selectedChats.hasNext && selectedChats.nextCursor && !selectedRequestError && (
+          <li ref={sentinelRef} aria-hidden="true" className="h-px" />
+        )}
+
+        {isSelectedTypeLoading && (
+          <li role="status" className="py-4 text-center text-body-sm text-muted">
+            대화 목록을 불러오는 중이에요.
+          </li>
+        )}
+
+        {selectedRequestError && (
+          <li className="py-4 text-center">
+            <p role="alert" className="text-body-sm text-danger">
+              {selectedRequestError.message}
+            </p>
+            <button
+              type="button"
+              disabled={selectedRequestError.retryAfterSeconds > 0}
+              className="mt-2 rounded-sm border border-border-strong bg-surface px-4 py-2 text-body-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => void loadChats(selectedType, selectedChats.nextCursor ?? undefined)}
+            >
+              {selectedRequestError.retryAfterSeconds > 0
+                ? `${selectedRequestError.retryAfterSeconds}초 후 다시 시도`
+                : "다시 시도"}
+            </button>
+          </li>
+        )}
       </ul>
     );
   };
@@ -168,6 +359,7 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
       />
       {/* 스크롤바가 화면 오른쪽 끝에 붙도록 페이지 여백만큼 확장하고, 목록 끝이 하단 내비게이션의 돌출된 AI 버튼에 가려지지 않도록 하단 여백 확보 */}
       <div
+        ref={chatListRef}
         role="tabpanel"
         aria-label={tabPanelLabel}
         className={`-mx-page min-h-0 flex-1 overflow-y-auto overscroll-contain px-page pb-[calc(var(--spacing-bottom-nav-overlap)+var(--spacing-page))] ${styles.chatList}`}

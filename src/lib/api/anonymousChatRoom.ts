@@ -1,9 +1,12 @@
 // 익명 채팅방 정보·메시지 조회와 메시지 전송 요청 및 응답 타입
 
-import type { AnonymousChatProduct, AnonymousChatType } from "@/lib/api/anonymousChats";
+import type { AnonymousChatType } from "@/lib/api/anonymousChats";
 import { getMockAnonymousChatRoom, sendMockAnonymousChatMessage } from "@/mocks/anonymousChatRoom";
 
-export interface AnonymousChatRoomProduct extends AnonymousChatProduct {
+export interface AnonymousChatRoomProduct {
+  productId: number;
+  name: string;
+  price: number;
   imageUrl: string | null;
   categoryNames: string[];
 }

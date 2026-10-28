@@ -5,8 +5,8 @@ import type {
   AnonymousChatRoom,
   AnonymousChatRoomProduct,
 } from "@/lib/api/anonymousChatRoom";
-import type { AnonymousChatListItem, AnonymousChatType } from "@/lib/api/anonymousChats";
-import { createMockChats } from "@/mocks/anonymousChats";
+import type { AnonymousChatType } from "@/lib/api/anonymousChats";
+import { createMockChats, type MockAnonymousChatListItem } from "@/mocks/anonymousChats";
 import { mockDelay } from "@/mocks/config";
 
 const MINUTE_MS = 60_000;
@@ -34,7 +34,7 @@ const PREVIOUS_MESSAGES: Record<number, Omit<AnonymousChatMessage, "messageId" |
   ],
 };
 
-function createRoomProduct(chat: AnonymousChatListItem): AnonymousChatRoomProduct {
+function createRoomProduct(chat: MockAnonymousChatListItem): AnonymousChatRoomProduct {
   return {
     ...chat.product,
     imageUrl: null,
@@ -42,7 +42,7 @@ function createRoomProduct(chat: AnonymousChatListItem): AnonymousChatRoomProduc
   };
 }
 
-function createRoomMessages(chat: AnonymousChatListItem): AnonymousChatMessage[] {
+function createRoomMessages(chat: MockAnonymousChatListItem): AnonymousChatMessage[] {
   const lastSentAt = Date.parse(chat.lastMessage.sentAt);
   const previousMessages = PREVIOUS_MESSAGES[chat.chatId] ?? [];
 
@@ -61,7 +61,7 @@ function createRoomMessages(chat: AnonymousChatListItem): AnonymousChatMessage[]
   ];
 }
 
-function createRoom(chat: AnonymousChatListItem, type: AnonymousChatType): AnonymousChatRoom {
+function createRoom(chat: MockAnonymousChatListItem, type: AnonymousChatType): AnonymousChatRoom {
   const messages = createRoomMessages(chat);
 
   return {
