@@ -1,16 +1,10 @@
 // 누르면 알림을 확인하고, 스와이프로 삭제 동작을 제공하는 개별 알림 항목
 "use client";
 
-import { useRef, useState } from "react";
-import { useSwipeable } from "react-swipeable";
-
+import useSwipeReveal from "@/hooks/useSwipeReveal";
 import type { NotificationThumbnail, NotificationTitleParts } from "@/lib/notificationDisplay";
 
 const DELETE_ACTION_WIDTH = 72;
-const SWIPE_THRESHOLD = DELETE_ACTION_WIDTH / 2;
-const SWIPE_DIRECTION_DELTA = 10;
-
-type SwipeAxis = "horizontal" | "vertical";
 
 type NotificationItemProps = {
   id: number;
@@ -41,51 +35,11 @@ export default function NotificationItem({
   onDelete,
   onRevealDelete,
 }: NotificationItemProps) {
-  const [dragOffset, setDragOffset] = useState<number | null>(null);
-  const swipeAxisRef = useRef<SwipeAxis | null>(null);
-  const currentOffsetRef = useRef(0);
-  const hasMovedRef = useRef(false);
   const instructionId = `notification-swipe-instruction-${id}`;
-  const restingOffset = isDeleteRevealed ? -DELETE_ACTION_WIDTH : 0;
-  const translateX = dragOffset ?? restingOffset;
-
-  const resetSwipe = () => {
-    swipeAxisRef.current = null;
-    setDragOffset(null);
-  };
-
-  const swipeHandlers = useSwipeable({
-    delta: SWIPE_DIRECTION_DELTA,
-    trackMouse: true,
-    touchEventOptions: { passive: false },
-    onTouchStartOrOnMouseDown: () => {
-      swipeAxisRef.current = null;
-      currentOffsetRef.current = restingOffset;
-      hasMovedRef.current = false;
-    },
-    onSwiping: ({ first, absX, absY, deltaX, event }) => {
-      if (first) {
-        swipeAxisRef.current = absX > absY ? "horizontal" : "vertical";
-      }
-
-      if (swipeAxisRef.current !== "horizontal") return;
-
-      if (event.cancelable) event.preventDefault();
-
-      hasMovedRef.current = true;
-
-      const nextOffset = Math.max(-DELETE_ACTION_WIDTH, Math.min(0, restingOffset + deltaX));
-
-      currentOffsetRef.current = nextOffset;
-      setDragOffset(nextOffset);
-    },
-    onTouchEndOrOnMouseUp: () => {
-      if (swipeAxisRef.current === "horizontal") {
-        onRevealDelete(currentOffsetRef.current <= -SWIPE_THRESHOLD ? id : null);
-      }
-
-      resetSwipe();
-    },
+  const { translateX, isDragging, swipeHandlers, resetSwipe, consumeSwipeClick } = useSwipeReveal({
+    actionWidth: DELETE_ACTION_WIDTH,
+    isRevealed: isDeleteRevealed,
+    onRevealChange: (isRevealed) => onRevealDelete(isRevealed ? id : null),
   });
 
   // 삭제 버튼이 열려 있으면 알림을 열지 않고 삭제 버튼만 닫음
@@ -99,10 +53,7 @@ export default function NotificationItem({
   };
 
   const handleClick = () => {
-    if (hasMovedRef.current) {
-      hasMovedRef.current = false;
-      return;
-    }
+    if (consumeSwipeClick()) return;
 
     selectNotification();
   };
@@ -124,7 +75,7 @@ export default function NotificationItem({
         role="button"
         tabIndex={0}
         aria-describedby={instructionId}
-        className={`relative cursor-pointer touch-pan-y select-none px-5 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-info ${isUnread ? "bg-warning-subtle" : "bg-surface"} ${dragOffset === null ? "transition-transform duration-200 ease-standard" : ""}`}
+        className={`relative cursor-pointer touch-pan-y select-none px-5 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-info ${isUnread ? "bg-warning-subtle" : "bg-surface"} ${isDragging ? "" : "transition-transform duration-200 ease-standard"}`}
         style={{ transform: `translateX(${translateX}px)` }}
         onClick={handleClick}
         onKeyDown={(event) => {

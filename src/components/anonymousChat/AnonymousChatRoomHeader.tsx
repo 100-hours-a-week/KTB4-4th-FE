@@ -11,7 +11,7 @@ type AnonymousChatRoomHeaderProps = {
   counterpartName: string;
   type: AnonymousChatType;
   onReport: () => void;
-  onBlock: () => void;
+  onLeave: () => void;
 };
 
 const CHAT_TYPE_LABELS: Record<AnonymousChatType, string> = {
@@ -23,7 +23,7 @@ export default function AnonymousChatRoomHeader({
   counterpartName,
   type,
   onReport,
-  onBlock,
+  onLeave,
 }: AnonymousChatRoomHeaderProps) {
   const router = useRouter();
 
@@ -43,7 +43,7 @@ export default function AnonymousChatRoomHeader({
         <p className="mt-0.5 text-caption text-muted">{CHAT_TYPE_LABELS[type]}</p>
       </div>
 
-      <AnonymousChatRoomMenu onReport={onReport} onBlock={onBlock} />
+      <AnonymousChatRoomMenu onReport={onReport} onLeave={onLeave} />
     </header>
   );
 }

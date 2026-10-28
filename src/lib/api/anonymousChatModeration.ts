@@ -1,9 +1,8 @@
-// 익명 채팅방 단위 사용자 신고·차단 요청 타입과 요청 함수
+// 익명 채팅방 단위 사용자 신고 요청 타입과 요청 함수
 "use client";
 
 import { ApiRequestError, apiFetch } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
-import { blockMockAnonymousChatUser } from "@/mocks/anonymousChatModeration";
 
 export type AnonymousChatReportReason = "ABUSE" | "SEXUAL" | "SPAM" | "PERSONAL_INFO" | "OTHER";
 
@@ -79,9 +78,4 @@ export async function reportAnonymousChatUser(roomId: number, request: Anonymous
   const { data } = (await response.json()) as AnonymousChatReportResponse;
 
   return data;
-}
-
-// TODO: 익명 채팅 사용자 차단 API 연동 후 목업 응답 대신 서버 요청
-export async function blockAnonymousChatUser(chatId: number): Promise<void> {
-  return blockMockAnonymousChatUser(chatId);
 }

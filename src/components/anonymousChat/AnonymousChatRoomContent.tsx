@@ -4,9 +4,9 @@
 import { notFound, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import AnonymousChatBlockModal from "@/components/anonymousChat/AnonymousChatBlockModal";
 import AnonymousChatComposer from "@/components/anonymousChat/AnonymousChatComposer";
 import AnonymousChatGuideCard from "@/components/anonymousChat/AnonymousChatGuideCard";
+import AnonymousChatLeaveModal from "@/components/anonymousChat/AnonymousChatLeaveModal";
 import AnonymousChatMessageList from "@/components/anonymousChat/AnonymousChatMessageList";
 import AnonymousChatProductCard from "@/components/anonymousChat/AnonymousChatProductCard";
 import AnonymousChatReportModal from "@/components/anonymousChat/AnonymousChatReportModal";
@@ -32,7 +32,7 @@ type RoomState =
 
 export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomContentProps) {
   const [roomState, setRoomState] = useState<RoomState>({ status: "loading" });
-  const [openModal, setOpenModal] = useState<"report" | "block" | null>(null);
+  const [openModal, setOpenModal] = useState<"report" | "leave" | null>(null);
   const router = useRouter();
   const { showToast } = useToastContext();
 
@@ -77,10 +77,10 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
     showToast(message);
   };
 
-  // 차단한 상대와는 더 이상 대화할 수 없으므로 대화 목록으로 돌아감
-  const handleBlocked = () => {
+  // 나간 채팅방은 더 이상 볼 수 없으므로 대화 목록으로 돌아감
+  const handleLeft = () => {
     setOpenModal(null);
-    showToast("차단했어요.");
+    showToast("채팅방을 나갔어요.");
     router.replace("/chat");
   };
 
@@ -112,7 +112,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
           counterpartName={room.counterpartName}
           type={room.type}
           onReport={() => setOpenModal("report")}
-          onBlock={() => setOpenModal("block")}
+          onLeave={() => setOpenModal("leave")}
         />
       </div>
 
@@ -139,11 +139,10 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         onClose={closeModal}
         onReported={handleReported}
       />
-      <AnonymousChatBlockModal
-        open={openModal === "block"}
-        chatId={room.chatId}
+      <AnonymousChatLeaveModal
+        chatId={openModal === "leave" ? room.chatId : null}
         onClose={closeModal}
-        onBlocked={handleBlocked}
+        onLeft={handleLeft}
       />
     </main>
   );
