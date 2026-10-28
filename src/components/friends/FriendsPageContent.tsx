@@ -1,6 +1,7 @@
 // 친구 목록 페이지의 탭·검색·목록 상태를 관리하는 클라이언트 화면
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 
 import PageIntro from "@/components/common/PageIntro";
@@ -10,8 +11,12 @@ import FriendsList from "@/components/friends/FriendsList";
 import FriendsListSkeleton from "@/components/friends/FriendsListSkeleton";
 import KakaoFriendConnectButton from "@/components/friends/KakaoFriendConnectButton";
 import UpcomingBirthdaySection from "@/components/friends/UpcomingBirthdaySection";
-import { getUpcomingBirthdayFriends, type FriendsPage } from "@/lib/api/friends";
-import { filterUpcomingBirthdays, type UpcomingBirthday } from "@/lib/upcomingBirthdays";
+import { ApiRequestError } from "@/lib/api/client";
+import {
+  getUpcomingFriendEvents,
+  type FriendsPage,
+  type UpcomingFriendEvent,
+} from "@/lib/api/friends";
 
 type FriendsTab = "all" | "favorite";
 
@@ -25,6 +30,11 @@ const INITIAL_LIST_KEY = "all:";
 type FriendCounts = {
   total: number;
   favorite: number;
+};
+
+type UpcomingEventsError = {
+  message: string;
+  retryAfterSeconds: number;
 };
 
 // 응답 전에도 세 자리 숫자 너비를 확보해 친구 수 표시 시 탭 라벨 이동 방지
@@ -68,14 +78,16 @@ const FRIENDS_PAGE_COPY: Record<
 };
 
 export default function FriendsPageContent({ initialFriendsPromise }: FriendsPageContentProps) {
+  const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<FriendsTab>("all");
   const [searchInput, setSearchInput] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [hasFriends, setHasFriends] = useState<boolean | null>(null);
   const [isKakaoFriendSynced, setIsKakaoFriendSynced] = useState<boolean | null>(null);
   const [friendCounts, setFriendCounts] = useState<FriendCounts | null>(null);
-  // TODO(#545): 다가오는 생일 API 구현 후 Suspense와 전용 스켈레톤 fallback으로 로딩 UI 구성
-  const [upcomingBirthdays, setUpcomingBirthdays] = useState<UpcomingBirthday[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingFriendEvent[]>([]);
+  const [upcomingEventsError, setUpcomingEventsError] = useState<UpcomingEventsError | null>(null);
+  const [upcomingEventsRequestId, setUpcomingEventsRequestId] = useState(0);
   const [hasLeftInitialList, setHasLeftInitialList] = useState(false);
   const listKey = `${selectedTab}:${searchKeyword}`;
 
@@ -118,22 +130,62 @@ export default function FriendsPageContent({ initialFriendsPromise }: FriendsPag
   useEffect(() => {
     const requestController = new AbortController();
 
-    const loadUpcomingBirthdays = async () => {
-      try {
-        const friends = await getUpcomingBirthdayFriends(requestController.signal);
+    const loadUpcomingEvents = async () => {
+      setUpcomingEventsError(null);
 
-        setUpcomingBirthdays(filterUpcomingBirthdays(friends));
+      try {
+        const events = await getUpcomingFriendEvents(requestController.signal);
+
+        setUpcomingEvents(events);
       } catch (error) {
-        if (!(error instanceof Error && error.name === "AbortError")) {
-          setUpcomingBirthdays([]);
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
         }
+
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        setUpcomingEventsError({
+          message:
+            error instanceof ApiRequestError
+              ? error.message
+              : "다가오는 친구 이벤트를 불러오지 못했습니다.",
+          retryAfterSeconds:
+            error instanceof ApiRequestError && error.status === 429
+              ? (error.retryAfterSeconds ?? 0)
+              : 0,
+        });
       }
     };
 
-    void loadUpcomingBirthdays();
+    void loadUpcomingEvents();
 
     return () => requestController.abort();
-  }, []);
+  }, [router, upcomingEventsRequestId]);
+
+  useEffect(() => {
+    if (!upcomingEventsError || upcomingEventsError.retryAfterSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setUpcomingEventsError((currentError) => {
+        if (!currentError || currentError.retryAfterSeconds <= 1) {
+          window.clearInterval(timer);
+          return currentError ? { ...currentError, retryAfterSeconds: 0 } : null;
+        }
+
+        return {
+          ...currentError,
+          retryAfterSeconds: currentError.retryAfterSeconds - 1,
+        };
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [upcomingEventsError]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -176,7 +228,24 @@ export default function FriendsPageContent({ initialFriendsPromise }: FriendsPag
       <div className="mt-2 flex h-touch justify-end px-1">
         {!isKakaoConnectButtonVisible && <KakaoFriendConnectButton variant="sync" />}
       </div>
-      <UpcomingBirthdaySection friends={upcomingBirthdays} />
+      <UpcomingBirthdaySection events={upcomingEvents} />
+      {upcomingEventsError && (
+        <div className="mt-3 text-center">
+          <p role="alert" className="text-body-sm text-danger">
+            {upcomingEventsError.message}
+          </p>
+          <button
+            type="button"
+            disabled={upcomingEventsError.retryAfterSeconds > 0}
+            className="mt-2 rounded-sm border border-border-strong bg-surface px-4 py-2 text-body-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => setUpcomingEventsRequestId((requestId) => requestId + 1)}
+          >
+            {upcomingEventsError.retryAfterSeconds > 0
+              ? `${upcomingEventsError.retryAfterSeconds}초 후 다시 시도`
+              : "다시 시도"}
+          </button>
+        </div>
+      )}
       <SegmentedTabs
         items={friendsTabs}
         value={selectedTab}
