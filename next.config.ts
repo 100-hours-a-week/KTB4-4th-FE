@@ -1,4 +1,4 @@
-// 보안·정적 아이콘·웹폰트 캐시 응답 헤더, 렌더링 차단 CSS 인라인, 로컬 개발용 백엔드 API 중계를 관리하는 Next.js 설정
+// 보안·정적 아이콘·웹폰트 캐시 응답 헤더, 렌더링 차단 CSS 인라인, 로컬 개발용 백엔드 API 중계, 성능 측정 계측 플래그 기본값을 관리하는 Next.js 설정
 import { withSentryConfig } from "@sentry/nextjs/config";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
@@ -15,6 +15,10 @@ function createNextConfig(phase: string): NextConfig {
 
   return {
     poweredByHeader: false,
+    env: {
+      // 값을 지정하지 않은 빌드에서도 false로 코드에 들어가 성능 측정용 계측 코드가 번들에서 제거되도록 기본값 지정
+      NEXT_PUBLIC_PERF_INSTRUMENT: process.env.NEXT_PUBLIC_PERF_INSTRUMENT ?? "false",
+    },
     images: {
       remotePatterns: [
         {
