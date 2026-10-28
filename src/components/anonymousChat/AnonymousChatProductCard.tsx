@@ -1,6 +1,7 @@
 // 채팅방에서 이야기하는 선물 후보 상품의 이미지·카테고리·이름·가격과 보러가기 버튼을 표시하는 카드
 
 import type { AnonymousChatRoomProduct } from "@/lib/api/anonymousChatRoom";
+import { getProductCategoryName } from "@/lib/productCategories";
 
 type AnonymousChatProductCardProps = {
   product: AnonymousChatRoomProduct;
@@ -27,9 +28,9 @@ export default function AnonymousChatProductCard({ product }: AnonymousChatProdu
         }
       />
       <div className="min-w-0 flex-1">
-        {product.categoryNames.length > 0 && (
+        {product.category && (
           <p className="truncate text-body-sm font-bold text-foreground">
-            {product.categoryNames.join(" · ")}
+            {getProductCategoryName(product.category)}
           </p>
         )}
         <p className="truncate text-body text-muted">{product.name}</p>

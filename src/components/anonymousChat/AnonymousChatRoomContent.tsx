@@ -15,10 +15,12 @@ import AnonymousChatStartGuide from "@/components/anonymousChat/AnonymousChatSta
 import { useToastContext } from "@/contexts/ToastContext";
 import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
 import {
-  getAnonymousChatRoom,
+  getAnonymousChatRoomInfo,
+  getAnonymousChatRoomMessages,
   type AnonymousChatMessage,
   type AnonymousChatRoom,
 } from "@/lib/api/anonymousChatRoom";
+import { ApiRequestError } from "@/lib/api/client";
 
 type AnonymousChatRoomContentProps = {
   chatId: number;
@@ -26,12 +28,20 @@ type AnonymousChatRoomContentProps = {
 
 type RoomState =
   | { status: "loading" }
-  | { status: "failed" }
+  | {
+      status: "failed";
+      message: string;
+      retryAfterSeconds: number;
+      canRetry: boolean;
+    }
   | { status: "notFound" }
   | { status: "loaded"; room: AnonymousChatRoom };
 
+const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
+
 export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomContentProps) {
   const [roomState, setRoomState] = useState<RoomState>({ status: "loading" });
+  const [requestVersion, setRequestVersion] = useState(0);
   const [openModal, setOpenModal] = useState<"report" | "leave" | null>(null);
   const router = useRouter();
   const { showToast } = useToastContext();
@@ -39,24 +49,89 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   useVisualViewportHeight();
 
   useEffect(() => {
+    const requestController = new AbortController();
     let isActive = true;
 
-    getAnonymousChatRoom(chatId)
-      .then((room) => {
+    Promise.all([
+      getAnonymousChatRoomInfo({ roomId: chatId, signal: requestController.signal }),
+      getAnonymousChatRoomMessages(chatId),
+    ])
+      .then(([roomInfo, messageHistory]) => {
         if (isActive) {
-          setRoomState(room ? { status: "loaded", room } : { status: "notFound" });
+          setRoomState({
+            status: "loaded",
+            room: { ...roomInfo, ...messageHistory },
+          });
         }
       })
-      .catch(() => {
-        if (isActive) {
-          setRoomState({ status: "failed" });
+      .catch((error: unknown) => {
+        if (!isActive || (error instanceof Error && error.name === "AbortError")) {
+          return;
         }
+
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        if (
+          error instanceof ApiRequestError &&
+          error.status === 403 &&
+          error.message === ONBOARDING_REQUIRED_MESSAGE
+        ) {
+          router.replace("/onboarding");
+          return;
+        }
+
+        if (error instanceof ApiRequestError && error.status === 404) {
+          setRoomState({ status: "notFound" });
+          return;
+        }
+
+        setRoomState({
+          status: "failed",
+          message:
+            error instanceof ApiRequestError
+              ? error.message
+              : "대화방 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+          retryAfterSeconds:
+            error instanceof ApiRequestError && error.status === 429
+              ? (error.retryAfterSeconds ?? 0)
+              : 0,
+          canRetry:
+            !(error instanceof ApiRequestError) ||
+            error.status === 429 ||
+            error.status === 500 ||
+            error.status === 503,
+        });
       });
 
     return () => {
       isActive = false;
+      requestController.abort();
     };
-  }, [chatId]);
+  }, [chatId, requestVersion, router]);
+
+  const failedRetryAfterSeconds = roomState.status === "failed" ? roomState.retryAfterSeconds : 0;
+
+  useEffect(() => {
+    if (failedRetryAfterSeconds <= 0) {
+      return;
+    }
+
+    const retryTimer = window.setInterval(() => {
+      setRoomState((current) =>
+        current.status === "failed"
+          ? {
+              ...current,
+              retryAfterSeconds: Math.max(0, current.retryAfterSeconds - 1),
+            }
+          : current,
+      );
+    }, 1_000);
+
+    return () => window.clearInterval(retryTimer);
+  }, [failedRetryAfterSeconds]);
 
   if (roomState.status === "notFound") {
     notFound();
@@ -89,12 +164,25 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       <main aria-label="대화" className="page-content flex flex-1 flex-col bg-background">
         <p
           role={roomState.status === "failed" ? "alert" : "status"}
-          className="pt-8 text-center text-body-sm text-muted"
+          className={`pt-8 text-center text-body-sm ${roomState.status === "failed" ? "text-danger" : "text-muted"}`}
         >
-          {roomState.status === "failed"
-            ? "대화를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."
-            : "대화를 불러오는 중이에요."}
+          {roomState.status === "failed" ? roomState.message : "대화를 불러오는 중이에요."}
         </p>
+        {roomState.status === "failed" && roomState.canRetry && (
+          <button
+            type="button"
+            disabled={roomState.retryAfterSeconds > 0}
+            className="mx-auto mt-2 rounded-sm border border-border-strong bg-surface px-4 py-2 text-body-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => {
+              setRoomState({ status: "loading" });
+              setRequestVersion((current) => current + 1);
+            }}
+          >
+            {roomState.retryAfterSeconds > 0
+              ? `${roomState.retryAfterSeconds}초 후 다시 시도`
+              : "다시 시도"}
+          </button>
+        )}
       </main>
     );
   }
@@ -131,16 +219,16 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatStartGuide />
       )}
 
-      <AnonymousChatComposer chatId={room.chatId} onMessageSent={appendMessage} />
+      <AnonymousChatComposer chatId={room.roomId} onMessageSent={appendMessage} />
 
       <AnonymousChatReportModal
         open={openModal === "report"}
-        chatId={room.chatId}
+        chatId={room.roomId}
         onClose={closeModal}
         onReported={handleReported}
       />
       <AnonymousChatLeaveModal
-        chatId={openModal === "leave" ? room.chatId : null}
+        chatId={openModal === "leave" ? room.roomId : null}
         onClose={closeModal}
         onLeft={handleLeft}
       />

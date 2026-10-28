@@ -1,27 +1,10 @@
 // TODO: 모든 익명 대화 API 연동 완료 후 anonymousChats.ts와 함께 삭제할 목업 데이터
 
-import type {
-  AnonymousChatMessage,
-  AnonymousChatRoom,
-  AnonymousChatRoomProduct,
-} from "@/lib/api/anonymousChatRoom";
-import type { AnonymousChatType } from "@/lib/api/anonymousChats";
+import type { AnonymousChatMessage, AnonymousChatRoomMessages } from "@/lib/api/anonymousChatRoom";
 import { createMockChats, type MockAnonymousChatListItem } from "@/mocks/anonymousChats";
 import { mockDelay } from "@/mocks/config";
 
 const MINUTE_MS = 60_000;
-
-const EMPTY_CHAT_ID = 8;
-
-const PRODUCT_CATEGORY_NAMES: Record<number, string[]> = {
-  101: ["은은한 조명", "인테리어 소품"],
-  102: ["주방", "커피용품"],
-  103: ["디지털", "음향기기"],
-  104: ["패션", "가방"],
-  105: ["스포츠", "아우터"],
-  106: ["캠핑", "아웃도어"],
-  107: ["디지털", "카메라"],
-};
 
 const PREVIOUS_MESSAGES: Record<number, Omit<AnonymousChatMessage, "messageId" | "sentAt">[]> = {
   1: [
@@ -33,14 +16,6 @@ const PREVIOUS_MESSAGES: Record<number, Omit<AnonymousChatMessage, "messageId" |
     { content: "좋아! 딱 내 취향이야.", isMine: true },
   ],
 };
-
-function createRoomProduct(chat: MockAnonymousChatListItem): AnonymousChatRoomProduct {
-  return {
-    ...chat.product,
-    imageUrl: null,
-    categoryNames: PRODUCT_CATEGORY_NAMES[chat.product.productId] ?? [],
-  };
-}
 
 function createRoomMessages(chat: MockAnonymousChatListItem): AnonymousChatMessage[] {
   const lastSentAt = Date.parse(chat.lastMessage.sentAt);
@@ -61,67 +36,41 @@ function createRoomMessages(chat: MockAnonymousChatListItem): AnonymousChatMessa
   ];
 }
 
-function createRoom(chat: MockAnonymousChatListItem, type: AnonymousChatType): AnonymousChatRoom {
+function createMessageHistory(chat: MockAnonymousChatListItem): AnonymousChatRoomMessages {
   const messages = createRoomMessages(chat);
 
   return {
-    chatId: chat.chatId,
-    type,
-    counterpartName: chat.counterpartName,
-    counterpartUserId: type === "SENT" ? 900_000 + chat.chatId : null,
-    counterpartProfileImageUrl: null,
-    product: createRoomProduct(chat),
     connectedAt: new Date(Date.parse(messages[0].sentAt) - MINUTE_MS).toISOString(),
     messages,
   };
 }
 
-function createEmptyRoom(): AnonymousChatRoom {
+function createEmptyMessageHistory(): AnonymousChatRoomMessages {
   return {
-    chatId: EMPTY_CHAT_ID,
-    type: "SENT",
-    counterpartName: "지호",
-    counterpartUserId: 900_000 + EMPTY_CHAT_ID,
-    counterpartProfileImageUrl: null,
-    product: {
-      productId: 108,
-      name: "테이블 램프",
-      price: 52_000,
-      imageUrl: null,
-      categoryNames: ["은은한 조명", "인테리어 소품"],
-    },
     connectedAt: new Date().toISOString(),
     messages: [],
   };
 }
 
-export async function getMockAnonymousChatRoom(chatId: number): Promise<AnonymousChatRoom | null> {
+export async function getMockAnonymousChatMessages(
+  roomId: number,
+): Promise<AnonymousChatRoomMessages> {
   await mockDelay();
 
-  if (chatId === EMPTY_CHAT_ID) {
-    return createEmptyRoom();
-  }
-
   const chats = createMockChats();
-  const sentChat = chats.SENT.find((chat) => chat.chatId === chatId);
+  const chat = [...chats.SENT, ...chats.RECEIVED].find((item) => item.chatId === roomId);
 
-  if (sentChat) {
-    return createRoom(sentChat, "SENT");
-  }
-
-  const receivedChat = chats.RECEIVED.find((chat) => chat.chatId === chatId);
-
-  return receivedChat ? createRoom(receivedChat, "RECEIVED") : null;
+  return chat ? createMessageHistory(chat) : createEmptyMessageHistory();
 }
 
 export async function sendMockAnonymousChatMessage(
-  chatId: number,
+  roomId: number,
   content: string,
 ): Promise<AnonymousChatMessage> {
   await mockDelay();
 
   return {
-    messageId: chatId * 1_000_000 + (Date.now() % 1_000_000),
+    messageId: roomId * 1_000_000 + (Date.now() % 1_000_000),
     content,
     isMine: true,
     sentAt: new Date().toISOString(),
