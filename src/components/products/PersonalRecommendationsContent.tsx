@@ -12,6 +12,8 @@ import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import { ApiRequestError } from "@/lib/api/client";
 import { checkLoginValidity, type LoginValidityData } from "@/lib/api/loginValidity";
+import { PERF_METRIC } from "@/lib/perf/metrics";
+import { markPerfStart } from "@/lib/perf/recorder";
 import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
@@ -116,7 +118,25 @@ export default function PersonalRecommendationsContent({
   };
 
   const handlePriceRangeCommit = (priceRange: PriceRange) => {
+    const appliedPriceRange = priceRangesByTab[selectedVisibilityTab].applied;
+
+    // 같은 예산을 다시 적용하면 목록이 바뀌지 않으므로 측정을 시작하지 않음
+    if (
+      appliedPriceRange?.minPrice !== priceRange.minPrice ||
+      appliedPriceRange?.maxPrice !== priceRange.maxPrice
+    ) {
+      markPerfStart(PERF_METRIC.productListFilterChange);
+    }
+
     updateTabPriceRange(selectedVisibilityTab, { selected: priceRange, applied: priceRange });
+  };
+
+  const handleCategoryChange = (categoryCode: string) => {
+    if (categoryCode !== selectedCategoryCode) {
+      markPerfStart(PERF_METRIC.productListFilterChange);
+    }
+
+    setSelectedCategoryCode(categoryCode);
   };
 
   if (!loginUser) {
@@ -179,7 +199,7 @@ export default function PersonalRecommendationsContent({
         <ProductCategoryBadges
           categories={categories}
           value={selectedCategoryCode}
-          onChange={setSelectedCategoryCode}
+          onChange={handleCategoryChange}
         />
         {selectedVisibilityTab === "private" ? (
           <PersonalRecommendationsList

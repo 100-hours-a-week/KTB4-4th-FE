@@ -4,8 +4,10 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import PerfProfiler from "@/components/perf/PerfProfiler";
 import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
+import { useProductListPerfMarks } from "@/hooks/useProductListPerfMarks";
 import { ApiRequestError } from "@/lib/api/client";
 import {
   getPersonalRecommendations,
@@ -29,13 +31,18 @@ export default function PersonalRecommendationsList({
   onPriceRangeLoad,
 }: PersonalRecommendationsListProps) {
   return (
-    <PersonalRecommendationsListContent
+    // 목록이 다시 마운트되면 Profiler도 함께 마운트되어 mount로 기록되도록 key를 Profiler에 지정함
+    <PerfProfiler
       key={`${category ?? "all"}:${minPrice ?? "initial"}:${maxPrice ?? "initial"}`}
-      category={category}
-      minPrice={minPrice}
-      maxPrice={maxPrice}
-      onPriceRangeLoad={onPriceRangeLoad}
-    />
+      id="personal-recommendations-list"
+    >
+      <PersonalRecommendationsListContent
+        category={category}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        onPriceRangeLoad={onPriceRangeLoad}
+      />
+    </PerfProfiler>
   );
 }
 
@@ -56,6 +63,7 @@ function PersonalRecommendationsListContent({
   const hasNextRef = useRef(true);
   const nextCursorRef = useRef<string | null>(null);
   const requestGenerationRef = useRef(0);
+  const markFirstPageLoaded = useProductListPerfMarks(products.length);
 
   const loadNextPage = useCallback(async () => {
     if (isLoadingRef.current || !hasNextRef.current) {
@@ -82,6 +90,7 @@ function PersonalRecommendationsListContent({
 
       if (nextCursorRef.current === null) {
         onPriceRangeLoad?.(data.priceRange);
+        markFirstPageLoaded();
       }
 
       setProducts((currentProducts) => [...currentProducts, ...data.items]);
@@ -105,7 +114,7 @@ function PersonalRecommendationsListContent({
         }
       }
     }
-  }, [category, maxPrice, minPrice, onPriceRangeLoad, router]);
+  }, [category, markFirstPageLoaded, maxPrice, minPrice, onPriceRangeLoad, router]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -147,11 +156,12 @@ function PersonalRecommendationsListContent({
     <>
       <div className="grid grid-cols-3 gap-x-2 gap-y-5">
         {products.map((product) => (
-          <ProductCard
-            key={product.recommendationId}
-            product={product}
-            detailHref={`/products/${product.productId}?context=PERSONAL`}
-          />
+          <PerfProfiler key={product.recommendationId} id="product-card">
+            <ProductCard
+              product={product}
+              detailHref={`/products/${product.productId}?context=PERSONAL`}
+            />
+          </PerfProfiler>
         ))}
       </div>
 

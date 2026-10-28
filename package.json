@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
+    "build:perf": "NEXT_PUBLIC_USE_MOCK_DATA=true NEXT_PUBLIC_PERF_INSTRUMENT=true next build",
+    "build:perf:profile": "NEXT_PUBLIC_USE_MOCK_DATA=true NEXT_PUBLIC_PERF_INSTRUMENT=true next build --profile --no-mangling",
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
