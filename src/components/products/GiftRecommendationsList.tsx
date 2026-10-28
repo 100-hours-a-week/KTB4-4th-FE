@@ -4,8 +4,10 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import PerfProfiler from "@/components/perf/PerfProfiler";
 import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
+import { useProductListPerfMarks } from "@/hooks/useProductListPerfMarks";
 import { ApiRequestError } from "@/lib/api/client";
 import {
   getFriendGiftRecommendations,
@@ -41,14 +43,19 @@ export default function GiftRecommendationsList({
   const targetKey = target.type === "FRIEND" ? `friend:${target.userId}` : "self";
 
   return (
-    <GiftRecommendationsListContent
+    // 목록이 다시 마운트되면 Profiler도 함께 마운트되어 mount로 기록되도록 key를 Profiler에 지정함
+    <PerfProfiler
       key={`${targetKey}:${category ?? "all"}:${minPrice ?? "initial"}:${maxPrice ?? "initial"}`}
-      target={target}
-      category={category}
-      minPrice={minPrice}
-      maxPrice={maxPrice}
-      onPriceRangeLoad={onPriceRangeLoad}
-    />
+      id="gift-recommendations-list"
+    >
+      <GiftRecommendationsListContent
+        target={target}
+        category={category}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        onPriceRangeLoad={onPriceRangeLoad}
+      />
+    </PerfProfiler>
   );
 }
 
@@ -72,6 +79,7 @@ function GiftRecommendationsListContent({
   const hasNextRef = useRef(true);
   const nextCursorRef = useRef<string | null>(null);
   const requestGenerationRef = useRef(0);
+  const markFirstPageLoaded = useProductListPerfMarks(products.length);
 
   const loadNextPage = useCallback(async () => {
     if (isLoadingRef.current || !hasNextRef.current) {
@@ -102,6 +110,7 @@ function GiftRecommendationsListContent({
 
       if (nextCursorRef.current === null) {
         onPriceRangeLoad?.(data.priceRange);
+        markFirstPageLoaded();
       }
 
       setProducts((currentProducts) => [...currentProducts, ...data.items]);
@@ -125,7 +134,16 @@ function GiftRecommendationsListContent({
         }
       }
     }
-  }, [category, maxPrice, minPrice, onPriceRangeLoad, router, targetType, targetUserId]);
+  }, [
+    category,
+    markFirstPageLoaded,
+    maxPrice,
+    minPrice,
+    onPriceRangeLoad,
+    router,
+    targetType,
+    targetUserId,
+  ]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -174,17 +192,18 @@ function GiftRecommendationsListContent({
               : `/products/${product.productId}?context=MY_GIFT`;
 
           return (
-            <ProductCard
-              key={product.recommendationId}
-              product={{
-                name: product.name,
-                category: product.category,
-                price: product.price,
-                productImageUrl: product.productImageUrl,
-                purchaseUrl: product.purchaseUrl,
-              }}
-              detailHref={detailHref}
-            />
+            <PerfProfiler key={product.recommendationId} id="product-card">
+              <ProductCard
+                product={{
+                  name: product.name,
+                  category: product.category,
+                  price: product.price,
+                  productImageUrl: product.productImageUrl,
+                  purchaseUrl: product.purchaseUrl,
+                }}
+                detailHref={detailHref}
+              />
+            </PerfProfiler>
           );
         })}
       </div>
