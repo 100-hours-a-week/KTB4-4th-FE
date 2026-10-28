@@ -2,7 +2,7 @@
 "use client";
 
 import { notFound, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import AnonymousChatComposer from "@/components/anonymousChat/AnonymousChatComposer";
 import AnonymousChatGuideCard from "@/components/anonymousChat/AnonymousChatGuideCard";
@@ -37,12 +37,25 @@ type RoomState =
   | { status: "notFound" }
   | { status: "loaded"; room: AnonymousChatRoom };
 
+type PreviousMessagesError = {
+  message: string;
+  retryAfterSeconds: number;
+  canRetry: boolean;
+};
+
 const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
 
 export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomContentProps) {
   const [roomState, setRoomState] = useState<RoomState>({ status: "loading" });
   const [requestVersion, setRequestVersion] = useState(0);
+  // TODO: TanStack Query 도입 시 메시지 페이지·오류·추가 조회 상태를 useInfiniteQuery로 이전
+  const [isLoadingPreviousMessages, setIsLoadingPreviousMessages] = useState(false);
+  const [previousMessagesError, setPreviousMessagesError] = useState<PreviousMessagesError | null>(
+    null,
+  );
   const [openModal, setOpenModal] = useState<"report" | "leave" | null>(null);
+  const isLoadingPreviousMessagesRef = useRef(false);
+  const previousMessagesControllerRef = useRef<AbortController | null>(null);
   const router = useRouter();
   const { showToast } = useToastContext();
 
@@ -54,13 +67,19 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
 
     Promise.all([
       getAnonymousChatRoomInfo({ roomId: chatId, signal: requestController.signal }),
-      getAnonymousChatRoomMessages(chatId),
+      getAnonymousChatRoomMessages({ roomId: chatId, signal: requestController.signal }),
     ])
-      .then(([roomInfo, messageHistory]) => {
+      .then(([roomInfo, messagePage]) => {
         if (isActive) {
+          const { targetName, ...messageHistory } = messagePage;
+
           setRoomState({
             status: "loaded",
-            room: { ...roomInfo, ...messageHistory },
+            room: {
+              ...roomInfo,
+              ...messageHistory,
+              counterpartName: targetName,
+            },
           });
         }
       })
@@ -112,6 +131,14 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
     };
   }, [chatId, requestVersion, router]);
 
+  useEffect(() => {
+    return () => {
+      previousMessagesControllerRef.current?.abort();
+      previousMessagesControllerRef.current = null;
+      isLoadingPreviousMessagesRef.current = false;
+    };
+  }, []);
+
   const failedRetryAfterSeconds = roomState.status === "failed" ? roomState.retryAfterSeconds : 0;
 
   useEffect(() => {
@@ -132,6 +159,130 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
 
     return () => window.clearInterval(retryTimer);
   }, [failedRetryAfterSeconds]);
+
+  const previousMessagesRetryAfterSeconds = previousMessagesError?.retryAfterSeconds ?? 0;
+
+  useEffect(() => {
+    if (previousMessagesRetryAfterSeconds <= 0) {
+      return;
+    }
+
+    const retryTimer = window.setInterval(() => {
+      setPreviousMessagesError((current) =>
+        current
+          ? {
+              ...current,
+              retryAfterSeconds: Math.max(0, current.retryAfterSeconds - 1),
+            }
+          : current,
+      );
+    }, 1_000);
+
+    return () => window.clearInterval(retryTimer);
+  }, [previousMessagesRetryAfterSeconds]);
+
+  const loadPreviousMessages = useCallback(async () => {
+    if (
+      roomState.status !== "loaded" ||
+      !roomState.room.hasNext ||
+      !roomState.room.nextCursor ||
+      isLoadingPreviousMessagesRef.current
+    ) {
+      return;
+    }
+
+    const requestController = new AbortController();
+
+    previousMessagesControllerRef.current?.abort();
+    previousMessagesControllerRef.current = requestController;
+    isLoadingPreviousMessagesRef.current = true;
+    setIsLoadingPreviousMessages(true);
+    setPreviousMessagesError(null);
+
+    try {
+      const page = await getAnonymousChatRoomMessages({
+        roomId: chatId,
+        cursor: roomState.room.nextCursor,
+        signal: requestController.signal,
+      });
+
+      if (previousMessagesControllerRef.current !== requestController) {
+        return;
+      }
+
+      setRoomState((current) => {
+        if (current.status !== "loaded") {
+          return current;
+        }
+
+        const currentMessageIds = new Set(
+          current.room.messages.map((message) => message.messageId),
+        );
+        const previousMessages = page.messages.filter(
+          (message) => !currentMessageIds.has(message.messageId),
+        );
+
+        return {
+          status: "loaded",
+          room: {
+            ...current.room,
+            counterpartName: page.targetName,
+            roomStatus: page.roomStatus,
+            endedReason: page.endedReason,
+            endedAt: page.endedAt,
+            messages: [...previousMessages, ...current.room.messages],
+            nextCursor: page.nextCursor,
+            hasNext: page.hasNext,
+          },
+        };
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      if (error instanceof ApiRequestError && error.status === 404) {
+        setRoomState({ status: "notFound" });
+        return;
+      }
+
+      setPreviousMessagesError({
+        message:
+          error instanceof ApiRequestError
+            ? error.message
+            : "이전 메시지를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        retryAfterSeconds:
+          error instanceof ApiRequestError && error.status === 429
+            ? (error.retryAfterSeconds ?? 0)
+            : 0,
+        canRetry:
+          !(error instanceof ApiRequestError) ||
+          error.status === 429 ||
+          error.status === 500 ||
+          error.status === 503,
+      });
+    } finally {
+      if (previousMessagesControllerRef.current === requestController) {
+        previousMessagesControllerRef.current = null;
+        isLoadingPreviousMessagesRef.current = false;
+        setIsLoadingPreviousMessages(false);
+      }
+    }
+  }, [chatId, roomState, router]);
 
   if (roomState.status === "notFound") {
     notFound();
@@ -209,17 +360,39 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatProductCard product={room.product} />
       </div>
 
-      {room.messages.length > 0 ? (
+      {room.roomStatus === "ENDED" && (
+        <section
+          aria-label="종료된 대화 정보"
+          className="mb-2 rounded-sm border border-border-strong bg-surface px-4 py-3 text-caption text-muted"
+        >
+          <p>roomStatus: {room.roomStatus}</p>
+          {room.endedReason && <p>endedReason: {room.endedReason}</p>}
+          {room.endedAt && (
+            <p>
+              endedAt: <time dateTime={room.endedAt}>{room.endedAt}</time>
+            </p>
+          )}
+        </section>
+      )}
+
+      {room.messages.length > 0 || room.hasNext ? (
         <AnonymousChatMessageList
           counterpartName={room.counterpartName}
-          connectedAt={room.connectedAt}
           messages={room.messages}
+          hasNext={room.hasNext}
+          isLoadingPreviousMessages={isLoadingPreviousMessages}
+          previousMessagesError={previousMessagesError}
+          onLoadPreviousMessages={loadPreviousMessages}
         />
       ) : (
         <AnonymousChatStartGuide />
       )}
 
-      <AnonymousChatComposer chatId={room.roomId} onMessageSent={appendMessage} />
+      <AnonymousChatComposer
+        chatId={room.roomId}
+        isDisabled={room.roomStatus === "ENDED"}
+        onMessageSent={appendMessage}
+      />
 
       <AnonymousChatReportModal
         open={openModal === "report"}

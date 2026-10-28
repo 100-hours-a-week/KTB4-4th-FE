@@ -8,11 +8,13 @@ import { sendAnonymousChatMessage, type AnonymousChatMessage } from "@/lib/api/a
 
 type AnonymousChatComposerProps = {
   chatId: number;
+  isDisabled?: boolean;
   onMessageSent: (message: AnonymousChatMessage) => void;
 };
 
 export default function AnonymousChatComposer({
   chatId,
+  isDisabled = false,
   onMessageSent,
 }: AnonymousChatComposerProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -37,7 +39,12 @@ export default function AnonymousChatComposer({
           {errorMessage}
         </p>
       )}
-      <ChatComposer onSend={handleSend} placeholder="메시지 입력" variant="anonymous" />
+      <ChatComposer
+        onSend={handleSend}
+        isDisabled={isDisabled}
+        placeholder="메시지 입력"
+        variant="anonymous"
+      />
     </div>
   );
 }
