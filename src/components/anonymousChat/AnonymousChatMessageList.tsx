@@ -1,7 +1,7 @@
-// 채팅방 메시지를 날짜 구분선·연결 안내 문구와 함께 표시하고 새 메시지에 맞춰 스크롤하는 목록
+// 채팅방 메시지를 날짜 구분선과 함께 표시하고 커서 조회 전후의 스크롤 위치를 관리하는 목록
 "use client";
 
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef } from "react";
 
 import type { AnonymousChatMessage } from "@/lib/api/anonymousChatRoom";
 import {
@@ -14,9 +14,18 @@ import styles from "./AnonymousChatList.module.css";
 
 type AnonymousChatMessageListProps = {
   counterpartName: string;
-  connectedAt: string;
   messages: AnonymousChatMessage[];
+  hasNext: boolean;
+  isLoadingPreviousMessages: boolean;
+  previousMessagesError: {
+    message: string;
+    retryAfterSeconds: number;
+    canRetry: boolean;
+  } | null;
+  onLoadPreviousMessages: () => Promise<void>;
 };
+
+const LOAD_PREVIOUS_SCROLL_THRESHOLD_PX = 80;
 
 function DateDivider({ dateTime }: { dateTime: string }) {
   return (
@@ -57,9 +66,19 @@ function CounterpartMessage({
 function MyMessage({ message }: { message: AnonymousChatMessage }) {
   return (
     <article aria-label="내 메시지" className="flex flex-col items-end pl-12">
-      <p className="rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5 text-body break-words whitespace-pre-wrap text-on-primary">
-        {message.content}
-      </p>
+      <div className="flex items-end gap-1.5">
+        {message.unreadCount > 0 && (
+          <span
+            className="text-caption text-muted"
+            aria-label={`읽지 않은 사람 ${message.unreadCount}명`}
+          >
+            {message.unreadCount}
+          </span>
+        )}
+        <p className="rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5 text-body break-words whitespace-pre-wrap text-on-primary">
+          {message.content}
+        </p>
+      </div>
       <time dateTime={message.sentAt} className="mt-1.5 text-caption text-muted">
         {formatChatMessageTime(message.sentAt)}
       </time>
@@ -69,38 +88,115 @@ function MyMessage({ message }: { message: AnonymousChatMessage }) {
 
 export default function AnonymousChatMessageList({
   counterpartName,
-  connectedAt,
   messages,
+  hasNext,
+  isLoadingPreviousMessages,
+  previousMessagesError,
+  onLoadPreviousMessages,
 }: AnonymousChatMessageListProps) {
   const listRef = useRef<HTMLDivElement>(null);
+  const previousScrollHeightRef = useRef<number | null>(null);
+  const previousScrollTopRef = useRef(0);
+  const previousMessageCountRef = useRef(0);
+  const isInitialScrollCompleteRef = useRef(false);
 
-  useEffect(() => {
+  const requestPreviousMessages = () => {
     const list = listRef.current;
 
-    if (list) {
-      list.scrollTop = list.scrollHeight;
+    if (!list || !hasNext || isLoadingPreviousMessages) {
+      return;
     }
+
+    previousScrollHeightRef.current = list.scrollHeight;
+    previousScrollTopRef.current = list.scrollTop;
+    previousMessageCountRef.current = messages.length;
+    void onLoadPreviousMessages();
+  };
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+
+    if (!list) {
+      return;
+    }
+
+    if (previousScrollHeightRef.current !== null) {
+      list.scrollTop =
+        list.scrollHeight - previousScrollHeightRef.current + previousScrollTopRef.current;
+      previousScrollHeightRef.current = null;
+      return;
+    }
+
+    list.scrollTop = list.scrollHeight;
+    isInitialScrollCompleteRef.current = true;
   }, [messages.length]);
+
+  useEffect(() => {
+    if (
+      !isLoadingPreviousMessages &&
+      previousScrollHeightRef.current !== null &&
+      previousMessageCountRef.current === messages.length
+    ) {
+      previousScrollHeightRef.current = null;
+    }
+  }, [isLoadingPreviousMessages, messages.length]);
+
+  const handleScroll = () => {
+    const list = listRef.current;
+
+    if (
+      !list ||
+      !isInitialScrollCompleteRef.current ||
+      list.scrollTop > LOAD_PREVIOUS_SCROLL_THRESHOLD_PX ||
+      previousMessagesError
+    ) {
+      return;
+    }
+
+    requestPreviousMessages();
+  };
 
   return (
     <div
       ref={listRef}
       role="log"
       aria-label={`${counterpartName}님과의 대화`}
+      onScroll={handleScroll}
       className={`-mx-page min-h-0 flex-1 overflow-y-auto overscroll-contain px-page pt-1 pb-4 ${styles.chatList}`}
     >
-      <DateDivider dateTime={connectedAt} />
-      <p className="mt-1 flex justify-center">
-        <span className="rounded-full border border-border-strong px-3 py-1 text-caption text-muted">
-          {counterpartName}님과 대화가 연결됐어요
-        </span>
-      </p>
+      <div className="pb-2 text-center">
+        {isLoadingPreviousMessages && (
+          <p role="status" className="text-caption text-muted">
+            이전 메시지를 불러오는 중이에요.
+          </p>
+        )}
+        {previousMessagesError && (
+          <div>
+            <p role="alert" className="text-caption text-danger">
+              {previousMessagesError.message}
+            </p>
+            {previousMessagesError.canRetry && (
+              <button
+                type="button"
+                disabled={previousMessagesError.retryAfterSeconds > 0}
+                className="mt-1 rounded-sm border border-border-strong bg-surface px-3 py-1.5 text-caption text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={requestPreviousMessages}
+              >
+                {previousMessagesError.retryAfterSeconds > 0
+                  ? `${previousMessagesError.retryAfterSeconds}초 후 다시 시도`
+                  : "다시 시도"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
-      <div className="mt-6 flex flex-col gap-5">
+      <div className="flex flex-col gap-5">
         {messages.map((message, index) => {
           const previousMessage = messages[index - 1];
-          const previousDateKey = getChatMessageDateKey(previousMessage?.sentAt ?? connectedAt);
-          const hasDateDivider = getChatMessageDateKey(message.sentAt) !== previousDateKey;
+          const hasDateDivider =
+            !previousMessage ||
+            getChatMessageDateKey(message.sentAt) !== getChatMessageDateKey(previousMessage.sentAt);
 
           return (
             <Fragment key={message.messageId}>
