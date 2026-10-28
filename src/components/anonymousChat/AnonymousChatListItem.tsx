@@ -12,14 +12,12 @@ import type { MouseEvent } from "react";
 type AnonymousChatListItemProps = {
   chat: AnonymousChatListItemData;
   isLeaveRevealed: boolean;
-  onRevealLeave: (chatId: number | null) => void;
-  onLeave: (chatId: number) => void;
+  onRevealLeave: (roomId: number | null) => void;
+  onLeave: (roomId: number) => void;
 };
 
 const LEAVE_ACTION_WIDTH = 72;
 const MAX_UNREAD_COUNT_LABEL = 99;
-
-const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
 
 export default function AnonymousChatListItem({
   chat,
@@ -27,15 +25,25 @@ export default function AnonymousChatListItem({
   onRevealLeave,
   onLeave,
 }: AnonymousChatListItemProps) {
-  const { chatId, counterpartName, product, lastMessage, unreadCount } = chat;
-  const hasUnread = unreadCount > 0;
+  const {
+    roomId,
+    counterpartAlias,
+    product,
+    lastMessage,
+    lastActiveAt,
+    hasUnreadMessage,
+    unreadMessageCount,
+  } = chat;
+  const displayAlias = counterpartAlias.trim();
   const unreadCountLabel =
-    unreadCount > MAX_UNREAD_COUNT_LABEL ? `${MAX_UNREAD_COUNT_LABEL}+` : String(unreadCount);
-  const instructionId = `chat-swipe-instruction-${chatId}`;
+    unreadMessageCount > MAX_UNREAD_COUNT_LABEL
+      ? `${MAX_UNREAD_COUNT_LABEL}+`
+      : String(unreadMessageCount);
+  const instructionId = `chat-swipe-instruction-${roomId}`;
   const { translateX, isDragging, swipeHandlers, resetSwipe, consumeSwipeClick } = useSwipeReveal({
     actionWidth: LEAVE_ACTION_WIDTH,
     isRevealed: isLeaveRevealed,
-    onRevealChange: (isRevealed) => onRevealLeave(isRevealed ? chatId : null),
+    onRevealChange: (isRevealed) => onRevealLeave(isRevealed ? roomId : null),
   });
 
   // 스와이프 직후이거나 나가기 버튼이 열려 있으면 채팅방으로 이동하지 않고 버튼만 닫음
@@ -57,18 +65,17 @@ export default function AnonymousChatListItem({
       {/* 전역 button 스타일(글꼴 상속)의 영향을 받지 않도록 글자 모양은 안쪽 span에 적용함 */}
       <button
         type="button"
-        aria-label={`${counterpartName} 대화방 나가기`}
+        aria-label={`${displayAlias} 대화방 나가기`}
         aria-hidden={!isLeaveRevealed}
         tabIndex={isLeaveRevealed ? 0 : -1}
         className="absolute inset-y-0 right-0 flex w-[72px] items-center justify-center border-0 bg-danger p-0"
-        onClick={() => onLeave(chatId)}
+        onClick={() => onLeave(roomId)}
       >
         <span className="text-body font-bold text-surface">나가기</span>
       </button>
 
-      {/* TODO: 채팅방 페이지 구현 후 이동 경로 확인 */}
       <Link
-        href={`/chat/${chatId}`}
+        href={`/chat/${roomId}`}
         draggable={false}
         aria-describedby={instructionId}
         className={`relative flex touch-pan-y gap-3 bg-background px-page py-4 select-none hover:bg-background-subtle ${
@@ -79,7 +86,7 @@ export default function AnonymousChatListItem({
         onKeyDown={(event) => {
           if (event.key === "ArrowLeft") {
             event.preventDefault();
-            onRevealLeave(chatId);
+            onRevealLeave(roomId);
           }
 
           if (event.key === "ArrowRight") {
@@ -98,24 +105,22 @@ export default function AnonymousChatListItem({
         <div aria-hidden="true" className="h-12 w-12 shrink-0 rounded-[35%] bg-background-subtle" />
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[18px] leading-6 font-bold text-foreground">
-            {counterpartName}
-          </p>
-          <p className="mt-0.5 truncate text-body-sm text-foreground-secondary">
-            {product.name} · {formatPrice(product.price)}
-          </p>
+          <p className="truncate text-[18px] leading-6 font-bold text-foreground">{displayAlias}</p>
+          <p className="mt-0.5 truncate text-body-sm text-foreground-secondary">{product.name}</p>
           {/* 긴 메시지는 두 줄까지만 표시하고 말줄임 처리함 */}
-          <p className="mt-1 line-clamp-2 break-words text-body text-foreground">
-            {lastMessage.content}
-          </p>
+          {lastMessage && (
+            <p className="mt-1 line-clamp-2 break-words text-body text-foreground">
+              {lastMessage.content}
+            </p>
+          )}
         </div>
 
         {/* 전송 시각 아래에 안 읽은 메시지 수를 오른쪽 정렬로 표시함 */}
         <div className="flex shrink-0 flex-col items-end gap-3 pt-1.5">
-          <time dateTime={lastMessage.sentAt} className="text-caption text-muted">
-            {formatChatTime(lastMessage.sentAt)}
+          <time dateTime={lastActiveAt} className="text-caption text-muted">
+            {formatChatTime(lastActiveAt)}
           </time>
-          {hasUnread && (
+          {hasUnreadMessage && (
             <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-birthday px-2 text-body-sm font-bold text-surface">
               <span className="sr-only">안 읽은 메시지 </span>
               {unreadCountLabel}
