@@ -22,5 +22,5 @@ export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
     notFound();
   }
 
-  return <AnonymousChatRoomContent chatId={parsedChatId} />;
+  return <AnonymousChatRoomContent key={parsedChatId} chatId={parsedChatId} />;
 }
