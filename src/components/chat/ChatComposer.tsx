@@ -26,7 +26,7 @@ const VARIANT_CLASS_NAMES: Record<ComposerVariant, { form: string; textarea: str
     textarea: "rounded-md bg-surface",
   },
   anonymous: {
-    form: "rounded-[22px] bg-surface py-1 pr-1 pl-2",
+    form: "rounded-md border border-border-strong bg-surface py-1 pr-1 pl-2",
     textarea: "bg-transparent",
   },
 };
@@ -123,27 +123,14 @@ export default function ChatComposer({
         onKeyDown={handleKeyDown}
         className={`${styles.messageInput} min-w-0 flex-1 border-0 text-body text-foreground placeholder:text-muted ${variantClassNames.textarea}`}
       />
-      {variant === "anonymous" ? (
-        <button
-          type="submit"
-          aria-label="메시지 보내기"
-          disabled={isSubmitDisabled}
-          className="group touch-target flex shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 disabled:cursor-not-allowed"
-        >
-          <span className="rounded-full bg-primary px-4 py-2 text-body-sm leading-none font-bold text-on-primary transition-colors group-hover:bg-primary-hover group-disabled:bg-disabled group-disabled:text-muted">
-            보내기
-          </span>
-        </button>
-      ) : (
-        <button
-          type="submit"
-          aria-label="메시지 보내기"
-          disabled={isSubmitDisabled}
-          className={`${styles.sendButton} flex shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-primary text-sm leading-none font-bold text-on-primary disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted`}
-        >
-          ↑
-        </button>
-      )}
+      <button
+        type="submit"
+        aria-label="메시지 보내기"
+        disabled={isSubmitDisabled}
+        className={`${styles.sendButton} flex shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-primary text-sm leading-none font-bold text-on-primary disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted`}
+      >
+        ↑
+      </button>
     </form>
   );
 }
