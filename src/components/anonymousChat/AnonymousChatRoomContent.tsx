@@ -26,6 +26,7 @@ import {
   addAnonymousChatEventHandler,
   type AnonymousChatEvent,
 } from "@/lib/websocket/anonymousChatEvents";
+import { addAnonymousChatSocketListener } from "@/lib/websocket/anonymousChatSocket";
 import { useAnonymousChatStore } from "@/stores/anonymousChatStore";
 
 type AnonymousChatRoomContentProps = {
@@ -54,6 +55,34 @@ const MAX_READ_RETRY_ATTEMPTS = 3;
 const READ_RETRY_BASE_DELAY_MS = 1_000;
 const READ_RETRY_MAX_DELAY_MS = 8_000;
 const READ_DEBOUNCE_DELAY_MS = 300;
+const MAX_RECONNECT_RECOVERY_RETRY_ATTEMPTS = 3;
+const RECONNECT_RECOVERY_RETRY_BASE_DELAY_MS = 1_000;
+const RECONNECT_RECOVERY_RETRY_MAX_DELAY_MS = 4_000;
+const RECONNECT_RECOVERY_FAILED_MESSAGE =
+  "연결은 복구됐지만 누락된 메시지를 불러오지 못했어요. 잠시 후 다시 확인해 주세요.";
+
+function getReconnectRecoveryRetryDelay(error: unknown, retryAttempt: number) {
+  if (
+    !(error instanceof ApiRequestError) ||
+    retryAttempt >= MAX_RECONNECT_RECOVERY_RETRY_ATTEMPTS
+  ) {
+    return null;
+  }
+
+  if (error.status === 429) {
+    return Math.max(
+      0,
+      (error.retryAfterSeconds ?? RECONNECT_RECOVERY_RETRY_BASE_DELAY_MS / 1_000) * 1_000,
+    );
+  }
+
+  if (error.status !== 500 && error.status !== 503) return null;
+
+  return Math.min(
+    RECONNECT_RECOVERY_RETRY_BASE_DELAY_MS * 2 ** retryAttempt,
+    RECONNECT_RECOVERY_RETRY_MAX_DELAY_MS,
+  );
+}
 
 function getStoredMessages(roomId: number) {
   const state = useAnonymousChatStore.getState();
@@ -163,6 +192,107 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
 
     return addAnonymousChatEventHandler(handleEvent);
   }, [chatId]);
+
+  useEffect(() => {
+    let requestController: AbortController | null = null;
+    let retryTimer: number | null = null;
+    let recoveryVersion = 0;
+
+    const clearRecovery = () => {
+      requestController?.abort();
+      requestController = null;
+
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    };
+
+    const recoverMessages = async (version: number, retryAttempt: number) => {
+      const currentRequestController = new AbortController();
+
+      requestController = currentRequestController;
+
+      try {
+        const { targetName: _targetName, ...messagePage } = await getAnonymousChatRoomMessages({
+          roomId: chatId,
+          signal: currentRequestController.signal,
+        });
+
+        if (version !== recoveryVersion) return;
+
+        useAnonymousChatStore.getState().mergeRoomMessages(chatId, messagePage, "append");
+
+        setRoomState((current) =>
+          current.status === "loaded"
+            ? {
+                ...current,
+                room: {
+                  ...current.room,
+                  roomStatus: messagePage.roomStatus,
+                  endedReason: messagePage.endedReason,
+                  endedAt: messagePage.endedAt,
+                  messages: getStoredMessages(chatId),
+                },
+              }
+            : current,
+        );
+      } catch (error) {
+        if (
+          (error instanceof Error && error.name === "AbortError") ||
+          version !== recoveryVersion
+        ) {
+          return;
+        }
+
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        if (
+          error instanceof ApiRequestError &&
+          error.status === 403 &&
+          error.message === ONBOARDING_REQUIRED_MESSAGE
+        ) {
+          router.replace("/onboarding");
+          return;
+        }
+
+        const retryDelay = getReconnectRecoveryRetryDelay(error, retryAttempt);
+
+        if (retryDelay !== null) {
+          retryTimer = window.setTimeout(() => {
+            retryTimer = null;
+            void recoverMessages(version, retryAttempt + 1);
+          }, retryDelay);
+          return;
+        }
+
+        showToast(RECONNECT_RECOVERY_FAILED_MESSAGE);
+      } finally {
+        if (requestController === currentRequestController) {
+          requestController = null;
+        }
+      }
+    };
+
+    const removeSocketListener = addAnonymousChatSocketListener({
+      onConnected: ({ isReconnect }) => {
+        if (!isReconnect) return;
+
+        recoveryVersion += 1;
+        clearRecovery();
+        void recoverMessages(recoveryVersion, 0);
+      },
+    });
+
+    return () => {
+      removeSocketListener();
+      recoveryVersion += 1;
+      clearRecovery();
+    };
+  }, [chatId, router, showToast]);
 
   useEffect(() => {
     const requestController = new AbortController();
