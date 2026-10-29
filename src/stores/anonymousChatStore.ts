@@ -20,7 +20,7 @@ import type {
 } from "@/lib/websocket/anonymousChatProtocol";
 
 type MessageMergePosition = "replace" | "prepend" | "append";
-type ChatListMergeMode = "replace" | "append";
+type ChatListMergeMode = "replace" | "refresh" | "append";
 
 export interface AnonymousChatProductEntity {
   productId: number;
@@ -149,6 +149,18 @@ function calculateTotalUnreadCount(roomsById: Record<number, AnonymousChatRoomEn
   return Object.values(roomsById).reduce((total, room) => total + room.unreadMessageCount, 0);
 }
 
+function sortChatIdsByLastActiveAt(
+  chatIds: number[],
+  roomsById: Record<number, AnonymousChatRoomEntity>,
+) {
+  return [...chatIds].sort((leftId, rightId) => {
+    const leftTime = Date.parse(roomsById[leftId]?.lastActiveAt ?? "");
+    const rightTime = Date.parse(roomsById[rightId]?.lastActiveAt ?? "");
+
+    return (Number.isNaN(rightTime) ? 0 : rightTime) - (Number.isNaN(leftTime) ? 0 : leftTime);
+  });
+}
+
 export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
   ...createInitialState(),
 
@@ -188,10 +200,14 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
       });
 
       const pageIds = page.items.map((item) => item.roomId);
-      const chatIds =
+      const chatIds = sortChatIdsByLastActiveAt(
         mode === "append"
           ? appendUniqueIds(state.chatIdsByType[type], pageIds)
-          : appendUniqueIds([], pageIds);
+          : mode === "refresh"
+            ? appendUniqueIds(pageIds, state.chatIdsByType[type])
+            : appendUniqueIds([], pageIds),
+        roomsById,
+      );
       const chatIdsByType = {
         ...state.chatIdsByType,
         [type]: chatIds,
