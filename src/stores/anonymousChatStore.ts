@@ -90,6 +90,7 @@ interface AnonymousChatState {
     options?: { incrementRoomUnreadCount?: boolean },
   ) => void;
   markOwnMessagesRead: (roomId: number, lastReadMessageId: number) => void;
+  acknowledgeRoomRead: (roomId: number, lastReadMessageId: number) => void;
   setRoomUnreadCount: (roomId: number, unreadMessageCount: number) => void;
   removeRoom: (roomId: number) => void;
   reset: () => void;
@@ -136,7 +137,7 @@ function appendUniqueIds(currentIds: number[], nextIds: number[]) {
 
 function mergeMessageIds(currentIds: number[], nextIds: number[], position: MessageMergePosition) {
   if (position === "replace") {
-    return appendUniqueIds([], nextIds);
+    return appendUniqueIds(currentIds, nextIds).sort((left, right) => left - right);
   }
 
   return position === "prepend"
@@ -373,6 +374,32 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
       });
 
       return { messagesById };
+    }),
+
+  acknowledgeRoomRead: (roomId, lastReadMessageId) =>
+    set((state) => {
+      const currentRoom = state.roomsById[roomId] ?? createRoomEntity(roomId);
+      const unreadMessageCount = (state.messageIdsByRoomId[roomId] ?? []).reduce(
+        (count, messageId) => {
+          const message = state.messagesById[messageId];
+
+          return message && !message.isMine && messageId > lastReadMessageId ? count + 1 : count;
+        },
+        0,
+      );
+      const roomsById = {
+        ...state.roomsById,
+        [roomId]: {
+          ...currentRoom,
+          hasUnreadMessage: unreadMessageCount > 0,
+          unreadMessageCount,
+        },
+      };
+
+      return {
+        roomsById,
+        totalUnreadCount: calculateTotalUnreadCount(roomsById),
+      };
     }),
 
   setRoomUnreadCount: (roomId, unreadMessageCount) =>

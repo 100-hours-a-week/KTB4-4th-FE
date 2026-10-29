@@ -274,7 +274,9 @@ function handleMessage(message: IMessage) {
 export function addAnonymousChatEventHandler(handler: AnonymousChatEventHandler) {
   eventHandlers.add(handler);
 
-  return () => eventHandlers.delete(handler);
+  return () => {
+    eventHandlers.delete(handler);
+  };
 }
 
 export function startAnonymousChatEventDispatch() {

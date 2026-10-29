@@ -235,7 +235,9 @@ function getClient() {
 export function addAnonymousChatSocketListener(listener: AnonymousChatSocketListener) {
   listeners.add(listener);
 
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function openAnonymousChatSocket() {

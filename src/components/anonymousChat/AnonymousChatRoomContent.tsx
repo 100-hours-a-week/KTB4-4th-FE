@@ -22,6 +22,11 @@ import {
   type AnonymousChatRoom,
 } from "@/lib/api/anonymousChatRoom";
 import { ApiRequestError } from "@/lib/api/client";
+import {
+  addAnonymousChatEventHandler,
+  type AnonymousChatEvent,
+} from "@/lib/websocket/anonymousChatEvents";
+import { useAnonymousChatStore } from "@/stores/anonymousChatStore";
 
 type AnonymousChatRoomContentProps = {
   chatId: number;
@@ -48,6 +53,30 @@ const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
 const MAX_READ_RETRY_ATTEMPTS = 3;
 const READ_RETRY_BASE_DELAY_MS = 1_000;
 const READ_RETRY_MAX_DELAY_MS = 8_000;
+const READ_DEBOUNCE_DELAY_MS = 300;
+
+function getStoredMessages(roomId: number) {
+  const state = useAnonymousChatStore.getState();
+
+  return (state.messageIdsByRoomId[roomId] ?? []).flatMap((messageId) => {
+    const message = state.messagesById[messageId];
+
+    return message ? [message] : [];
+  });
+}
+
+function mergeDisplayedMessage(
+  messages: AnonymousChatMessage[],
+  nextMessage: AnonymousChatMessage,
+) {
+  const currentIndex = messages.findIndex((message) => message.messageId === nextMessage.messageId);
+
+  if (currentIndex < 0) {
+    return [...messages, nextMessage].sort((left, right) => left.messageId - right.messageId);
+  }
+
+  return messages.map((message, index) => (index === currentIndex ? nextMessage : message));
+}
 
 export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomContentProps) {
   const [roomState, setRoomState] = useState<RoomState>({ status: "loading" });
@@ -66,12 +95,74 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   const isMarkingMessagesReadRef = useRef(false);
   const readRetryAttemptRef = useRef(0);
   const readRequestControllerRef = useRef<AbortController | null>(null);
+  const readDebounceTimerRef = useRef<number | null>(null);
   const readRetryTimerRef = useRef<number | null>(null);
   const processReadReceiptRef = useRef<() => void>(() => undefined);
   const router = useRouter();
   const { showToast } = useToastContext();
 
   useVisualViewportHeight();
+
+  useEffect(() => {
+    const store = useAnonymousChatStore.getState();
+
+    store.setActiveRoomId(chatId);
+
+    return () => {
+      const currentStore = useAnonymousChatStore.getState();
+
+      if (currentStore.activeRoomId === chatId) {
+        currentStore.setActiveRoomId(null);
+      }
+    };
+  }, [chatId]);
+
+  useEffect(() => {
+    const handleEvent = (event: AnonymousChatEvent) => {
+      if (
+        (event.type === "ANONYMOUS_CHAT_MESSAGE_SENT" ||
+          event.type === "ANONYMOUS_CHAT_MESSAGE_RECEIVED") &&
+        event.data.roomId === chatId
+      ) {
+        const message = useAnonymousChatStore.getState().messagesById[event.data.messageId];
+
+        if (!message) return;
+
+        setRoomState((current) =>
+          current.status === "loaded"
+            ? {
+                ...current,
+                room: {
+                  ...current.room,
+                  messages: mergeDisplayedMessage(current.room.messages, message),
+                },
+              }
+            : current,
+        );
+        return;
+      }
+
+      if (event.type === "ANONYMOUS_CHAT_MESSAGE_READ" && event.data.roomId === chatId) {
+        setRoomState((current) =>
+          current.status === "loaded"
+            ? {
+                ...current,
+                room: {
+                  ...current.room,
+                  messages: current.room.messages.map((message) =>
+                    message.isMine && message.messageId <= event.data.lastReadMessageId
+                      ? { ...message, unreadCount: 0 }
+                      : message,
+                  ),
+                },
+              }
+            : current,
+        );
+      }
+    };
+
+    return addAnonymousChatEventHandler(handleEvent);
+  }, [chatId]);
 
   useEffect(() => {
     const requestController = new AbortController();
@@ -84,6 +175,10 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       .then(([roomInfo, messagePage]) => {
         if (isActive) {
           const { targetName, ...messageHistory } = messagePage;
+          const store = useAnonymousChatStore.getState();
+
+          store.mergeRoomInfo(roomInfo);
+          store.mergeRoomMessages(chatId, messageHistory);
 
           setRoomState({
             status: "loaded",
@@ -91,6 +186,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
               ...roomInfo,
               ...messageHistory,
               counterpartName: targetName,
+              messages: getStoredMessages(chatId),
             },
           });
         }
@@ -151,6 +247,11 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       readRequestControllerRef.current?.abort();
       readRequestControllerRef.current = null;
       isMarkingMessagesReadRef.current = false;
+
+      if (readDebounceTimerRef.current) {
+        window.clearTimeout(readDebounceTimerRef.current);
+        readDebounceTimerRef.current = null;
+      }
 
       if (readRetryTimerRef.current) {
         window.clearTimeout(readRetryTimerRef.current);
@@ -229,6 +330,8 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       if (previousMessagesControllerRef.current !== requestController) {
         return;
       }
+
+      useAnonymousChatStore.getState().mergeRoomMessages(chatId, page, "prepend");
 
       setRoomState((current) => {
         if (current.status !== "loaded") {
@@ -334,6 +437,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       }
 
       lastReadMessageIdRef.current = Math.max(lastReadMessageIdRef.current, lastReadMessageId);
+      useAnonymousChatStore.getState().acknowledgeRoomRead(chatId, lastReadMessageId);
       readRetryAttemptRef.current = 0;
       shouldProcessNextMessage =
         latestVisibleCounterpartMessageIdRef.current > lastReadMessageIdRef.current;
@@ -422,7 +526,14 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       readRetryTimerRef.current = null;
     }
 
-    void processReadReceiptRef.current();
+    if (readDebounceTimerRef.current) {
+      window.clearTimeout(readDebounceTimerRef.current);
+    }
+
+    readDebounceTimerRef.current = window.setTimeout(() => {
+      readDebounceTimerRef.current = null;
+      void processReadReceiptRef.current();
+    }, READ_DEBOUNCE_DELAY_MS);
   }, []);
 
   if (roomState.status === "notFound") {
@@ -430,9 +541,16 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   }
 
   const appendMessage = (message: AnonymousChatMessage) => {
+    useAnonymousChatStore.getState().upsertMessage(chatId, message);
     setRoomState((current) =>
       current.status === "loaded"
-        ? { ...current, room: { ...current.room, messages: [...current.room.messages, message] } }
+        ? {
+            ...current,
+            room: {
+              ...current.room,
+              messages: mergeDisplayedMessage(current.room.messages, message),
+            },
+          }
         : current,
     );
   };
