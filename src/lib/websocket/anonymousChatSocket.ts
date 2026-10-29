@@ -3,14 +3,22 @@
 
 import { Client, Versions, type IFrame, type IMessage } from "@stomp/stompjs";
 
+import { redirectToLogin, refreshAccessToken } from "@/lib/api/client";
 import {
   ANONYMOUS_CHAT_HEARTBEAT_MS,
   ANONYMOUS_CHAT_SOCKET_PATH,
   ANONYMOUS_CHAT_STOMP_DESTINATIONS,
+  parseAnonymousChatStompError,
+  type AnonymousChatStompErrorPayload,
 } from "@/lib/websocket/anonymousChatProtocol";
 import { useAnonymousChatStore } from "@/stores/anonymousChatStore";
 
-const RECONNECT_DELAY_MS = 5_000;
+const INITIAL_RECONNECT_DELAY_MS = 5_000;
+const MAX_RECONNECT_DELAY_MS = 5 * 60_000;
+const ONBOARDING_PATH = "/onboarding";
+
+type PendingStompError =
+  { type: "known"; error: AnonymousChatStompErrorPayload } | { type: "unknown" } | null;
 
 export interface AnonymousChatSocketConnectionEvent {
   isReconnect: boolean;
@@ -26,6 +34,11 @@ export interface AnonymousChatSocketListener {
 let client: Client | null = null;
 let hasConnected = false;
 let lifecycleVersion = 0;
+let shouldMaintainConnection = false;
+let pendingStompError: PendingStompError = null;
+let reconnectAttempt = 0;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let isExplicitDeactivationInProgress = false;
 const listeners = new Set<AnonymousChatSocketListener>();
 
 function getBrokerUrl() {
@@ -47,10 +60,53 @@ function notifyListeners(notify: (listener: AnonymousChatSocketListener) => void
   });
 }
 
+function clearReconnectTimer() {
+  if (!reconnectTimer) return;
+
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+}
+
+function activateClient() {
+  const socketClient = getClient();
+
+  if (!shouldMaintainConnection || socketClient.active) return;
+
+  lifecycleVersion += 1;
+  useAnonymousChatStore
+    .getState()
+    .setConnectionStatus(hasConnected ? "reconnecting" : "connecting");
+  socketClient.activate();
+}
+
+function scheduleReconnect(delayMs: number) {
+  if (!shouldMaintainConnection) return;
+
+  clearReconnectTimer();
+  useAnonymousChatStore.getState().setConnectionStatus("reconnecting");
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    activateClient();
+  }, delayMs);
+}
+
+function scheduleBackoffReconnect() {
+  const delayMs = Math.min(
+    INITIAL_RECONNECT_DELAY_MS * 2 ** reconnectAttempt,
+    MAX_RECONNECT_DELAY_MS,
+  );
+
+  reconnectAttempt += 1;
+  scheduleReconnect(delayMs);
+}
+
 function handleConnect(socketClient: Client) {
   const isReconnect = hasConnected;
 
   hasConnected = true;
+  pendingStompError = null;
+  reconnectAttempt = 0;
+  clearReconnectTimer();
   useAnonymousChatStore.getState().setConnectionError(null);
   useAnonymousChatStore.getState().setConnectionStatus("connected");
 
@@ -61,12 +117,96 @@ function handleConnect(socketClient: Client) {
   notifyListeners((listener) => listener.onConnected?.({ isReconnect }));
 }
 
+async function recoverFromStompError(error: AnonymousChatStompErrorPayload) {
+  switch (error.code) {
+    case "COMMON_UNAUTHORIZED":
+      try {
+        await refreshAccessToken();
+      } catch {
+        shouldMaintainConnection = false;
+        useAnonymousChatStore.getState().setConnectionStatus("disconnected");
+        redirectToLogin();
+        return;
+      }
+
+      activateClient();
+      return;
+    case "USER_BLOCKED":
+      shouldMaintainConnection = false;
+      useAnonymousChatStore.getState().setConnectionStatus("disconnected");
+      return;
+    case "USER_ONBOARDING_REQUIRED":
+      shouldMaintainConnection = false;
+      useAnonymousChatStore.getState().setConnectionStatus("disconnected");
+      window.location.replace(ONBOARDING_PATH);
+      return;
+    case "COMMON_TOO_MANY_REQUESTS": {
+      const retryAfterSeconds = error.data?.retryAfterSeconds;
+      const delayMs =
+        retryAfterSeconds === undefined
+          ? INITIAL_RECONNECT_DELAY_MS
+          : Math.ceil(retryAfterSeconds) * 1_000;
+
+      scheduleReconnect(delayMs);
+      return;
+    }
+    case "COMMON_INTERNAL_SERVER_ERROR":
+      scheduleBackoffReconnect();
+  }
+}
+
+async function recoverClosedConnection(socketClient: Client, closedLifecycleVersion: number) {
+  const stompError = pendingStompError;
+
+  pendingStompError = null;
+  await socketClient.deactivate();
+
+  if (closedLifecycleVersion !== lifecycleVersion) return;
+
+  if (!shouldMaintainConnection) {
+    useAnonymousChatStore.getState().setConnectionStatus("disconnected");
+    return;
+  }
+
+  if (!stompError) {
+    scheduleBackoffReconnect();
+    return;
+  }
+
+  if (stompError.type === "unknown") {
+    shouldMaintainConnection = false;
+    useAnonymousChatStore.getState().setConnectionStatus("disconnected");
+    return;
+  }
+
+  await recoverFromStompError(stompError.error);
+}
+
+function handleStompError(frame: IFrame) {
+  const error = parseAnonymousChatStompError(frame.body);
+
+  pendingStompError = error ? { type: "known", error } : { type: "unknown" };
+
+  if (error) {
+    useAnonymousChatStore.getState().setConnectionError(error);
+  }
+
+  notifyListeners((listener) => listener.onStompError?.(frame));
+}
+
 function handleWebSocketClose(socketClient: Client, event: CloseEvent) {
+  const closedLifecycleVersion = lifecycleVersion;
+
   useAnonymousChatStore
     .getState()
-    .setConnectionStatus(socketClient.active ? "reconnecting" : "disconnected");
+    .setConnectionStatus(shouldMaintainConnection ? "reconnecting" : "disconnected");
 
   notifyListeners((listener) => listener.onDisconnected?.(event));
+
+  // 명시적 종료 중 다시 activate된 경우 라이브러리가 종료 완료 직후 새 연결을 시작함
+  if (isExplicitDeactivationInProgress) return;
+
+  void recoverClosedConnection(socketClient, closedLifecycleVersion);
 }
 
 function createClient() {
@@ -75,14 +215,12 @@ function createClient() {
     stompVersions: new Versions([Versions.V1_2]),
     heartbeatIncoming: ANONYMOUS_CHAT_HEARTBEAT_MS.incoming,
     heartbeatOutgoing: ANONYMOUS_CHAT_HEARTBEAT_MS.outgoing,
-    reconnectDelay: RECONNECT_DELAY_MS,
+    reconnectDelay: 0,
     debug: () => undefined,
   });
 
   socketClient.onConnect = () => handleConnect(socketClient);
-  socketClient.onStompError = (frame) => {
-    notifyListeners((listener) => listener.onStompError?.(frame));
-  };
+  socketClient.onStompError = handleStompError;
   socketClient.onWebSocketClose = (event) => handleWebSocketClose(socketClient, event);
 
   return socketClient;
@@ -101,29 +239,34 @@ export function addAnonymousChatSocketListener(listener: AnonymousChatSocketList
 }
 
 export function openAnonymousChatSocket() {
-  const socketClient = getClient();
-
-  if (socketClient.active) return;
-
-  lifecycleVersion += 1;
-  useAnonymousChatStore
-    .getState()
-    .setConnectionStatus(hasConnected ? "reconnecting" : "connecting");
-  socketClient.activate();
+  shouldMaintainConnection = true;
+  clearReconnectTimer();
+  activateClient();
 }
 
 export async function closeAnonymousChatSocket() {
   const closeVersion = ++lifecycleVersion;
   const socketClient = client;
 
+  shouldMaintainConnection = false;
+  pendingStompError = null;
+  reconnectAttempt = 0;
+  clearReconnectTimer();
+
   if (socketClient) {
+    isExplicitDeactivationInProgress = true;
     await socketClient.deactivate();
   }
 
   // React 개발 모드의 재마운트처럼 종료 중 새 연결 요청이 들어오면 새 생명주기를 유지함
-  if (closeVersion !== lifecycleVersion) return;
+  if (closeVersion !== lifecycleVersion) {
+    isExplicitDeactivationInProgress = false;
+    return;
+  }
 
+  isExplicitDeactivationInProgress = false;
   hasConnected = false;
   listeners.clear();
+  useAnonymousChatStore.getState().setConnectionError(null);
   useAnonymousChatStore.getState().setConnectionStatus("disconnected");
 }
