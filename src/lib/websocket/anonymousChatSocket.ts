@@ -42,6 +42,18 @@ let isExplicitDeactivationInProgress = false;
 const listeners = new Set<AnonymousChatSocketListener>();
 
 function getBrokerUrl() {
+  const configuredBrokerUrl = process.env.NEXT_PUBLIC_ANONYMOUS_CHAT_WS_URL;
+
+  if (configuredBrokerUrl) {
+    const brokerUrl = new URL(configuredBrokerUrl);
+
+    if (brokerUrl.protocol !== "ws:" && brokerUrl.protocol !== "wss:") {
+      throw new Error("익명대화 WebSocket 주소는 ws 또는 wss 프로토콜이어야 합니다.");
+    }
+
+    return brokerUrl.toString();
+  }
+
   const brokerUrl = new URL(ANONYMOUS_CHAT_SOCKET_PATH, window.location.origin);
 
   brokerUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
