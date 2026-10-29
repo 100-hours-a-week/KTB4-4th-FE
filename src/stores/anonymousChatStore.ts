@@ -144,16 +144,8 @@ function mergeMessageIds(currentIds: number[], nextIds: number[], position: Mess
     : appendUniqueIds(currentIds, nextIds);
 }
 
-function calculateTotalUnreadCount(
-  roomsById: Record<number, AnonymousChatRoomEntity>,
-  chatIdsByType: Record<AnonymousChatType, number[]>,
-) {
-  const listedRoomIds = new Set([...chatIdsByType.SENT, ...chatIdsByType.RECEIVED]);
-
-  return Array.from(listedRoomIds).reduce(
-    (total, roomId) => total + (roomsById[roomId]?.unreadMessageCount ?? 0),
-    0,
-  );
+function calculateTotalUnreadCount(roomsById: Record<number, AnonymousChatRoomEntity>) {
+  return Object.values(roomsById).reduce((total, room) => total + room.unreadMessageCount, 0);
 }
 
 export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
@@ -171,6 +163,11 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
 
       page.items.forEach((item) => {
         const currentRoom = roomsById[item.roomId] ?? createRoomEntity(item.roomId);
+        const isStalePageItem =
+          currentRoom.lastMessage !== undefined &&
+          currentRoom.lastMessage !== null &&
+          (item.lastMessage === null ||
+            item.lastMessage.messageId < currentRoom.lastMessage.messageId);
 
         roomsById[item.roomId] = {
           ...currentRoom,
@@ -180,10 +177,12 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
             ...currentRoom.product,
             ...item.product,
           },
-          hasUnreadMessage: item.hasUnreadMessage,
-          unreadMessageCount: item.unreadMessageCount,
-          lastActiveAt: item.lastActiveAt,
-          lastMessage: item.lastMessage,
+          hasUnreadMessage: isStalePageItem ? currentRoom.hasUnreadMessage : item.hasUnreadMessage,
+          unreadMessageCount: isStalePageItem
+            ? currentRoom.unreadMessageCount
+            : item.unreadMessageCount,
+          lastActiveAt: isStalePageItem ? currentRoom.lastActiveAt : item.lastActiveAt,
+          lastMessage: isStalePageItem ? currentRoom.lastMessage : item.lastMessage,
         };
       });
 
@@ -208,7 +207,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
             isInitialized: true,
           },
         },
-        totalUnreadCount: calculateTotalUnreadCount(roomsById, chatIdsByType),
+        totalUnreadCount: calculateTotalUnreadCount(roomsById),
       };
     }),
 
@@ -350,7 +349,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
             message.messageId,
           ]),
         },
-        totalUnreadCount: calculateTotalUnreadCount(roomsById, chatIdsByType),
+        totalUnreadCount: calculateTotalUnreadCount(roomsById),
       };
     }),
 
@@ -391,7 +390,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
 
       return {
         roomsById,
-        totalUnreadCount: calculateTotalUnreadCount(roomsById, state.chatIdsByType),
+        totalUnreadCount: calculateTotalUnreadCount(roomsById),
       };
     }),
 
@@ -417,7 +416,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
         chatIdsByType,
         messagesById,
         messageIdsByRoomId,
-        totalUnreadCount: calculateTotalUnreadCount(roomsById, chatIdsByType),
+        totalUnreadCount: calculateTotalUnreadCount(roomsById),
         activeRoomId: state.activeRoomId === roomId ? null : state.activeRoomId,
       };
     }),
