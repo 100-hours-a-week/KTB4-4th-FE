@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AnonymousChatLeaveModal from "@/components/anonymousChat/AnonymousChatLeaveModal";
 import AnonymousChatListItem from "@/components/anonymousChat/AnonymousChatListItem";
@@ -12,10 +12,16 @@ import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/Segmen
 import { useToastContext } from "@/contexts/ToastContext";
 import {
   getAnonymousChats,
+  type AnonymousChatListItem as AnonymousChatListItemData,
   type AnonymousChatsPage,
   type AnonymousChatType,
 } from "@/lib/api/anonymousChats";
 import { ApiRequestError } from "@/lib/api/client";
+import {
+  addAnonymousChatEventHandler,
+  type AnonymousChatEvent,
+} from "@/lib/websocket/anonymousChatEvents";
+import { useAnonymousChatStore, type AnonymousChatRoomEntity } from "@/stores/anonymousChatStore";
 
 import styles from "./AnonymousChatList.module.css";
 
@@ -27,6 +33,7 @@ const CHAT_TYPE_QUERY_KEY = "tab";
 const RECEIVED_QUERY_VALUE = "received";
 const PAGE_SIZE = 20;
 const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
+const CHAT_TYPES: readonly AnonymousChatType[] = ["SENT", "RECEIVED"];
 
 type ChatRequestError = {
   message: string;
@@ -49,12 +56,33 @@ const CHAT_PAGE_COPY: Record<AnonymousChatType, { title: string; description: st
   },
 };
 
+function toChatListItem(room: AnonymousChatRoomEntity): AnonymousChatListItemData | null {
+  if (
+    room.counterpartAlias === undefined ||
+    room.product?.productId === undefined ||
+    room.product.name === undefined ||
+    room.lastActiveAt === undefined
+  ) {
+    return null;
+  }
+
+  return {
+    roomId: room.roomId,
+    counterpartAlias: room.counterpartAlias,
+    product: {
+      productId: room.product.productId,
+      name: room.product.name,
+    },
+    hasUnreadMessage: room.hasUnreadMessage,
+    unreadMessageCount: room.unreadMessageCount,
+    lastActiveAt: room.lastActiveAt,
+    lastMessage: room.lastMessage ?? null,
+  };
+}
+
 export default function AnonymousChatsPageContent({ initialType }: AnonymousChatsPageContentProps) {
   const router = useRouter();
   const [selectedType, setSelectedType] = useState<AnonymousChatType>(initialType);
-  const [chatsByType, setChatsByType] = useState<
-    Partial<Record<AnonymousChatType, AnonymousChatsPage>>
-  >({});
   const [requestErrorsByType, setRequestErrorsByType] = useState<
     Partial<Record<AnonymousChatType, ChatRequestError>>
   >({});
@@ -64,18 +92,42 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
   const [leavingChatId, setLeavingChatId] = useState<number | null>(null);
   const requestControllersRef = useRef<Partial<Record<AnonymousChatType, AbortController>>>({});
   const loadingTypesRef = useRef(new Set<AnonymousChatType>());
+  const refreshedTypesRef = useRef(new Set<AnonymousChatType>());
   const isRedirectingRef = useRef(false);
   const chatListRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLLIElement>(null);
   const { showToast } = useToastContext();
-  const selectedChats = chatsByType[selectedType];
+  const roomsById = useAnonymousChatStore((state) => state.roomsById);
+  const selectedChatIds = useAnonymousChatStore((state) => state.chatIdsByType[selectedType]);
+  const selectedPagination = useAnonymousChatStore(
+    (state) => state.listPaginationByType[selectedType],
+  );
+  const selectedChats = useMemo<AnonymousChatsPage | undefined>(() => {
+    if (!selectedPagination.isInitialized) return undefined;
+
+    const items = selectedChatIds.flatMap((roomId) => {
+      const chat = roomsById[roomId] ? toChatListItem(roomsById[roomId]) : null;
+
+      return chat ? [chat] : [];
+    });
+
+    return {
+      items,
+      nextCursor: selectedPagination.nextCursor,
+      hasNext: selectedPagination.hasNext,
+    };
+  }, [roomsById, selectedChatIds, selectedPagination]);
   const selectedRequestError = requestErrorsByType[selectedType] ?? null;
   const isSelectedTypeLoading = loadingTypes.has(selectedType);
   const tabPanelLabel = selectedType === "RECEIVED" ? "나에게 물어본 대화" : "내가 물어본 대화";
 
   const loadChats = useCallback(
-    async (type: AnonymousChatType, cursor?: string) => {
-      if (loadingTypesRef.current.has(type)) return;
+    async (type: AnonymousChatType, cursor?: string, force = false) => {
+      if (loadingTypesRef.current.has(type) && !force) return;
+
+      if (force) {
+        requestControllersRef.current[type]?.abort();
+      }
 
       const requestController = new AbortController();
 
@@ -93,16 +145,9 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
         });
 
         if (requestControllersRef.current[type] !== requestController) return;
-
-        setChatsByType((current) => {
-          const currentPage = current[type];
-          const items = cursor && currentPage ? [...currentPage.items, ...page.items] : page.items;
-
-          return {
-            ...current,
-            [type]: { ...page, items },
-          };
-        });
+        useAnonymousChatStore
+          .getState()
+          .mergeChatListPage(type, page, cursor ? "append" : "refresh");
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
         if (requestControllersRef.current[type] !== requestController) return;
@@ -147,19 +192,44 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
     [router],
   );
 
-  // 처음 여는 탭만 첫 페이지를 조회하고, 이미 불러온 탭은 저장된 목록을 다시 사용함
+  // 탭을 처음 열 때 첫 페이지를 갱신해 화면 밖에서 새로 생긴 대화방도 목록에 반영함
   useEffect(() => {
     if (
       isRedirectingRef.current ||
-      selectedChats ||
       selectedRequestError ||
-      loadingTypesRef.current.has(selectedType)
+      refreshedTypesRef.current.has(selectedType)
     ) {
       return;
     }
 
-    void loadChats(selectedType);
-  }, [loadChats, selectedChats, selectedRequestError, selectedType]);
+    refreshedTypesRef.current.add(selectedType);
+    void loadChats(selectedType, undefined, true);
+  }, [loadChats, selectedRequestError, selectedType]);
+
+  useEffect(() => {
+    const handleEvent = (event: AnonymousChatEvent) => {
+      if (
+        event.type !== "ANONYMOUS_CHAT_MESSAGE_SENT" &&
+        event.type !== "ANONYMOUS_CHAT_MESSAGE_RECEIVED"
+      ) {
+        return;
+      }
+
+      const state = useAnonymousChatStore.getState();
+      const room = state.roomsById[event.data.roomId];
+      const isListed =
+        room?.type !== undefined && state.chatIdsByType[room.type].includes(event.data.roomId);
+
+      if (isListed) return;
+
+      CHAT_TYPES.forEach((type) => {
+        refreshedTypesRef.current.add(type);
+        void loadChats(type, undefined, true);
+      });
+    };
+
+    return addAnonymousChatEventHandler(handleEvent);
+  }, [loadChats]);
 
   useEffect(() => {
     const loadingTypes = loadingTypesRef.current;
@@ -244,19 +314,7 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
 
   // 나간 대화방은 목록에서 바로 지우고 결과를 토스트로 알림
   const handleLeft = (roomId: number) => {
-    setChatsByType((current) => {
-      const page = current[selectedType];
-
-      return page
-        ? {
-            ...current,
-            [selectedType]: {
-              ...page,
-              items: page.items.filter((chat) => chat.roomId !== roomId),
-            },
-          }
-        : current;
-    });
+    useAnonymousChatStore.getState().removeRoom(roomId);
     setLeavingChatId(null);
     setRevealedChatId(null);
     showToast("채팅방을 나갔어요.");

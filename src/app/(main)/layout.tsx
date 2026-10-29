@@ -1,4 +1,5 @@
 // 서버 프록시 인증이 적용된 공통 보호 페이지 레이아웃
+import AnonymousChatSocketInitializer from "@/components/layout/AnonymousChatSocketInitializer";
 import BottomNavigation from "@/components/layout/BottomNavigation";
 import Header from "@/components/layout/Header";
 import ServiceWorkerRegistration from "@/components/layout/ServiceWorkerRegistration";
@@ -14,6 +15,7 @@ export default function MainLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <NotificationProvider>
       <ToastProvider>
+        <AnonymousChatSocketInitializer />
         <ServiceWorkerRegistration />
         <AiConversationProvider>
           <FriendDetailProvider>

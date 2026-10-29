@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 
 import AiConversationLoadingBar from "@/components/layout/AiConversationLoadingBar";
 import useAiConversationStart from "@/hooks/useAiConversationStart";
+import { useAnonymousChatStore } from "@/stores/anonymousChatStore";
 
 import styles from "./BottomNavigation.module.css";
 
@@ -51,6 +52,7 @@ const AI_ICON_SIZE = 40;
 
 export default function BottomNavigation() {
   const pathname = usePathname();
+  const hasUnreadChat = useAnonymousChatStore((state) => state.totalUnreadCount > 0);
   const {
     errorMessage,
     isStartingConversation,
@@ -103,12 +105,20 @@ export default function BottomNavigation() {
           const isActive = pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
           const activeIcon = "activeIcon" in item ? item.activeIcon : icon;
           const startsConversation = "startsConversation" in item && item.startsConversation;
+          const isChatItem = href === "/chat";
+          const hasUnreadIndicator = isChatItem && hasUnreadChat;
 
           return (
             <li key={href} className="flex flex-1 justify-center">
               <Link
                 href={href}
-                aria-label={startsConversation ? "AI 대화 시작" : undefined}
+                aria-label={
+                  startsConversation
+                    ? "AI 대화 시작"
+                    : hasUnreadIndicator
+                      ? "채팅, 읽지 않은 메시지 있음"
+                      : undefined
+                }
                 aria-current={isActive ? "page" : undefined}
                 aria-disabled={startsConversation && isUnavailable ? true : undefined}
                 aria-busy={startsConversation && isStartingConversation ? true : undefined}
@@ -123,19 +133,27 @@ export default function BottomNavigation() {
                       }`
                 }
               >
-                <Image
-                  src={isActive ? activeIcon : icon}
-                  alt=""
-                  width={startsConversation ? AI_ICON_SIZE : NAVIGATION_ICON_SIZE}
-                  height={startsConversation ? AI_ICON_SIZE : NAVIGATION_ICON_SIZE}
-                  className={
-                    startsConversation
-                      ? styles.aiIconReveal
-                      : isActive
-                        ? "opacity-100"
-                        : "opacity-40"
-                  }
-                />
+                <span className={isChatItem ? "relative inline-flex" : undefined}>
+                  <Image
+                    src={isActive ? activeIcon : icon}
+                    alt=""
+                    width={startsConversation ? AI_ICON_SIZE : NAVIGATION_ICON_SIZE}
+                    height={startsConversation ? AI_ICON_SIZE : NAVIGATION_ICON_SIZE}
+                    className={
+                      startsConversation
+                        ? styles.aiIconReveal
+                        : isActive
+                          ? "opacity-100"
+                          : "opacity-40"
+                    }
+                  />
+                  {hasUnreadIndicator && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-danger ring-2 ring-surface"
+                    />
+                  )}
+                </span>
                 {!startsConversation && <span>{label}</span>}
               </Link>
             </li>
