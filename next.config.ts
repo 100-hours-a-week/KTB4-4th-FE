@@ -1,4 +1,4 @@
-// 보안·정적 아이콘·웹폰트 캐시 응답 헤더, 렌더링 차단 CSS 인라인, 로컬 개발용 백엔드 API 중계, 성능 측정 계측 플래그 기본값을 관리하는 Next.js 설정
+// 보안·정적 자원 캐시 응답 헤더, 렌더링 차단 CSS 인라인, 로컬 개발용 백엔드 API·WebSocket 중계, 성능 측정 계측 플래그 기본값을 관리하는 Next.js 설정
 import { withSentryConfig } from "@sentry/nextjs/config";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
@@ -8,6 +8,12 @@ function getDevelopmentApiDestination() {
   const backendApiBaseUrl = process.env.BACKEND_API_BASE_URL ?? "http://localhost:8080";
 
   return new URL("/api/v1/:path*", backendApiBaseUrl).toString();
+}
+
+function getDevelopmentWebSocketDestination() {
+  const backendApiBaseUrl = process.env.BACKEND_API_BASE_URL ?? "http://localhost:8080";
+
+  return new URL("/ws/:path*", backendApiBaseUrl).toString();
 }
 
 function createNextConfig(phase: string): NextConfig {
@@ -89,6 +95,10 @@ function createNextConfig(phase: string): NextConfig {
         {
           source: "/api/v1/:path*",
           destination: getDevelopmentApiDestination(),
+        },
+        {
+          source: "/ws/:path*",
+          destination: getDevelopmentWebSocketDestination(),
         },
       ];
     },
