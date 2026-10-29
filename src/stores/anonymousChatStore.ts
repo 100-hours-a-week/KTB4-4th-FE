@@ -51,6 +51,7 @@ export interface AnonymousChatRoomEntity {
 
 export type AnonymousChatMessageEntity = AnonymousChatMessage & {
   roomId: number;
+  clientMessageId?: string;
 };
 
 export interface AnonymousChatListPagination {
@@ -84,6 +85,11 @@ interface AnonymousChatState {
     position?: MessageMergePosition,
   ) => void;
   upsertMessage: (roomId: number, message: AnonymousChatMessage) => void;
+  applyRealtimeMessage: (
+    message: AnonymousChatMessageEntity,
+    options?: { incrementRoomUnreadCount?: boolean },
+  ) => void;
+  markOwnMessagesRead: (roomId: number, lastReadMessageId: number) => void;
   setRoomUnreadCount: (roomId: number, unreadMessageCount: number) => void;
   removeRoom: (roomId: number) => void;
   reset: () => void;
@@ -284,6 +290,90 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
           [roomId]: appendUniqueIds(currentMessageIds, [message.messageId]),
         },
       };
+    }),
+
+  applyRealtimeMessage: (message, options) =>
+    set((state) => {
+      const currentRoom = state.roomsById[message.roomId] ?? createRoomEntity(message.roomId);
+      const currentMessage = state.messagesById[message.messageId];
+      const isNewMessage = currentMessage === undefined;
+      const unreadMessageCount =
+        isNewMessage && options?.incrementRoomUnreadCount
+          ? currentRoom.unreadMessageCount + 1
+          : currentRoom.unreadMessageCount;
+      const isLatestMessage =
+        !currentRoom.lastMessage || message.messageId >= currentRoom.lastMessage.messageId;
+      const roomsById = {
+        ...state.roomsById,
+        [message.roomId]: {
+          ...currentRoom,
+          hasUnreadMessage: unreadMessageCount > 0,
+          unreadMessageCount,
+          lastActiveAt: isLatestMessage ? message.sentAt : currentRoom.lastActiveAt,
+          lastMessage: isLatestMessage
+            ? {
+                messageId: message.messageId,
+                content: message.content,
+                sender: message.isMine ? "ME" : "OTHER",
+                sentAt: message.sentAt,
+              }
+            : currentRoom.lastMessage,
+        },
+      };
+      const chatIdsByType = currentRoom.type
+        ? {
+            ...state.chatIdsByType,
+            [currentRoom.type]:
+              isLatestMessage && state.chatIdsByType[currentRoom.type].includes(message.roomId)
+                ? [
+                    message.roomId,
+                    ...state.chatIdsByType[currentRoom.type].filter((id) => id !== message.roomId),
+                  ]
+                : state.chatIdsByType[currentRoom.type],
+          }
+        : state.chatIdsByType;
+
+      return {
+        roomsById,
+        chatIdsByType,
+        messagesById: {
+          ...state.messagesById,
+          [message.messageId]: {
+            ...message,
+            // 같은 clientMessageId 재전송 확인이 늦게 와도 이미 반영된 읽음 상태를 되돌리지 않음
+            unreadCount: currentMessage?.unreadCount ?? message.unreadCount,
+          },
+        },
+        messageIdsByRoomId: {
+          ...state.messageIdsByRoomId,
+          [message.roomId]: appendUniqueIds(state.messageIdsByRoomId[message.roomId] ?? [], [
+            message.messageId,
+          ]),
+        },
+        totalUnreadCount: calculateTotalUnreadCount(roomsById, chatIdsByType),
+      };
+    }),
+
+  markOwnMessagesRead: (roomId, lastReadMessageId) =>
+    set((state) => {
+      const lastReadMessage = state.messagesById[lastReadMessageId];
+
+      // 양쪽에 같은 이벤트가 와도 기준 메시지를 보낸 사용자만 발신 메시지 읽음 상태를 갱신함
+      if (!lastReadMessage || lastReadMessage.roomId !== roomId || !lastReadMessage.isMine) {
+        return state;
+      }
+
+      const messagesById = { ...state.messagesById };
+
+      (state.messageIdsByRoomId[roomId] ?? []).forEach((messageId) => {
+        const message = messagesById[messageId];
+
+        if (message?.isMine && messageId <= lastReadMessageId && message.unreadCount > 0) {
+          messagesById[messageId] = { ...message, unreadCount: 0 };
+        }
+      });
+
+      return { messagesById };
     }),
 
   setRoomUnreadCount: (roomId, unreadMessageCount) =>
