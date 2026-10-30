@@ -68,9 +68,12 @@ interface AnonymousChatState {
   messageIdsByRoomId: Record<number, number[]>;
   totalUnreadCount: number;
   activeRoomId: number | null;
+  // 대화방에서 목록으로 돌아올 때 복원할 마지막 선택 탭
+  lastSelectedType: AnonymousChatType | null;
   setConnectionStatus: (status: AnonymousChatConnectionStatus) => void;
   setConnectionError: (error: AnonymousChatStompErrorPayload | null) => void;
   setActiveRoomId: (roomId: number | null) => void;
+  setLastSelectedType: (type: AnonymousChatType) => void;
   mergeChatListPage: (
     type: AnonymousChatType,
     page: AnonymousChatsPage,
@@ -113,6 +116,7 @@ function createInitialState() {
     messageIdsByRoomId: {},
     totalUnreadCount: 0,
     activeRoomId: null,
+    lastSelectedType: null,
   };
 }
 
@@ -168,6 +172,8 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
   setConnectionError: (connectionError) => set({ connectionError }),
 
   setActiveRoomId: (activeRoomId) => set({ activeRoomId }),
+
+  setLastSelectedType: (lastSelectedType) => set({ lastSelectedType }),
 
   mergeChatListPage: (type, page, mode = "replace") =>
     set((state) => {

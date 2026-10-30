@@ -1,7 +1,7 @@
 // 대화 목록 페이지의 탭 전환·탭별 대화 목록 조회·대화방 나가기 상태를 관리하는 클라이언트 화면
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AnonymousChatLeaveModal from "@/components/anonymousChat/AnonymousChatLeaveModal";
@@ -24,10 +24,6 @@ import {
 import { useAnonymousChatStore, type AnonymousChatRoomEntity } from "@/stores/anonymousChatStore";
 
 import styles from "./AnonymousChatList.module.css";
-
-type AnonymousChatsPageContentProps = {
-  initialType: AnonymousChatType;
-};
 
 const CHAT_TYPE_QUERY_KEY = "tab";
 const RECEIVED_QUERY_VALUE = "received";
@@ -56,6 +52,14 @@ const CHAT_PAGE_COPY: Record<AnonymousChatType, { title: string; description: st
   },
 };
 
+// URL의 탭 값을 우선하고, 없으면 마지막으로 선택한 탭을 복원함
+function getInitialChatType(tabQuery: string | null): AnonymousChatType {
+  if (tabQuery === RECEIVED_QUERY_VALUE) return "RECEIVED";
+  if (tabQuery !== null) return "SENT";
+
+  return useAnonymousChatStore.getState().lastSelectedType ?? "SENT";
+}
+
 function toChatListItem(room: AnonymousChatRoomEntity): AnonymousChatListItemData | null {
   if (
     room.counterpartAlias === undefined ||
@@ -80,9 +84,12 @@ function toChatListItem(room: AnonymousChatRoomEntity): AnonymousChatListItemDat
   };
 }
 
-export default function AnonymousChatsPageContent({ initialType }: AnonymousChatsPageContentProps) {
+export default function AnonymousChatsPageContent() {
   const router = useRouter();
-  const [selectedType, setSelectedType] = useState<AnonymousChatType>(initialType);
+  const searchParams = useSearchParams();
+  const [selectedType, setSelectedType] = useState<AnonymousChatType>(() =>
+    getInitialChatType(searchParams.get(CHAT_TYPE_QUERY_KEY)),
+  );
   const [requestErrorsByType, setRequestErrorsByType] = useState<
     Partial<Record<AnonymousChatType, ChatRequestError>>
   >({});
@@ -309,6 +316,7 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
   const handleTypeChange = (type: AnonymousChatType) => {
     setSelectedType(type);
     setRevealedChatId(null);
+    useAnonymousChatStore.getState().setLastSelectedType(type);
 
     const nextSearchParams = new URLSearchParams(window.location.search);
 
