@@ -112,6 +112,14 @@ function mergeDisplayedMessage(
   return messages.map((message, index) => (index === currentIndex ? nextMessage : message));
 }
 
+function getProductDetailHref(room: AnonymousChatRoom) {
+  if (room.type === "SENT") {
+    return `/products/${room.product.productId}?context=FRIEND_GIFT&userId=${room.targetUserId}`;
+  }
+
+  return `/products/${room.product.productId}?context=MY_GIFT`;
+}
+
 export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomContentProps) {
   const [roomState, setRoomState] = useState<RoomState>({ status: "loading" });
   const [requestVersion, setRequestVersion] = useState(0);
@@ -797,7 +805,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
 
       <div className="flex shrink-0 flex-col gap-3 pt-4 pb-2">
         <AnonymousChatGuideCard counterpartName={room.counterpartName} type={room.type} />
-        <AnonymousChatProductCard product={room.product} />
+        <AnonymousChatProductCard product={room.product} detailHref={getProductDetailHref(room)} />
       </div>
 
       {room.messages.length > 0 ||
@@ -806,6 +814,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       isAnonymousChatRoomClosed(room.roomStatus) ? (
         <AnonymousChatMessageList
           counterpartName={room.counterpartName}
+          counterpartProfile={room.counterpartProfile}
           messages={room.messages}
           pendingMessages={pendingMessages}
           isRoomEnded={isAnonymousChatRoomClosed(room.roomStatus)}

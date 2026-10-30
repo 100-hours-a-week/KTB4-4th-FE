@@ -5,6 +5,7 @@ import type { AnonymousChatType } from "@/lib/api/anonymousChats";
 import { ApiRequestError, apiFetch } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import { sendMockAnonymousChatMessage } from "@/mocks/anonymousChatRoom";
+import type { AnonymousChatProfile } from "@/types/anonymousChatProfile";
 
 export interface AnonymousChatRoomProduct {
   productId: number;
@@ -31,12 +32,24 @@ export function isAnonymousChatRoomClosed(status: AnonymousChatRoomStatus | unde
   return status === "ENDED" || status === "EXPIRED";
 }
 
-export interface AnonymousChatRoomInfo {
+interface AnonymousChatRoomInfoBase {
   roomId: number;
-  type: AnonymousChatType;
   counterpartName: string;
+  counterpartProfile: AnonymousChatProfile;
   product: AnonymousChatRoomProduct;
 }
+
+export type AnonymousChatRoomInfo = AnonymousChatRoomInfoBase &
+  (
+    | {
+        type: Extract<AnonymousChatType, "SENT">;
+        targetUserId: number;
+      }
+    | {
+        type: Extract<AnonymousChatType, "RECEIVED">;
+        targetUserId: null;
+      }
+  );
 
 export interface AnonymousChatRoomMessages {
   roomStatus: AnonymousChatRoomStatus;
@@ -49,14 +62,17 @@ export interface AnonymousChatRoomMessages {
 
 export type AnonymousChatRoom = AnonymousChatRoomInfo & AnonymousChatRoomMessages;
 
+interface AnonymousChatRoomInfoResponseBase {
+  roomId: number;
+  targetName: string;
+  targetProfile: AnonymousChatProfile;
+  product: AnonymousChatRoomProduct;
+}
+
 interface AnonymousChatRoomInfoResponse {
   message: string;
-  data: {
-    roomId: number;
-    askedByMe: boolean;
-    targetName: string;
-    product: AnonymousChatRoomProduct;
-  };
+  data: AnonymousChatRoomInfoResponseBase &
+    ({ askedByMe: true; targetUserId: number } | { askedByMe: false; targetUserId: null });
 }
 
 interface AnonymousChatRoomErrorResponse {
@@ -166,10 +182,31 @@ export async function getAnonymousChatRoomInfo({
 
   const { data } = (await response.json()) as AnonymousChatRoomInfoResponse;
 
+  if (data.askedByMe) {
+    if (!Number.isSafeInteger(data.targetUserId) || data.targetUserId <= 0) {
+      throw new ApiRequestError("대화방 상품 정보를 불러오지 못했습니다.", 500);
+    }
+
+    return {
+      roomId: data.roomId,
+      type: "SENT",
+      targetUserId: data.targetUserId,
+      counterpartName: data.targetName,
+      counterpartProfile: data.targetProfile,
+      product: data.product,
+    };
+  }
+
+  if (data.targetUserId !== null) {
+    throw new ApiRequestError("대화방 상품 정보를 불러오지 못했습니다.", 500);
+  }
+
   return {
     roomId: data.roomId,
-    type: data.askedByMe ? "SENT" : "RECEIVED",
+    type: "RECEIVED",
+    targetUserId: null,
     counterpartName: data.targetName,
+    counterpartProfile: data.targetProfile,
     product: data.product,
   };
 }

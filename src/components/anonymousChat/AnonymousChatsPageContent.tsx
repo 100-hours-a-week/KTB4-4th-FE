@@ -11,11 +11,6 @@ import PageIntro from "@/components/common/PageIntro";
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
 import { useToastContext } from "@/contexts/ToastContext";
 import {
-  ANONYMOUS_CHAT_TAB_QUERY_KEY,
-  getAnonymousChatListHref,
-  getAnonymousChatTypeFromTab,
-} from "@/lib/anonymousChatNavigation";
-import {
   getAnonymousChats,
   type AnonymousChatListItem as AnonymousChatListItemData,
   type AnonymousChatsPage,
@@ -31,10 +26,8 @@ import { useAnonymousChatStore, type AnonymousChatRoomEntity } from "@/stores/an
 
 import styles from "./AnonymousChatList.module.css";
 
-type AnonymousChatsPageContentProps = {
-  initialType: AnonymousChatType;
-};
-
+const CHAT_TYPE_QUERY_KEY = "tab";
+const RECEIVED_QUERY_VALUE = "received";
 const PAGE_SIZE = 20;
 const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
 const CHAT_TYPES: readonly AnonymousChatType[] = ["SENT", "RECEIVED"];
@@ -60,9 +53,18 @@ const CHAT_PAGE_COPY: Record<AnonymousChatType, { title: string; description: st
   },
 };
 
+// URL의 탭 값을 우선하고, 없으면 마지막으로 선택한 탭을 복원함
+function getInitialChatType(tabQuery: string | null): AnonymousChatType {
+  if (tabQuery === RECEIVED_QUERY_VALUE) return "RECEIVED";
+  if (tabQuery !== null) return "SENT";
+
+  return useAnonymousChatStore.getState().lastSelectedType ?? "SENT";
+}
+
 function toChatListItem(room: AnonymousChatRoomEntity): AnonymousChatListItemData | null {
   if (
     room.counterpartAlias === undefined ||
+    room.counterpartProfile === undefined ||
     room.product?.productId === undefined ||
     room.product.name === undefined ||
     room.lastActiveAt === undefined
@@ -73,6 +75,7 @@ function toChatListItem(room: AnonymousChatRoomEntity): AnonymousChatListItemDat
   return {
     roomId: room.roomId,
     counterpartAlias: room.counterpartAlias,
+    counterpartProfile: room.counterpartProfile,
     product: {
       productId: room.product.productId,
       name: room.product.name,
@@ -84,12 +87,12 @@ function toChatListItem(room: AnonymousChatRoomEntity): AnonymousChatListItemDat
   };
 }
 
-export default function AnonymousChatsPageContent({ initialType }: AnonymousChatsPageContentProps) {
+export default function AnonymousChatsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedType = searchParams.has(ANONYMOUS_CHAT_TAB_QUERY_KEY)
-    ? getAnonymousChatTypeFromTab(searchParams.get(ANONYMOUS_CHAT_TAB_QUERY_KEY))
-    : initialType;
+  const [selectedType, setSelectedType] = useState<AnonymousChatType>(() =>
+    getInitialChatType(searchParams.get(CHAT_TYPE_QUERY_KEY)),
+  );
   const [requestErrorsByType, setRequestErrorsByType] = useState<
     Partial<Record<AnonymousChatType, ChatRequestError>>
   >({});
@@ -105,9 +108,21 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
   const sentinelRef = useRef<HTMLLIElement>(null);
   const { showToast } = useToastContext();
   const roomsById = useAnonymousChatStore((state) => state.roomsById);
-  const selectedChatIds = useAnonymousChatStore((state) => state.chatIdsByType[selectedType]);
+  const chatIdsByType = useAnonymousChatStore((state) => state.chatIdsByType);
+  const selectedChatIds = chatIdsByType[selectedType];
   const selectedPagination = useAnonymousChatStore(
     (state) => state.listPaginationByType[selectedType],
+  );
+  const chatTabs = useMemo<readonly SegmentedTabItem<AnonymousChatType>[]>(
+    () =>
+      CHAT_TABS.map((tab) => ({
+        ...tab,
+        hasNotification: chatIdsByType[tab.value].some(
+          (roomId) => (roomsById[roomId]?.unreadMessageCount ?? 0) > 0,
+        ),
+        notificationLabel: "읽지 않은 메시지 있음",
+      })),
+    [chatIdsByType, roomsById],
   );
   const selectedChats = useMemo<AnonymousChatsPage | undefined>(() => {
     if (!selectedPagination.isInitialized) return undefined;
@@ -199,19 +214,17 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
     [router],
   );
 
-  // 탭을 처음 열 때 첫 페이지를 갱신해 화면 밖에서 새로 생긴 대화방도 목록에 반영함
+  // 양쪽 탭의 첫 페이지를 함께 갱신해 선택하지 않은 탭의 읽지 않은 메시지도 표시함
   useEffect(() => {
-    if (
-      isRedirectingRef.current ||
-      selectedRequestError ||
-      refreshedTypesRef.current.has(selectedType)
-    ) {
-      return;
-    }
+    if (isRedirectingRef.current) return;
 
-    refreshedTypesRef.current.add(selectedType);
-    void loadChats(selectedType, undefined, true);
-  }, [loadChats, selectedRequestError, selectedType]);
+    CHAT_TYPES.forEach((type) => {
+      if (refreshedTypesRef.current.has(type)) return;
+
+      refreshedTypesRef.current.add(type);
+      void loadChats(type, undefined, true);
+    });
+  }, [loadChats]);
 
   useEffect(() => {
     const handleEvent = (event: AnonymousChatEvent) => {
@@ -304,8 +317,20 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
 
   // 탭 전환마다 기록이 쌓이지 않도록 현재 기록의 URL만 교체함
   const handleTypeChange = (type: AnonymousChatType) => {
+    setSelectedType(type);
     setRevealedChatId(null);
-    router.replace(getAnonymousChatListHref(type), { scroll: false });
+    useAnonymousChatStore.getState().setLastSelectedType(type);
+
+    const nextSearchParams = new URLSearchParams(window.location.search);
+
+    if (type === "RECEIVED") {
+      nextSearchParams.set(CHAT_TYPE_QUERY_KEY, RECEIVED_QUERY_VALUE);
+    } else {
+      nextSearchParams.delete(CHAT_TYPE_QUERY_KEY);
+    }
+
+    const nextQuery = nextSearchParams.toString();
+    window.history.replaceState(null, "", nextQuery ? `?${nextQuery}` : window.location.pathname);
   };
 
   // 나간 대화방은 목록에서 바로 지우고 결과를 토스트로 알림
@@ -406,7 +431,7 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
         description={CHAT_PAGE_COPY[selectedType].description}
       />
       <SegmentedTabs
-        items={CHAT_TABS}
+        items={chatTabs}
         value={selectedType}
         onChange={handleTypeChange}
         ariaLabel="대화 목록 유형"

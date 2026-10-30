@@ -3,6 +3,7 @@
 
 import { ApiRequestError, apiFetch } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import type { AnonymousChatProfile } from "@/types/anonymousChatProfile";
 
 // SENT는 내가 친구에게 물어본 대화, RECEIVED는 익명의 친구가 나에게 물어본 대화
 export type AnonymousChatType = "SENT" | "RECEIVED";
@@ -23,6 +24,7 @@ export interface AnonymousChatLastMessage {
 export interface AnonymousChatListItem {
   roomId: number;
   counterpartAlias: string;
+  counterpartProfile: AnonymousChatProfile;
   hasUnreadMessage: boolean;
   unreadMessageCount: number;
   lastActiveAt: string;

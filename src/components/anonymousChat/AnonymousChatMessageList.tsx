@@ -3,6 +3,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import AnonymousChatProfileImage from "@/components/anonymousChat/AnonymousChatProfileImage";
 import MessageDeliveryAction from "@/components/chat/MessageDeliveryAction";
 import type { AnonymousChatMessage } from "@/lib/api/anonymousChatRoom";
 import {
@@ -14,11 +15,13 @@ import type {
   AnonymousChatPendingMessage,
   AnonymousChatPendingMessageFailure,
 } from "@/stores/anonymousChatPendingMessageStore";
+import type { AnonymousChatProfile } from "@/types/anonymousChatProfile";
 
 import styles from "./AnonymousChatList.module.css";
 
 type AnonymousChatMessageListProps = {
   counterpartName: string;
+  counterpartProfile: AnonymousChatProfile;
   messages: AnonymousChatMessage[];
   pendingMessages: AnonymousChatPendingMessage[];
   isRoomEnded: boolean;
@@ -114,9 +117,11 @@ function DateDivider({ dateTime }: { dateTime: string }) {
 
 function CounterpartMessage({
   counterpartName,
+  counterpartProfile,
   message,
 }: {
   counterpartName: string;
+  counterpartProfile: AnonymousChatProfile;
   message: ConfirmedDisplayMessage;
 }) {
   return (
@@ -125,8 +130,12 @@ function CounterpartMessage({
       data-counterpart-message-id={message.messageId}
       className="flex gap-2 pr-12"
     >
-      {/* TODO: 상대 프로필 이미지 정책 확정 후 API 응답의 이미지 표시 */}
-      <div aria-hidden="true" className="h-9 w-9 shrink-0 rounded-[35%] bg-disabled" />
+      <AnonymousChatProfileImage
+        profile={counterpartProfile}
+        alt={`${counterpartName} 프로필 이미지`}
+        size={36}
+        className="h-9 w-9"
+      />
       <div className="min-w-0">
         <p className="text-caption font-bold text-foreground">{counterpartName}</p>
         <p className="mt-1.5 rounded-[18px] rounded-tl-[4px] bg-surface px-4 py-2.5 text-body break-words whitespace-pre-wrap text-foreground">
@@ -254,6 +263,7 @@ function MyMessage({
 
 export default function AnonymousChatMessageList({
   counterpartName,
+  counterpartProfile,
   messages,
   pendingMessages,
   isRoomEnded,
@@ -439,7 +449,11 @@ export default function AnonymousChatMessageList({
               {message.isMine ? (
                 <MyMessage message={message} onRetryMessage={onRetryMessage} />
               ) : (
-                <CounterpartMessage counterpartName={counterpartName} message={message} />
+                <CounterpartMessage
+                  counterpartName={counterpartName}
+                  counterpartProfile={counterpartProfile}
+                  message={message}
+                />
               )}
             </Fragment>
           );
