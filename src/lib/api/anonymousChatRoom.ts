@@ -24,8 +24,13 @@ export interface AnonymousChatMessage {
   sentAt: string;
 }
 
-export type AnonymousChatRoomStatus = "ACTIVE" | "ENDED";
-export type AnonymousChatRoomEndedReason = "ME_LEFT" | "PARTNER_LEFT";
+export type AnonymousChatRoomStatus = "ACTIVE" | "ENDED" | "EXPIRED";
+export type AnonymousChatRoomEndedReason = "ME_LEFT" | "PARTNER_LEFT" | "USER_BLOCKED";
+
+// 상대방 나가기(EXPIRED)와 차단(ENDED) 모두 메시지를 더 보낼 수 없는 종료 상태로 판단함
+export function isAnonymousChatRoomClosed(status: AnonymousChatRoomStatus | undefined) {
+  return status === "ENDED" || status === "EXPIRED";
+}
 
 interface AnonymousChatRoomInfoBase {
   roomId: number;

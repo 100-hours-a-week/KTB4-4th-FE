@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
     room: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}`,
     messages: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/messages`,
     read: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/read`,
+    leave: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/leave`,
     report: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/reports`,
   },
   analytics: {

@@ -41,7 +41,7 @@ export default function AnonymousChatComposer({
       <ChatComposer
         onSend={handleSend}
         isDisabled={isDisabled}
-        placeholder="메시지 입력"
+        placeholder={isDisabled ? "종료된 대화입니다" : "메시지 입력"}
         variant="anonymous"
         trimBeforeSend={false}
       />

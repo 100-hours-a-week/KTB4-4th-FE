@@ -15,9 +15,11 @@ import AnonymousChatRoomHeader from "@/components/anonymousChat/AnonymousChatRoo
 import AnonymousChatStartGuide from "@/components/anonymousChat/AnonymousChatStartGuide";
 import { useToastContext } from "@/contexts/ToastContext";
 import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
+import { getAnonymousChatListHref } from "@/lib/anonymousChatNavigation";
 import {
   getAnonymousChatRoomInfo,
   getAnonymousChatRoomMessages,
+  isAnonymousChatRoomClosed,
   markAnonymousChatMessagesRead,
   type AnonymousChatMessage,
   type AnonymousChatRoom,
@@ -203,6 +205,23 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
                       ? { ...message, unreadCount: 0 }
                       : message,
                   ),
+                },
+              }
+            : current,
+        );
+        return;
+      }
+
+      if (event.type === "ANONYMOUS_CHAT_ROOM_ENDED" && event.data.roomId === chatId) {
+        setRoomState((current) =>
+          current.status === "loaded"
+            ? {
+                ...current,
+                room: {
+                  ...current.room,
+                  roomStatus: event.data.roomStatus,
+                  endedReason: event.data.endedReason,
+                  endedAt: event.data.endedAt,
                 },
               }
             : current,
@@ -728,10 +747,14 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   };
 
   // 나간 채팅방은 더 이상 볼 수 없으므로 대화 목록으로 돌아감
-  const handleLeft = () => {
+  const handleLeft = (roomId: number) => {
+    const listType = roomState.status === "loaded" ? roomState.room.type : "SENT";
+
+    useAnonymousChatStore.getState().removeRoom(roomId);
+    useAnonymousChatPendingMessageStore.getState().removePendingMessagesByRoomId(roomId);
     setOpenModal(null);
     showToast("채팅방을 나갔어요.");
-    router.replace("/chat");
+    router.replace(getAnonymousChatListHref(listType));
   };
 
   if (roomState.status !== "loaded") {
@@ -774,6 +797,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatRoomHeader
           counterpartName={room.counterpartName}
           type={room.type}
+          listHref={getAnonymousChatListHref(room.type)}
           onReport={() => setOpenModal("report")}
           onLeave={() => setOpenModal("leave")}
         />
@@ -784,27 +808,16 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatProductCard product={room.product} detailHref={getProductDetailHref(room)} />
       </div>
 
-      {room.roomStatus === "ENDED" && (
-        <section
-          aria-label="종료된 대화 정보"
-          className="mb-2 rounded-sm border border-border-strong bg-surface px-4 py-3 text-caption text-muted"
-        >
-          <p>roomStatus: {room.roomStatus}</p>
-          {room.endedReason && <p>endedReason: {room.endedReason}</p>}
-          {room.endedAt && (
-            <p>
-              endedAt: <time dateTime={room.endedAt}>{room.endedAt}</time>
-            </p>
-          )}
-        </section>
-      )}
-
-      {room.messages.length > 0 || pendingMessages.length > 0 || room.hasNext ? (
+      {room.messages.length > 0 ||
+      pendingMessages.length > 0 ||
+      room.hasNext ||
+      isAnonymousChatRoomClosed(room.roomStatus) ? (
         <AnonymousChatMessageList
           counterpartName={room.counterpartName}
           counterpartProfile={room.counterpartProfile}
           messages={room.messages}
           pendingMessages={pendingMessages}
+          isRoomEnded={isAnonymousChatRoomClosed(room.roomStatus)}
           hasNext={room.hasNext}
           isLoadingPreviousMessages={isLoadingPreviousMessages}
           previousMessagesError={previousMessagesError}
@@ -816,7 +829,10 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatStartGuide />
       )}
 
-      <AnonymousChatComposer chatId={room.roomId} isDisabled={room.roomStatus === "ENDED"} />
+      <AnonymousChatComposer
+        chatId={room.roomId}
+        isDisabled={isAnonymousChatRoomClosed(room.roomStatus)}
+      />
 
       <AnonymousChatReportModal
         open={openModal === "report"}

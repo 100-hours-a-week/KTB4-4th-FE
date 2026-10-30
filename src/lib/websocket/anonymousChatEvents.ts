@@ -42,6 +42,16 @@ export interface AnonymousChatMessageReadEvent {
   };
 }
 
+export interface AnonymousChatRoomEndedEvent {
+  type: "ANONYMOUS_CHAT_ROOM_ENDED";
+  data: {
+    roomId: number;
+    roomStatus: "ENDED" | "EXPIRED";
+    endedReason: "PARTNER_LEFT" | "USER_BLOCKED";
+    endedAt: string;
+  };
+}
+
 export interface AnonymousChatMessageErrorEvent {
   type: "ANONYMOUS_CHAT_ERROR";
   code: string;
@@ -57,6 +67,7 @@ export type AnonymousChatEvent =
   | AnonymousChatMessageSentEvent
   | AnonymousChatMessageReceivedEvent
   | AnonymousChatMessageReadEvent
+  | AnonymousChatRoomEndedEvent
   | AnonymousChatMessageErrorEvent;
 
 export type AnonymousChatEventHandler = (event: AnonymousChatEvent) => void;
@@ -165,6 +176,30 @@ function parseMessageRead(value: Record<string, unknown>): AnonymousChatMessageR
   };
 }
 
+function parseRoomEnded(value: Record<string, unknown>): AnonymousChatRoomEndedEvent | null {
+  const data = value.data;
+
+  if (
+    !isRecord(data) ||
+    !isPositiveSafeInteger(data.roomId) ||
+    (data.roomStatus !== "ENDED" && data.roomStatus !== "EXPIRED") ||
+    (data.endedReason !== "PARTNER_LEFT" && data.endedReason !== "USER_BLOCKED") ||
+    !isDateTimeString(data.endedAt)
+  ) {
+    return null;
+  }
+
+  return {
+    type: "ANONYMOUS_CHAT_ROOM_ENDED",
+    data: {
+      roomId: data.roomId,
+      roomStatus: data.roomStatus,
+      endedReason: data.endedReason,
+      endedAt: data.endedAt,
+    },
+  };
+}
+
 function parseMessageError(value: Record<string, unknown>): AnonymousChatMessageErrorEvent | null {
   const data = value.data;
 
@@ -220,6 +255,8 @@ export function parseAnonymousChatEvent(body: string): AnonymousChatEvent | null
       return parseMessageReceived(value);
     case "ANONYMOUS_CHAT_MESSAGE_READ":
       return parseMessageRead(value);
+    case "ANONYMOUS_CHAT_ROOM_ENDED":
+      return parseRoomEnded(value);
     case "ANONYMOUS_CHAT_ERROR":
       return parseMessageError(value);
     default:
@@ -258,6 +295,13 @@ function applyEventToStore(event: AnonymousChatEvent) {
       break;
     case "ANONYMOUS_CHAT_MESSAGE_READ":
       store.markOwnMessagesRead(event.data.roomId, event.data.lastReadMessageId);
+      break;
+    case "ANONYMOUS_CHAT_ROOM_ENDED":
+      store.markRoomEnded(event.data.roomId, {
+        roomStatus: event.data.roomStatus,
+        endedReason: event.data.endedReason,
+        endedAt: event.data.endedAt,
+      });
       break;
     case "ANONYMOUS_CHAT_ERROR":
       if (event.data?.clientMessageId) {

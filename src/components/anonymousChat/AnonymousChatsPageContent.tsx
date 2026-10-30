@@ -21,6 +21,7 @@ import {
   addAnonymousChatEventHandler,
   type AnonymousChatEvent,
 } from "@/lib/websocket/anonymousChatEvents";
+import { useAnonymousChatPendingMessageStore } from "@/stores/anonymousChatPendingMessageStore";
 import { useAnonymousChatStore, type AnonymousChatRoomEntity } from "@/stores/anonymousChatStore";
 
 import styles from "./AnonymousChatList.module.css";
@@ -335,6 +336,7 @@ export default function AnonymousChatsPageContent() {
   // 나간 대화방은 목록에서 바로 지우고 결과를 토스트로 알림
   const handleLeft = (roomId: number) => {
     useAnonymousChatStore.getState().removeRoom(roomId);
+    useAnonymousChatPendingMessageStore.getState().removePendingMessagesByRoomId(roomId);
     setLeavingChatId(null);
     setRevealedChatId(null);
     showToast("채팅방을 나갔어요.");
@@ -379,6 +381,7 @@ export default function AnonymousChatsPageContent() {
           <AnonymousChatListItem
             key={chat.roomId}
             chat={chat}
+            type={selectedType}
             isLeaveRevealed={revealedChatId === chat.roomId}
             onRevealLeave={setRevealedChatId}
             onLeave={setLeavingChatId}
