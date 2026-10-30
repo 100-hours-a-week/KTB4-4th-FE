@@ -2,15 +2,42 @@
 "use client";
 
 import useSwipeReveal from "@/hooks/useSwipeReveal";
-import type { NotificationThumbnail, NotificationTitleParts } from "@/lib/notificationDisplay";
+import type {
+  NotificationThumbnail,
+  NotificationTitleLead,
+  NotificationTitleParts,
+} from "@/lib/notificationDisplay";
 
 const DELETE_ACTION_WIDTH = 72;
+
+function NotificationThumbnailImage({
+  thumbnail,
+  className,
+}: {
+  thumbnail: NotificationThumbnail;
+  className: string;
+}) {
+  return (
+    <div
+      role="img"
+      aria-label={`${thumbnail.productName} 상품 이미지`}
+      className={`size-12 rounded-sm bg-disabled bg-cover bg-center bg-no-repeat ${className}`}
+      style={
+        thumbnail.imageUrl
+          ? { backgroundImage: `url(${JSON.stringify(thumbnail.imageUrl)})` }
+          : undefined
+      }
+    />
+  );
+}
 
 type NotificationItemProps = {
   id: number;
   title: string;
   // 상품명처럼 제목 일부를 강조할 때만 전달하며, 없으면 title을 그대로 보여줌
   titleParts?: NotificationTitleParts | null;
+  // 익명대화방 알림처럼 첫 줄에 강조 문구(상품명), 둘째 줄에 나머지 문구를 표시할 때 전달함
+  titleLead?: NotificationTitleLead | null;
   description: string;
   // 구매 여부 알림처럼 상품 미리보기가 있는 알림에만 전달함
   thumbnail?: NotificationThumbnail | null;
@@ -26,6 +53,7 @@ export default function NotificationItem({
   id,
   title,
   titleParts,
+  titleLead,
   description,
   thumbnail,
   createdAt,
@@ -101,33 +129,41 @@ export default function NotificationItem({
           눌러서 알림 확인, 왼쪽으로 밀거나 왼쪽 방향키를 눌러 삭제 버튼 표시
         </span>
         <div>
-          {titleParts ? (
-            // 상품명이 길어도 뒤 문구가 잘리지 않도록 둘째 줄에서 상품명만 말줄임 처리함
-            <p className="m-0 text-body font-bold text-foreground">
-              <span className="block">{titleParts.before}</span>
-              <span className="flex min-w-0">
-                <span className="min-w-0 truncate text-info">{titleParts.highlight}</span>
-                <span className="shrink-0">{titleParts.after}</span>
-              </span>
-            </p>
+          {titleLead ? (
+            // 썸네일 오른쪽에 첫 줄은 강조 문구(상품명)만 말줄임 처리하고, 뒤 문구는 둘째 줄에 표시하며
+            // 본문은 썸네일과 제목 아래에 표시함
+            <>
+              <div className="flex min-w-0 items-center gap-3">
+                {thumbnail && (
+                  <NotificationThumbnailImage thumbnail={thumbnail} className="shrink-0" />
+                )}
+                <p className="m-0 min-w-0 text-body font-bold text-foreground">
+                  <span className="block truncate text-info">{titleLead.highlight}</span>
+                  <span className="block">{titleLead.rest}</span>
+                </p>
+              </div>
+              <p className="mt-3 mb-0 text-body-sm text-muted">{description}</p>
+            </>
           ) : (
-            <p className="m-0 line-clamp-2 text-body-lg font-bold text-foreground">{title}</p>
-          )}
-          {/* 상품 미리보기가 있는 카드는 제목과 본문을 붙이고 썸네일과의 간격을 넓힘 */}
-          <p className={`${thumbnail ? "mt-1" : "mt-3"} mb-0 text-body-sm text-muted`}>
-            {description}
-          </p>
-          {thumbnail && (
-            <div
-              role="img"
-              aria-label={`${thumbnail.productName} 상품 이미지`}
-              className="mt-3 size-12 rounded-sm bg-disabled bg-cover bg-center bg-no-repeat"
-              style={
-                thumbnail.imageUrl
-                  ? { backgroundImage: `url(${JSON.stringify(thumbnail.imageUrl)})` }
-                  : undefined
-              }
-            />
+            <>
+              {titleParts ? (
+                // 상품명이 길어도 뒤 문구가 잘리지 않도록 둘째 줄에서 상품명만 말줄임 처리함
+                <p className="m-0 text-body font-bold text-foreground">
+                  <span className="block">{titleParts.before}</span>
+                  <span className="flex min-w-0">
+                    <span className="min-w-0 truncate text-info">{titleParts.highlight}</span>
+                    <span className="shrink-0">{titleParts.after}</span>
+                  </span>
+                </p>
+              ) : (
+                <p className="m-0 line-clamp-2 text-body-lg font-bold text-foreground">{title}</p>
+              )}
+              {/* 상품 미리보기가 있는 카드는 제목과 본문을 붙이고 썸네일과의 간격을 넓힘 */}
+              <p className={`${thumbnail ? "mt-1" : "mt-3"} mb-0 text-body-sm text-muted`}>
+                {description}
+              </p>
+              {thumbnail && <NotificationThumbnailImage thumbnail={thumbnail} className="mt-3" />}
+            </>
           )}
           <time className="mt-0.5 block text-right text-body-sm text-muted">{createdAt}</time>
         </div>
