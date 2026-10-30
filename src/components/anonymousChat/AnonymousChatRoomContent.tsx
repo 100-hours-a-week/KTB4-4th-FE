@@ -202,6 +202,23 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         return;
       }
 
+      if (event.type === "ANONYMOUS_CHAT_ROOM_ENDED" && event.data.roomId === chatId) {
+        setRoomState((current) =>
+          current.status === "loaded"
+            ? {
+                ...current,
+                room: {
+                  ...current.room,
+                  roomStatus: event.data.roomStatus,
+                  endedReason: event.data.endedReason,
+                  endedAt: event.data.endedAt,
+                },
+              }
+            : current,
+        );
+        return;
+      }
+
       if (
         event.type === "ANONYMOUS_CHAT_ERROR" &&
         event.code === "ANONYMOUS_CHAT_ROOM_ENDED" &&
@@ -780,16 +797,16 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
 
       {room.roomStatus === "ENDED" && (
         <section
-          aria-label="종료된 대화 정보"
-          className="mb-2 rounded-sm border border-border-strong bg-surface px-4 py-3 text-caption text-muted"
+          role="status"
+          aria-live="polite"
+          className="mb-2 rounded-md bg-surface px-4 py-3 text-center"
         >
-          <p>roomStatus: {room.roomStatus}</p>
-          {room.endedReason && <p>endedReason: {room.endedReason}</p>}
-          {room.endedAt && (
-            <p>
-              endedAt: <time dateTime={room.endedAt}>{room.endedAt}</time>
-            </p>
-          )}
+          <p className="text-body-sm font-bold text-foreground">
+            {room.endedReason === "PARTNER_LEFT"
+              ? "상대방이 채팅방을 나갔어요."
+              : "종료된 대화예요."}
+          </p>
+          <p className="mt-1 text-caption text-muted">더 이상 메시지를 보낼 수 없어요.</p>
         </section>
       )}
 
