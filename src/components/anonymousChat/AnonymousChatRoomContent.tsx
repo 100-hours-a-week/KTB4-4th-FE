@@ -720,7 +720,9 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   };
 
   // 나간 채팅방은 더 이상 볼 수 없으므로 대화 목록으로 돌아감
-  const handleLeft = () => {
+  const handleLeft = (roomId: number) => {
+    useAnonymousChatStore.getState().removeRoom(roomId);
+    useAnonymousChatPendingMessageStore.getState().removePendingMessagesByRoomId(roomId);
     setOpenModal(null);
     showToast("채팅방을 나갔어요.");
     router.replace("/chat");
