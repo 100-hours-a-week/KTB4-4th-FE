@@ -33,6 +33,7 @@ export interface AnonymousChatProductEntity {
 export interface AnonymousChatRoomEntity {
   roomId: number;
   type?: AnonymousChatType;
+  targetUserId?: number | null;
   counterpartName?: string;
   counterpartAlias?: string;
   product?: AnonymousChatProductEntity;
@@ -236,6 +237,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
           [roomInfo.roomId]: {
             ...currentRoom,
             type: roomInfo.type,
+            targetUserId: roomInfo.targetUserId,
             counterpartName: roomInfo.counterpartName,
             product: {
               ...currentRoom.product,
