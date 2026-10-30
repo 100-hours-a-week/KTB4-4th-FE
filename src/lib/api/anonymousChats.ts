@@ -3,7 +3,6 @@
 
 import { ApiRequestError, apiFetch } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
-import { leaveMockAnonymousChat } from "@/mocks/anonymousChats";
 
 // SENT는 내가 친구에게 물어본 대화, RECEIVED는 익명의 친구가 나에게 물어본 대화
 export type AnonymousChatType = "SENT" | "RECEIVED";
@@ -99,6 +98,14 @@ const CREATE_ANONYMOUS_CHAT_ERROR_MESSAGES: Partial<Record<number, string>> = {
   429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   500: "요청을 처리하지 못했습니다.",
   503: "일시적으로 서비스를 이용할 수 없습니다.",
+};
+const LEAVE_ANONYMOUS_CHAT_ERROR_MESSAGES: Partial<Record<number, string>> = {
+  400: "요청 형식이 올바르지 않습니다.",
+  401: "로그인이 필요합니다.",
+  403: "해당 익명대화방에서 나갈 수 없습니다.",
+  404: "익명대화방을 찾을 수 없습니다.",
+  429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+  500: "요청을 처리하지 못했습니다.",
 };
 
 function getRetryAfterSeconds(
@@ -202,7 +209,27 @@ export async function createAnonymousChat(
   return data;
 }
 
-// TODO: 익명 채팅방 나가기 API 연동 후 서버 요청으로 교체 (나간 뒤 상대에게 보이는 방식 확인 필요)
-export async function leaveAnonymousChat(chatId: number) {
-  await leaveMockAnonymousChat(chatId);
+export async function leaveAnonymousChat(roomId: number) {
+  if (!Number.isSafeInteger(roomId) || roomId <= 0) {
+    throw new ApiRequestError(LEAVE_ANONYMOUS_CHAT_ERROR_MESSAGES[400] as string, 400);
+  }
+
+  const response = await apiFetch(API_ENDPOINTS.anonymousChats.leave(roomId), {
+    method: "PUT",
+    cache: "no-store",
+  });
+
+  if (response.ok) return;
+
+  const errorResponse = (await response
+    .json()
+    .catch(() => null)) as AnonymousChatsErrorResponse | null;
+
+  throw new ApiRequestError(
+    errorResponse?.message ??
+      LEAVE_ANONYMOUS_CHAT_ERROR_MESSAGES[response.status] ??
+      "채팅방을 나가지 못했습니다.",
+    response.status,
+    getRetryAfterSeconds(response, errorResponse),
+  );
 }
