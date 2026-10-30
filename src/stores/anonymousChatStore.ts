@@ -49,10 +49,7 @@ export interface AnonymousChatRoomEntity {
   areMessagesLoaded: boolean;
 }
 
-export type AnonymousChatMessageEntity = AnonymousChatMessage & {
-  roomId: number;
-  clientMessageId?: string;
-};
+export type AnonymousChatMessageEntity = AnonymousChatMessage & { roomId: number };
 
 export interface AnonymousChatListPagination {
   nextCursor: string | null;

@@ -3,6 +3,7 @@
 
 import { notFound, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import AnonymousChatComposer from "@/components/anonymousChat/AnonymousChatComposer";
 import AnonymousChatGuideCard from "@/components/anonymousChat/AnonymousChatGuideCard";
@@ -26,7 +27,9 @@ import {
   addAnonymousChatEventHandler,
   type AnonymousChatEvent,
 } from "@/lib/websocket/anonymousChatEvents";
+import { retryAnonymousChatMessage } from "@/lib/websocket/anonymousChatMessageDelivery";
 import { addAnonymousChatSocketListener } from "@/lib/websocket/anonymousChatSocket";
+import { useAnonymousChatPendingMessageStore } from "@/stores/anonymousChatPendingMessageStore";
 import { useAnonymousChatStore } from "@/stores/anonymousChatStore";
 
 type AnonymousChatRoomContentProps = {
@@ -129,6 +132,15 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   const processReadReceiptRef = useRef<() => void>(() => undefined);
   const router = useRouter();
   const { showToast } = useToastContext();
+  const pendingMessages = useAnonymousChatPendingMessageStore(
+    useShallow((state) =>
+      (state.clientMessageIdsByRoomId[chatId] ?? []).flatMap((clientMessageId) => {
+        const message = state.messagesByClientMessageId[clientMessageId];
+
+        return message ? [message] : [];
+      }),
+    ),
+  );
 
   useVisualViewportHeight();
 
@@ -689,20 +701,16 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
     notFound();
   }
 
-  const appendMessage = (message: AnonymousChatMessage) => {
-    useAnonymousChatStore.getState().upsertMessage(chatId, message);
-    setRoomState((current) =>
-      current.status === "loaded"
-        ? {
-            ...current,
-            room: {
-              ...current.room,
-              messages: mergeDisplayedMessage(current.room.messages, message),
-            },
-          }
-        : current,
-    );
-  };
+  const handleRetryMessage = useCallback(
+    (clientMessageId: string) => {
+      try {
+        retryAnonymousChatMessage(clientMessageId);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "메시지를 다시 보내지 못했어요.");
+      }
+    },
+    [showToast],
+  );
 
   const closeModal = () => setOpenModal(null);
 
@@ -783,25 +791,23 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         </section>
       )}
 
-      {room.messages.length > 0 || room.hasNext ? (
+      {room.messages.length > 0 || pendingMessages.length > 0 || room.hasNext ? (
         <AnonymousChatMessageList
           counterpartName={room.counterpartName}
           messages={room.messages}
+          pendingMessages={pendingMessages}
           hasNext={room.hasNext}
           isLoadingPreviousMessages={isLoadingPreviousMessages}
           previousMessagesError={previousMessagesError}
           onLoadPreviousMessages={loadPreviousMessages}
           onLastVisibleCounterpartMessageChange={handleLastVisibleCounterpartMessageChange}
+          onRetryMessage={handleRetryMessage}
         />
       ) : (
         <AnonymousChatStartGuide />
       )}
 
-      <AnonymousChatComposer
-        chatId={room.roomId}
-        isDisabled={room.roomStatus === "ENDED"}
-        onMessageSent={appendMessage}
-      />
+      <AnonymousChatComposer chatId={room.roomId} isDisabled={room.roomStatus === "ENDED"} />
 
       <AnonymousChatReportModal
         open={openModal === "report"}
