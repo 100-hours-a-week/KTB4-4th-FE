@@ -25,6 +25,7 @@ export interface FailAnonymousChatMessageRequest {
   clientMessageId: string;
   code: string;
   message: string;
+  canRetry: boolean;
   retryAfterSeconds?: number;
 }
 
@@ -68,6 +69,7 @@ function scheduleResponseTimeout(clientMessageId: string, lastAttemptAt: string)
     markMessageFailed(clientMessageId, {
       code: RESPONSE_TIMEOUT_CODE,
       message: RESPONSE_TIMEOUT_MESSAGE,
+      canRetry: true,
     });
   }, ANONYMOUS_CHAT_MESSAGE_RESPONSE_TIMEOUT_MS);
 
@@ -98,6 +100,8 @@ function publishPendingMessage(clientMessageId: string) {
       code:
         error instanceof AnonymousChatMessagePublishError ? error.code : "MESSAGE_PUBLISH_FAILED",
       message: error instanceof Error ? error.message : "메시지를 전송하지 못했습니다.",
+      canRetry:
+        !(error instanceof AnonymousChatMessagePublishError) || error.code === "NOT_CONNECTED",
     });
     throw error;
   }
@@ -120,6 +124,21 @@ export function sendAnonymousChatMessage({ roomId, content }: SendAnonymousChatM
 }
 
 export function retryAnonymousChatMessage(clientMessageId: string) {
+  const pendingMessage =
+    useAnonymousChatPendingMessageStore.getState().messagesByClientMessageId[clientMessageId];
+
+  if (!pendingMessage || pendingMessage.status !== "FAILED" || !pendingMessage.failure?.canRetry) {
+    throw new Error("다시 전송할 수 없는 익명대화 메시지입니다.");
+  }
+
+  const retryAvailableAt =
+    Date.parse(pendingMessage.failure.failedAt) +
+    (pendingMessage.failure.retryAfterSeconds ?? 0) * 1_000;
+
+  if (Date.now() < retryAvailableAt) {
+    throw new Error("메시지 재전송 대기시간이 지나지 않았습니다.");
+  }
+
   publishPendingMessage(clientMessageId);
 }
 
@@ -132,10 +151,11 @@ export function failAnonymousChatMessage({
   clientMessageId,
   code,
   message,
+  canRetry,
   retryAfterSeconds,
 }: FailAnonymousChatMessageRequest) {
   clearResponseTimeout(clientMessageId);
-  markMessageFailed(clientMessageId, { code, message, retryAfterSeconds });
+  markMessageFailed(clientMessageId, { code, message, canRetry, retryAfterSeconds });
 }
 
 export function resetAnonymousChatMessageDelivery() {

@@ -187,6 +187,25 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
               }
             : current,
         );
+        return;
+      }
+
+      if (
+        event.type === "ANONYMOUS_CHAT_ERROR" &&
+        event.code === "ANONYMOUS_CHAT_ROOM_ENDED" &&
+        event.data?.roomId === chatId
+      ) {
+        setRoomState((current) =>
+          current.status === "loaded"
+            ? {
+                ...current,
+                room: {
+                  ...current.room,
+                  roomStatus: "ENDED",
+                },
+              }
+            : current,
+        );
       }
     };
 

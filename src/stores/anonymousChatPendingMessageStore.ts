@@ -9,6 +9,7 @@ export interface AnonymousChatPendingMessageFailure {
   code: string;
   message: string;
   failedAt: string;
+  canRetry: boolean;
   retryAfterSeconds?: number;
 }
 
