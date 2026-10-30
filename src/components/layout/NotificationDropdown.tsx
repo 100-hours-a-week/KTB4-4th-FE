@@ -293,7 +293,7 @@ export default function NotificationDropdown() {
                 className={`m-0 list-none border-t border-border p-0 ${filteredNotifications.length >= 4 ? "max-h-72 overflow-y-auto overscroll-contain" : ""}`}
               >
                 {filteredNotifications.map((notification) => {
-                  const { title, titleParts, description, thumbnail } =
+                  const { title, titleParts, titleLead, description, thumbnail } =
                     getNotificationDisplay(notification);
 
                   return (
@@ -302,6 +302,7 @@ export default function NotificationDropdown() {
                       id={notification.notificationId}
                       title={title}
                       titleParts={titleParts}
+                      titleLead={titleLead}
                       description={description}
                       thumbnail={thumbnail}
                       createdAt={formatRelativeTime(notification.createdAt)}
