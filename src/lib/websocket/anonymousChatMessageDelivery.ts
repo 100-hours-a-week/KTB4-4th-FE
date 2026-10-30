@@ -76,7 +76,7 @@ function scheduleResponseTimeout(clientMessageId: string, lastAttemptAt: string)
   responseTimeouts.set(clientMessageId, timeout);
 }
 
-function publishPendingMessage(clientMessageId: string) {
+function publishPendingMessage(clientMessageId: string, isRetrying = false) {
   const pendingStore = useAnonymousChatPendingMessageStore.getState();
   const pendingMessage = pendingStore.messagesByClientMessageId[clientMessageId];
 
@@ -85,7 +85,7 @@ function publishPendingMessage(clientMessageId: string) {
   }
 
   const lastAttemptAt = new Date().toISOString();
-  pendingStore.markPendingMessageSending(clientMessageId, lastAttemptAt);
+  pendingStore.markPendingMessageSending(clientMessageId, lastAttemptAt, isRetrying);
 
   try {
     publishAnonymousChatMessage({
@@ -139,7 +139,7 @@ export function retryAnonymousChatMessage(clientMessageId: string) {
     throw new Error("메시지 재전송 대기시간이 지나지 않았습니다.");
   }
 
-  publishPendingMessage(clientMessageId);
+  publishPendingMessage(clientMessageId, true);
 }
 
 export function confirmAnonymousChatMessage(clientMessageId: string) {

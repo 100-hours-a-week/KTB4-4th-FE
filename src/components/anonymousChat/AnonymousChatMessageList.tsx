@@ -3,6 +3,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import MessageDeliveryAction from "@/components/chat/MessageDeliveryAction";
 import type { AnonymousChatMessage } from "@/lib/api/anonymousChatRoom";
 import {
   formatChatDateDivider,
@@ -47,6 +48,7 @@ type PendingDisplayMessage = {
   unreadCount: 0;
   sentAt: string;
   deliveryStatus: "SENDING" | "FAILED";
+  isRetrying: boolean;
   failure: AnonymousChatPendingMessageFailure | null;
 };
 
@@ -79,6 +81,7 @@ function createDisplayMessages(
         unreadCount: 0,
         sentAt: message.sentAt,
         deliveryStatus: message.status,
+        isRetrying: message.isRetrying,
         failure: message.failure,
       })),
   ];
@@ -136,11 +139,13 @@ function CounterpartMessage({
   );
 }
 
-function FailedMessageStatus({
+function FailedMyMessage({
+  message,
   clientMessageId,
   failure,
   onRetryMessage,
 }: {
+  message: PendingDisplayMessage;
   clientMessageId: string;
   failure: AnonymousChatPendingMessageFailure;
   onRetryMessage: (clientMessageId: string) => void;
@@ -166,21 +171,30 @@ function FailedMessageStatus({
   }, [failure]);
 
   return (
-    <div className="mt-1 flex flex-col items-end gap-1">
-      <p role="alert" className="text-caption text-danger">
+    <article aria-label="내 메시지, 전송 실패" className="flex flex-col items-end pl-12">
+      <div className="flex max-w-full items-center gap-1.5">
+        {failure.canRetry && (
+          <MessageDeliveryAction
+            status="FAILED"
+            disabled={remainingRetrySeconds > 0}
+            remainingRetrySeconds={remainingRetrySeconds}
+            onRetry={() => onRetryMessage(clientMessageId)}
+          />
+        )}
+        <p className="min-w-0 rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5 text-body break-words whitespace-pre-wrap text-on-primary">
+          {message.content}
+        </p>
+      </div>
+      <time dateTime={message.sentAt} className="mt-1.5 text-caption text-muted">
+        {formatChatMessageTime(message.sentAt)}
+      </time>
+      <p role="alert" className="mt-1 text-right text-caption text-danger">
         {failure.message}
+        {failure.canRetry && remainingRetrySeconds > 0
+          ? ` (${remainingRetrySeconds}초 후 재전송 가능)`
+          : ""}
       </p>
-      {failure.canRetry && (
-        <button
-          type="button"
-          disabled={remainingRetrySeconds > 0}
-          className="rounded-sm border border-border-strong bg-surface px-3 py-1.5 text-caption text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={() => onRetryMessage(clientMessageId)}
-        >
-          {remainingRetrySeconds > 0 ? `${remainingRetrySeconds}초 후 다시 보내기` : "다시 보내기"}
-        </button>
-      )}
-    </div>
+    </article>
   );
 }
 
@@ -191,9 +205,27 @@ function MyMessage({
   message: AnonymousChatDisplayMessage;
   onRetryMessage: (clientMessageId: string) => void;
 }) {
+  if (message.deliveryStatus === "FAILED" && message.failure) {
+    return (
+      <FailedMyMessage
+        key={message.failure.failedAt}
+        message={message}
+        clientMessageId={message.clientMessageId}
+        failure={message.failure}
+        onRetryMessage={onRetryMessage}
+      />
+    );
+  }
+
+  const isRetrying = message.deliveryStatus === "SENDING" && message.isRetrying;
+
   return (
-    <article aria-label="내 메시지" className="flex flex-col items-end pl-12">
-      <div className="flex items-end gap-1.5">
+    <article
+      aria-label={`내 메시지${isRetrying ? ", 재전송 중" : ""}`}
+      aria-busy={isRetrying || undefined}
+      className="flex flex-col items-end pl-12"
+    >
+      <div className={`flex max-w-full gap-1.5 ${isRetrying ? "items-center" : "items-end"}`}>
         {message.deliveryStatus === "SENT" && message.unreadCount > 0 && (
           <span
             className="text-caption text-muted"
@@ -202,25 +234,18 @@ function MyMessage({
             {message.unreadCount}
           </span>
         )}
-        <p className="rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5 text-body break-words whitespace-pre-wrap text-on-primary">
+        {isRetrying && <MessageDeliveryAction status="RETRYING" />}
+        <p className="min-w-0 rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5 text-body break-words whitespace-pre-wrap text-on-primary">
           {message.content}
         </p>
       </div>
       <time dateTime={message.sentAt} className="mt-1.5 text-caption text-muted">
         {formatChatMessageTime(message.sentAt)}
       </time>
-      {message.deliveryStatus === "SENDING" && (
+      {message.deliveryStatus === "SENDING" && !isRetrying && (
         <p role="status" className="mt-1 text-caption text-muted">
           전송 중
         </p>
-      )}
-      {message.deliveryStatus === "FAILED" && message.failure && (
-        <FailedMessageStatus
-          key={message.failure.failedAt}
-          clientMessageId={message.clientMessageId}
-          failure={message.failure}
-          onRetryMessage={onRetryMessage}
-        />
       )}
     </article>
   );

@@ -20,6 +20,7 @@ export interface AnonymousChatPendingMessage {
   sentAt: string;
   lastAttemptAt: string;
   status: AnonymousChatPendingMessageStatus;
+  isRetrying: boolean;
   failure: AnonymousChatPendingMessageFailure | null;
 }
 
@@ -32,7 +33,11 @@ interface AnonymousChatPendingMessageState {
   messagesByClientMessageId: Record<string, AnonymousChatPendingMessage>;
   clientMessageIdsByRoomId: Record<number, string[]>;
   addPendingMessage: (message: NewAnonymousChatPendingMessage) => void;
-  markPendingMessageSending: (clientMessageId: string, lastAttemptAt: string) => void;
+  markPendingMessageSending: (
+    clientMessageId: string,
+    lastAttemptAt: string,
+    isRetrying: boolean,
+  ) => void;
   markPendingMessageFailed: (
     clientMessageId: string,
     failure: AnonymousChatPendingMessageFailure,
@@ -65,6 +70,7 @@ export const useAnonymousChatPendingMessageStore = create<AnonymousChatPendingMe
             [message.clientMessageId]: {
               ...message,
               status: "SENDING",
+              isRetrying: false,
               failure: null,
             },
           },
@@ -78,7 +84,7 @@ export const useAnonymousChatPendingMessageStore = create<AnonymousChatPendingMe
         };
       }),
 
-    markPendingMessageSending: (clientMessageId, lastAttemptAt) =>
+    markPendingMessageSending: (clientMessageId, lastAttemptAt, isRetrying) =>
       set((state) => {
         const message = state.messagesByClientMessageId[clientMessageId];
 
@@ -91,6 +97,7 @@ export const useAnonymousChatPendingMessageStore = create<AnonymousChatPendingMe
               ...message,
               lastAttemptAt,
               status: "SENDING",
+              isRetrying,
               failure: null,
             },
           },
@@ -109,6 +116,7 @@ export const useAnonymousChatPendingMessageStore = create<AnonymousChatPendingMe
             [clientMessageId]: {
               ...message,
               status: "FAILED",
+              isRetrying: false,
               failure,
             },
           },
