@@ -6,6 +6,8 @@ import type { KeyboardEvent, ReactNode } from "react";
 export type SegmentedTabItem<T extends string> = {
   value: T;
   label: ReactNode;
+  hasNotification?: boolean;
+  notificationLabel?: string;
 };
 
 // pill은 둥근 배경 안에서 선택 탭을 강조하고, underline은 선택 탭 아래 막대로 강조함
@@ -116,7 +118,15 @@ export default function SegmentedTabs<T extends string>({
               isSelected ? "text-foreground" : "text-muted"
             }`}
           >
-            <span className="font-bold">{item.label}</span>
+            <span className="inline-flex items-center justify-center gap-1.5 font-bold">
+              {item.label}
+              {item.hasNotification && (
+                <>
+                  <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-danger" />
+                  <span className="sr-only">{item.notificationLabel ?? "새 알림 있음"}</span>
+                </>
+              )}
+            </span>
           </button>
         );
       })}
