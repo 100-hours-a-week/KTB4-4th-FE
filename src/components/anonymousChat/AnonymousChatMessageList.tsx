@@ -21,6 +21,7 @@ type AnonymousChatMessageListProps = {
   counterpartName: string;
   messages: AnonymousChatMessage[];
   pendingMessages: AnonymousChatPendingMessage[];
+  isRoomEnded: boolean;
   hasNext: boolean;
   isLoadingPreviousMessages: boolean;
   previousMessagesError: {
@@ -255,6 +256,7 @@ export default function AnonymousChatMessageList({
   counterpartName,
   messages,
   pendingMessages,
+  isRoomEnded,
   hasNext,
   isLoadingPreviousMessages,
   previousMessagesError,
@@ -301,7 +303,7 @@ export default function AnonymousChatMessageList({
 
     list.scrollTop = list.scrollHeight;
     isInitialScrollCompleteRef.current = true;
-  }, [displayMessages.length]);
+  }, [displayMessages.length, isRoomEnded]);
 
   useEffect(() => {
     if (
@@ -442,6 +444,16 @@ export default function AnonymousChatMessageList({
             </Fragment>
           );
         })}
+
+        {isRoomEnded && (
+          <p
+            role="status"
+            aria-live="polite"
+            className="mx-auto rounded-full bg-surface px-4 py-2 text-caption text-muted"
+          >
+            상대방이 나갔습니다.
+          </p>
+        )}
       </div>
     </div>
   );

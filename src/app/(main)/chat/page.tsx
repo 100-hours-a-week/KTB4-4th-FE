@@ -1,6 +1,7 @@
 // 내가 물어본 대화와 나에게 물어본 대화 목록을 표시하는 페이지
 
 import AnonymousChatsPageContent from "@/components/anonymousChat/AnonymousChatsPageContent";
+import { getAnonymousChatTypeFromTab } from "@/lib/anonymousChatNavigation";
 
 import type { Metadata } from "next";
 
@@ -17,5 +18,5 @@ type ChatPageProps = {
 export default async function ChatPage({ searchParams }: ChatPageProps) {
   const { tab } = await searchParams;
 
-  return <AnonymousChatsPageContent initialType={tab === "received" ? "RECEIVED" : "SENT"} />;
+  return <AnonymousChatsPageContent initialType={getAnonymousChatTypeFromTab(tab)} />;
 }

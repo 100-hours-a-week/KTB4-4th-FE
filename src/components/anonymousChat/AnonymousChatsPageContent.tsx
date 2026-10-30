@@ -1,7 +1,7 @@
 // 대화 목록 페이지의 탭 전환·탭별 대화 목록 조회·대화방 나가기 상태를 관리하는 클라이언트 화면
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AnonymousChatLeaveModal from "@/components/anonymousChat/AnonymousChatLeaveModal";
@@ -10,6 +10,11 @@ import EmptyAnonymousChats from "@/components/anonymousChat/EmptyAnonymousChats"
 import PageIntro from "@/components/common/PageIntro";
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
 import { useToastContext } from "@/contexts/ToastContext";
+import {
+  ANONYMOUS_CHAT_TAB_QUERY_KEY,
+  getAnonymousChatListHref,
+  getAnonymousChatTypeFromTab,
+} from "@/lib/anonymousChatNavigation";
 import {
   getAnonymousChats,
   type AnonymousChatListItem as AnonymousChatListItemData,
@@ -30,8 +35,6 @@ type AnonymousChatsPageContentProps = {
   initialType: AnonymousChatType;
 };
 
-const CHAT_TYPE_QUERY_KEY = "tab";
-const RECEIVED_QUERY_VALUE = "received";
 const PAGE_SIZE = 20;
 const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
 const CHAT_TYPES: readonly AnonymousChatType[] = ["SENT", "RECEIVED"];
@@ -83,7 +86,10 @@ function toChatListItem(room: AnonymousChatRoomEntity): AnonymousChatListItemDat
 
 export default function AnonymousChatsPageContent({ initialType }: AnonymousChatsPageContentProps) {
   const router = useRouter();
-  const [selectedType, setSelectedType] = useState<AnonymousChatType>(initialType);
+  const searchParams = useSearchParams();
+  const selectedType = searchParams.has(ANONYMOUS_CHAT_TAB_QUERY_KEY)
+    ? getAnonymousChatTypeFromTab(searchParams.get(ANONYMOUS_CHAT_TAB_QUERY_KEY))
+    : initialType;
   const [requestErrorsByType, setRequestErrorsByType] = useState<
     Partial<Record<AnonymousChatType, ChatRequestError>>
   >({});
@@ -298,19 +304,8 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
 
   // 탭 전환마다 기록이 쌓이지 않도록 현재 기록의 URL만 교체함
   const handleTypeChange = (type: AnonymousChatType) => {
-    setSelectedType(type);
     setRevealedChatId(null);
-
-    const nextSearchParams = new URLSearchParams(window.location.search);
-
-    if (type === "RECEIVED") {
-      nextSearchParams.set(CHAT_TYPE_QUERY_KEY, RECEIVED_QUERY_VALUE);
-    } else {
-      nextSearchParams.delete(CHAT_TYPE_QUERY_KEY);
-    }
-
-    const nextQuery = nextSearchParams.toString();
-    window.history.replaceState(null, "", nextQuery ? `?${nextQuery}` : window.location.pathname);
+    router.replace(getAnonymousChatListHref(type), { scroll: false });
   };
 
   // 나간 대화방은 목록에서 바로 지우고 결과를 토스트로 알림
@@ -361,6 +356,7 @@ export default function AnonymousChatsPageContent({ initialType }: AnonymousChat
           <AnonymousChatListItem
             key={chat.roomId}
             chat={chat}
+            type={selectedType}
             isLeaveRevealed={revealedChatId === chat.roomId}
             onRevealLeave={setRevealedChatId}
             onLeave={setLeavingChatId}

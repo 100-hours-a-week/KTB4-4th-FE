@@ -15,6 +15,7 @@ import AnonymousChatRoomHeader from "@/components/anonymousChat/AnonymousChatRoo
 import AnonymousChatStartGuide from "@/components/anonymousChat/AnonymousChatStartGuide";
 import { useToastContext } from "@/contexts/ToastContext";
 import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
+import { getAnonymousChatListHref } from "@/lib/anonymousChatNavigation";
 import {
   getAnonymousChatRoomInfo,
   getAnonymousChatRoomMessages,
@@ -738,11 +739,13 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
 
   // 나간 채팅방은 더 이상 볼 수 없으므로 대화 목록으로 돌아감
   const handleLeft = (roomId: number) => {
+    const listType = roomState.status === "loaded" ? roomState.room.type : "SENT";
+
     useAnonymousChatStore.getState().removeRoom(roomId);
     useAnonymousChatPendingMessageStore.getState().removePendingMessagesByRoomId(roomId);
     setOpenModal(null);
     showToast("채팅방을 나갔어요.");
-    router.replace("/chat");
+    router.replace(getAnonymousChatListHref(listType));
   };
 
   if (roomState.status !== "loaded") {
@@ -785,6 +788,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatRoomHeader
           counterpartName={room.counterpartName}
           type={room.type}
+          listHref={getAnonymousChatListHref(room.type)}
           onReport={() => setOpenModal("report")}
           onLeave={() => setOpenModal("leave")}
         />
@@ -795,26 +799,15 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatProductCard product={room.product} />
       </div>
 
-      {room.roomStatus === "ENDED" && (
-        <section
-          role="status"
-          aria-live="polite"
-          className="mb-2 rounded-md bg-surface px-4 py-3 text-center"
-        >
-          <p className="text-body-sm font-bold text-foreground">
-            {room.endedReason === "PARTNER_LEFT"
-              ? "상대방이 채팅방을 나갔어요."
-              : "종료된 대화예요."}
-          </p>
-          <p className="mt-1 text-caption text-muted">더 이상 메시지를 보낼 수 없어요.</p>
-        </section>
-      )}
-
-      {room.messages.length > 0 || pendingMessages.length > 0 || room.hasNext ? (
+      {room.messages.length > 0 ||
+      pendingMessages.length > 0 ||
+      room.hasNext ||
+      room.roomStatus === "ENDED" ? (
         <AnonymousChatMessageList
           counterpartName={room.counterpartName}
           messages={room.messages}
           pendingMessages={pendingMessages}
+          isRoomEnded={room.roomStatus === "ENDED"}
           hasNext={room.hasNext}
           isLoadingPreviousMessages={isLoadingPreviousMessages}
           previousMessagesError={previousMessagesError}

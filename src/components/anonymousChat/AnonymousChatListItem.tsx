@@ -4,13 +4,18 @@
 import Link from "next/link";
 
 import useSwipeReveal from "@/hooks/useSwipeReveal";
-import type { AnonymousChatListItem as AnonymousChatListItemData } from "@/lib/api/anonymousChats";
+import { getAnonymousChatRoomHref } from "@/lib/anonymousChatNavigation";
+import type {
+  AnonymousChatListItem as AnonymousChatListItemData,
+  AnonymousChatType,
+} from "@/lib/api/anonymousChats";
 import { formatChatTime } from "@/lib/formatChatTime";
 
 import type { MouseEvent } from "react";
 
 type AnonymousChatListItemProps = {
   chat: AnonymousChatListItemData;
+  type: AnonymousChatType;
   isLeaveRevealed: boolean;
   onRevealLeave: (roomId: number | null) => void;
   onLeave: (roomId: number) => void;
@@ -21,6 +26,7 @@ const MAX_UNREAD_COUNT_LABEL = 99;
 
 export default function AnonymousChatListItem({
   chat,
+  type,
   isLeaveRevealed,
   onRevealLeave,
   onLeave,
@@ -75,7 +81,7 @@ export default function AnonymousChatListItem({
       </button>
 
       <Link
-        href={`/chat/${roomId}`}
+        href={getAnonymousChatRoomHref(roomId, type)}
         draggable={false}
         aria-describedby={instructionId}
         className={`relative flex touch-pan-y gap-3 bg-background px-page py-4 select-none hover:bg-background-subtle ${
