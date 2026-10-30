@@ -57,6 +57,11 @@ export interface AnonymousChatListPagination {
   isInitialized: boolean;
 }
 
+export interface AnonymousChatRoomEndUpdate {
+  endedReason?: AnonymousChatRoomEndedReason | null;
+  endedAt?: string | null;
+}
+
 interface AnonymousChatState {
   connectionStatus: AnonymousChatConnectionStatus;
   connectionError: AnonymousChatStompErrorPayload | null;
@@ -89,7 +94,7 @@ interface AnonymousChatState {
   markOwnMessagesRead: (roomId: number, lastReadMessageId: number) => void;
   acknowledgeRoomRead: (roomId: number, lastReadMessageId: number) => void;
   setRoomUnreadCount: (roomId: number, unreadMessageCount: number) => void;
-  markRoomEnded: (roomId: number) => void;
+  markRoomEnded: (roomId: number, update?: AnonymousChatRoomEndUpdate) => void;
   removeRoom: (roomId: number) => void;
   reset: () => void;
 }
@@ -435,18 +440,28 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
       };
     }),
 
-  markRoomEnded: (roomId) =>
+  markRoomEnded: (roomId, update) =>
     set((state) => {
       const currentRoom = state.roomsById[roomId] ?? createRoomEntity(roomId);
+      const roomsById = {
+        ...state.roomsById,
+        [roomId]: {
+          ...currentRoom,
+          roomStatus: "ENDED" as const,
+          hasUnreadMessage: false,
+          unreadMessageCount: 0,
+          ...(update?.endedReason !== undefined ? { endedReason: update.endedReason } : {}),
+          ...(update?.endedAt !== undefined ? { endedAt: update.endedAt } : {}),
+        },
+      };
 
       return {
-        roomsById: {
-          ...state.roomsById,
-          [roomId]: {
-            ...currentRoom,
-            roomStatus: "ENDED",
-          },
+        roomsById,
+        chatIdsByType: {
+          SENT: state.chatIdsByType.SENT.filter((id) => id !== roomId),
+          RECEIVED: state.chatIdsByType.RECEIVED.filter((id) => id !== roomId),
         },
+        totalUnreadCount: calculateTotalUnreadCount(roomsById),
       };
     }),
 
