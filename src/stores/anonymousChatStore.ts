@@ -18,6 +18,7 @@ import type {
   AnonymousChatConnectionStatus,
   AnonymousChatStompErrorPayload,
 } from "@/lib/websocket/anonymousChatProtocol";
+import type { AnonymousChatProfile } from "@/types/anonymousChatProfile";
 
 type MessageMergePosition = "replace" | "prepend" | "append";
 type ChatListMergeMode = "replace" | "refresh" | "append";
@@ -36,6 +37,7 @@ export interface AnonymousChatRoomEntity {
   targetUserId?: number | null;
   counterpartName?: string;
   counterpartAlias?: string;
+  counterpartProfile?: AnonymousChatProfile;
   product?: AnonymousChatProductEntity;
   hasUnreadMessage: boolean;
   unreadMessageCount: number;
@@ -191,6 +193,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
           ...currentRoom,
           type,
           counterpartAlias: item.counterpartAlias,
+          counterpartProfile: item.counterpartProfile,
           product: {
             ...currentRoom.product,
             ...item.product,
@@ -245,6 +248,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
             type: roomInfo.type,
             targetUserId: roomInfo.targetUserId,
             counterpartName: roomInfo.counterpartName,
+            counterpartProfile: roomInfo.counterpartProfile,
             product: {
               ...currentRoom.product,
               ...roomInfo.product,
