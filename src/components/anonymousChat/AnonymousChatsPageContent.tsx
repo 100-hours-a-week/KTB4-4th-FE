@@ -63,6 +63,7 @@ function getInitialChatType(tabQuery: string | null): AnonymousChatType {
 function toChatListItem(room: AnonymousChatRoomEntity): AnonymousChatListItemData | null {
   if (
     room.counterpartAlias === undefined ||
+    room.counterpartProfile === undefined ||
     room.product?.productId === undefined ||
     room.product.name === undefined ||
     room.lastActiveAt === undefined
@@ -73,6 +74,7 @@ function toChatListItem(room: AnonymousChatRoomEntity): AnonymousChatListItemDat
   return {
     roomId: room.roomId,
     counterpartAlias: room.counterpartAlias,
+    counterpartProfile: room.counterpartProfile,
     product: {
       productId: room.product.productId,
       name: room.product.name,

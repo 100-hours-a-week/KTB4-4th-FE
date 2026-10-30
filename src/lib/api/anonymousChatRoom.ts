@@ -5,6 +5,7 @@ import type { AnonymousChatType } from "@/lib/api/anonymousChats";
 import { ApiRequestError, apiFetch } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import { sendMockAnonymousChatMessage } from "@/mocks/anonymousChatRoom";
+import type { AnonymousChatProfile } from "@/types/anonymousChatProfile";
 
 export interface AnonymousChatRoomProduct {
   productId: number;
@@ -29,6 +30,7 @@ export type AnonymousChatRoomEndedReason = "ME_LEFT" | "PARTNER_LEFT";
 interface AnonymousChatRoomInfoBase {
   roomId: number;
   counterpartName: string;
+  counterpartProfile: AnonymousChatProfile;
   product: AnonymousChatRoomProduct;
 }
 
@@ -58,6 +60,7 @@ export type AnonymousChatRoom = AnonymousChatRoomInfo & AnonymousChatRoomMessage
 interface AnonymousChatRoomInfoResponseBase {
   roomId: number;
   targetName: string;
+  targetProfile: AnonymousChatProfile;
   product: AnonymousChatRoomProduct;
 }
 
@@ -184,6 +187,7 @@ export async function getAnonymousChatRoomInfo({
       type: "SENT",
       targetUserId: data.targetUserId,
       counterpartName: data.targetName,
+      counterpartProfile: data.targetProfile,
       product: data.product,
     };
   }
@@ -197,6 +201,7 @@ export async function getAnonymousChatRoomInfo({
     type: "RECEIVED",
     targetUserId: null,
     counterpartName: data.targetName,
+    counterpartProfile: data.targetProfile,
     product: data.product,
   };
 }

@@ -802,6 +802,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       {room.messages.length > 0 || pendingMessages.length > 0 || room.hasNext ? (
         <AnonymousChatMessageList
           counterpartName={room.counterpartName}
+          counterpartProfile={room.counterpartProfile}
           messages={room.messages}
           pendingMessages={pendingMessages}
           hasNext={room.hasNext}
