@@ -1,6 +1,7 @@
 // 익명대화 STOMP MESSAGE 본문의 런타임 검증과 이벤트별 스토어 분배
 "use client";
 
+import { confirmAnonymousChatMessage } from "@/lib/websocket/anonymousChatMessageDelivery";
 import { addAnonymousChatSocketListener } from "@/lib/websocket/anonymousChatSocket";
 import { useAnonymousChatStore } from "@/stores/anonymousChatStore";
 
@@ -229,6 +230,7 @@ function applyEventToStore(event: AnonymousChatEvent) {
         unreadCount: 1,
         sentAt: event.data.sentAt,
       });
+      confirmAnonymousChatMessage(event.data.clientMessageId);
       break;
     case "ANONYMOUS_CHAT_MESSAGE_RECEIVED":
       store.applyRealtimeMessage(
