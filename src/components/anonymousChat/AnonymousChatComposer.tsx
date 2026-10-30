@@ -1,21 +1,19 @@
-// 익명 채팅 메시지를 입력해 전송하고 전송된 메시지를 채팅방에 전달하는 입력창
+// 익명대화 메시지 입력과 WebSocket 전송을 담당하는 입력창 컴포넌트
 "use client";
 
 import { useState } from "react";
 
 import ChatComposer from "@/components/chat/ChatComposer";
-import { sendAnonymousChatMessage, type AnonymousChatMessage } from "@/lib/api/anonymousChatRoom";
+import { sendAnonymousChatMessage } from "@/lib/websocket/anonymousChatMessageDelivery";
 
 type AnonymousChatComposerProps = {
   chatId: number;
   isDisabled?: boolean;
-  onMessageSent: (message: AnonymousChatMessage) => void;
 };
 
 export default function AnonymousChatComposer({
   chatId,
   isDisabled = false,
-  onMessageSent,
 }: AnonymousChatComposerProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -23,12 +21,13 @@ export default function AnonymousChatComposer({
     setErrorMessage(null);
 
     try {
-      const message = await sendAnonymousChatMessage(chatId, content);
-
-      onMessageSent(message);
+      sendAnonymousChatMessage({ roomId: chatId, content });
     } catch (error) {
-      setErrorMessage("메시지를 보내지 못했어요. 잠시 후 다시 시도해 주세요.");
-      throw error;
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "메시지를 보내지 못했어요. 잠시 후 다시 시도해 주세요.",
+      );
     }
   };
 
@@ -44,6 +43,7 @@ export default function AnonymousChatComposer({
         isDisabled={isDisabled}
         placeholder="메시지 입력"
         variant="anonymous"
+        trimBeforeSend={false}
       />
     </div>
   );

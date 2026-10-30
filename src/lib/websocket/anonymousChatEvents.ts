@@ -1,6 +1,11 @@
 // 익명대화 STOMP MESSAGE 본문의 런타임 검증과 이벤트별 스토어 분배
 "use client";
 
+import { redirectToLogin } from "@/lib/api/client";
+import {
+  confirmAnonymousChatMessage,
+  failAnonymousChatMessage,
+} from "@/lib/websocket/anonymousChatMessageDelivery";
 import { addAnonymousChatSocketListener } from "@/lib/websocket/anonymousChatSocket";
 import { useAnonymousChatStore } from "@/stores/anonymousChatStore";
 
@@ -42,8 +47,8 @@ export interface AnonymousChatMessageErrorEvent {
   code: string;
   message: string;
   data: {
-    roomId?: number;
-    clientMessageId?: string;
+    roomId?: number | null;
+    clientMessageId?: string | null;
     retryAfterSeconds?: number;
   } | null;
 }
@@ -58,6 +63,11 @@ export type AnonymousChatEventHandler = (event: AnonymousChatEvent) => void;
 
 const eventHandlers = new Set<AnonymousChatEventHandler>();
 let removeSocketListener: (() => void) | null = null;
+const ONBOARDING_PATH = "/onboarding";
+const RETRYABLE_MESSAGE_ERROR_CODES = new Set([
+  "COMMON_TOO_MANY_REQUESTS",
+  "COMMON_INTERNAL_SERVER_ERROR",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -173,8 +183,10 @@ function parseMessageError(value: Record<string, unknown>): AnonymousChatMessage
 
   if (
     !isRecord(data) ||
-    (data.roomId !== undefined && !isPositiveSafeInteger(data.roomId)) ||
-    (data.clientMessageId !== undefined && !isNonEmptyString(data.clientMessageId)) ||
+    (data.roomId !== undefined && data.roomId !== null && !isPositiveSafeInteger(data.roomId)) ||
+    (data.clientMessageId !== undefined &&
+      data.clientMessageId !== null &&
+      !isNonEmptyString(data.clientMessageId)) ||
     (data.retryAfterSeconds !== undefined && !isNonNegativeFiniteNumber(data.retryAfterSeconds))
   ) {
     return null;
@@ -229,6 +241,7 @@ function applyEventToStore(event: AnonymousChatEvent) {
         unreadCount: 1,
         sentAt: event.data.sentAt,
       });
+      confirmAnonymousChatMessage(event.data.clientMessageId);
       break;
     case "ANONYMOUS_CHAT_MESSAGE_RECEIVED":
       store.applyRealtimeMessage(
@@ -247,7 +260,25 @@ function applyEventToStore(event: AnonymousChatEvent) {
       store.markOwnMessagesRead(event.data.roomId, event.data.lastReadMessageId);
       break;
     case "ANONYMOUS_CHAT_ERROR":
-      // 메시지 전송 상태 연동 전에도 호출 화면이 오류를 처리할 수 있도록 이벤트만 전달함
+      if (event.data?.clientMessageId) {
+        failAnonymousChatMessage({
+          clientMessageId: event.data.clientMessageId,
+          code: event.code,
+          message: event.message,
+          canRetry: RETRYABLE_MESSAGE_ERROR_CODES.has(event.code),
+          retryAfterSeconds: event.data.retryAfterSeconds,
+        });
+      }
+
+      if (event.code === "ANONYMOUS_CHAT_ROOM_ENDED" && event.data?.roomId) {
+        store.markRoomEnded(event.data.roomId);
+      }
+
+      if (event.code === "USER_ONBOARDING_REQUIRED") {
+        window.location.replace(ONBOARDING_PATH);
+      } else if (event.code === "USER_WITHDRAWN") {
+        redirectToLogin();
+      }
       break;
   }
 }

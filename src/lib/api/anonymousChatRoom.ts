@@ -16,6 +16,7 @@ export interface AnonymousChatRoomProduct {
 
 export interface AnonymousChatMessage {
   messageId: number;
+  clientMessageId?: string;
   content: string;
   isMine: boolean;
   unreadCount: number;

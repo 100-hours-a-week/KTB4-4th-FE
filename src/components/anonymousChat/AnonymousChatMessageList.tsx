@@ -1,20 +1,26 @@
-// 채팅방 메시지를 날짜 구분선과 함께 표시하고 커서 조회 전후의 스크롤 위치를 관리하는 목록
+// 서버·전송 대기 메시지를 날짜 구분선과 함께 표시하고 스크롤 위치를 관리하는 목록
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useRef } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import MessageDeliveryAction from "@/components/chat/MessageDeliveryAction";
 import type { AnonymousChatMessage } from "@/lib/api/anonymousChatRoom";
 import {
   formatChatDateDivider,
   formatChatMessageTime,
   getChatMessageDateKey,
 } from "@/lib/formatChatMessageTime";
+import type {
+  AnonymousChatPendingMessage,
+  AnonymousChatPendingMessageFailure,
+} from "@/stores/anonymousChatPendingMessageStore";
 
 import styles from "./AnonymousChatList.module.css";
 
 type AnonymousChatMessageListProps = {
   counterpartName: string;
   messages: AnonymousChatMessage[];
+  pendingMessages: AnonymousChatPendingMessage[];
   hasNext: boolean;
   isLoadingPreviousMessages: boolean;
   previousMessagesError: {
@@ -24,9 +30,74 @@ type AnonymousChatMessageListProps = {
   } | null;
   onLoadPreviousMessages: () => Promise<void>;
   onLastVisibleCounterpartMessageChange: (messageId: number) => void;
+  onRetryMessage: (clientMessageId: string) => void;
 };
 
+type ConfirmedDisplayMessage = AnonymousChatMessage & {
+  key: string;
+  deliveryStatus: "SENT";
+  failure: null;
+};
+
+type PendingDisplayMessage = {
+  key: string;
+  messageId: null;
+  clientMessageId: string;
+  content: string;
+  isMine: true;
+  unreadCount: 0;
+  sentAt: string;
+  deliveryStatus: "SENDING" | "FAILED";
+  isRetrying: boolean;
+  failure: AnonymousChatPendingMessageFailure | null;
+};
+
+type AnonymousChatDisplayMessage = ConfirmedDisplayMessage | PendingDisplayMessage;
+
 const LOAD_PREVIOUS_SCROLL_THRESHOLD_PX = 80;
+
+function createDisplayMessages(
+  messages: AnonymousChatMessage[],
+  pendingMessages: AnonymousChatPendingMessage[],
+) {
+  const confirmedClientMessageIds = new Set(
+    messages.flatMap((message) => (message.clientMessageId ? [message.clientMessageId] : [])),
+  );
+  const displayMessages: AnonymousChatDisplayMessage[] = [
+    ...messages.map((message): ConfirmedDisplayMessage => ({
+      ...message,
+      key: `message-${message.messageId}`,
+      deliveryStatus: "SENT",
+      failure: null,
+    })),
+    ...pendingMessages
+      .filter((message) => !confirmedClientMessageIds.has(message.clientMessageId))
+      .map((message): PendingDisplayMessage => ({
+        key: `pending-${message.clientMessageId}`,
+        messageId: null,
+        clientMessageId: message.clientMessageId,
+        content: message.content,
+        isMine: true,
+        unreadCount: 0,
+        sentAt: message.sentAt,
+        deliveryStatus: message.status,
+        isRetrying: message.isRetrying,
+        failure: message.failure,
+      })),
+  ];
+
+  return displayMessages.sort((left, right) => {
+    const timeDifference = Date.parse(left.sentAt) - Date.parse(right.sentAt);
+
+    return timeDifference === 0 ? left.key.localeCompare(right.key) : timeDifference;
+  });
+}
+
+function getRemainingRetrySeconds(failure: AnonymousChatPendingMessageFailure) {
+  const retryAvailableAt = Date.parse(failure.failedAt) + (failure.retryAfterSeconds ?? 0) * 1_000;
+
+  return Math.max(0, Math.ceil((retryAvailableAt - Date.now()) / 1_000));
+}
 
 function DateDivider({ dateTime }: { dateTime: string }) {
   return (
@@ -45,7 +116,7 @@ function CounterpartMessage({
   message,
 }: {
   counterpartName: string;
-  message: AnonymousChatMessage;
+  message: ConfirmedDisplayMessage;
 }) {
   return (
     <article
@@ -68,11 +139,94 @@ function CounterpartMessage({
   );
 }
 
-function MyMessage({ message }: { message: AnonymousChatMessage }) {
+function FailedMyMessage({
+  message,
+  clientMessageId,
+  failure,
+  onRetryMessage,
+}: {
+  message: PendingDisplayMessage;
+  clientMessageId: string;
+  failure: AnonymousChatPendingMessageFailure;
+  onRetryMessage: (clientMessageId: string) => void;
+}) {
+  const [remainingRetrySeconds, setRemainingRetrySeconds] = useState(() =>
+    getRemainingRetrySeconds(failure),
+  );
+
+  useEffect(() => {
+    if (getRemainingRetrySeconds(failure) === 0) return;
+
+    const timer = window.setInterval(() => {
+      const remainingSeconds = getRemainingRetrySeconds(failure);
+
+      setRemainingRetrySeconds(remainingSeconds);
+
+      if (remainingSeconds === 0) {
+        window.clearInterval(timer);
+      }
+    }, 250);
+
+    return () => window.clearInterval(timer);
+  }, [failure]);
+
   return (
-    <article aria-label="내 메시지" className="flex flex-col items-end pl-12">
-      <div className="flex items-end gap-1.5">
-        {message.unreadCount > 0 && (
+    <article aria-label="내 메시지, 전송 실패" className="flex flex-col items-end pl-12">
+      <div className="flex max-w-full items-center gap-1.5">
+        {failure.canRetry && (
+          <MessageDeliveryAction
+            status="FAILED"
+            disabled={remainingRetrySeconds > 0}
+            remainingRetrySeconds={remainingRetrySeconds}
+            onRetry={() => onRetryMessage(clientMessageId)}
+          />
+        )}
+        <p className="min-w-0 rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5 text-body break-words whitespace-pre-wrap text-on-primary">
+          {message.content}
+        </p>
+      </div>
+      <time dateTime={message.sentAt} className="mt-1.5 text-caption text-muted">
+        {formatChatMessageTime(message.sentAt)}
+      </time>
+      <p role="alert" className="mt-1 text-right text-caption text-danger">
+        {failure.message}
+        {failure.canRetry && remainingRetrySeconds > 0
+          ? ` (${remainingRetrySeconds}초 후 재전송 가능)`
+          : ""}
+      </p>
+    </article>
+  );
+}
+
+function MyMessage({
+  message,
+  onRetryMessage,
+}: {
+  message: AnonymousChatDisplayMessage;
+  onRetryMessage: (clientMessageId: string) => void;
+}) {
+  if (message.deliveryStatus === "FAILED" && message.failure) {
+    return (
+      <FailedMyMessage
+        key={message.failure.failedAt}
+        message={message}
+        clientMessageId={message.clientMessageId}
+        failure={message.failure}
+        onRetryMessage={onRetryMessage}
+      />
+    );
+  }
+
+  const isRetrying = message.deliveryStatus === "SENDING" && message.isRetrying;
+
+  return (
+    <article
+      aria-label={`내 메시지${isRetrying ? ", 재전송 중" : ""}`}
+      aria-busy={isRetrying || undefined}
+      className="flex flex-col items-end pl-12"
+    >
+      <div className={`flex max-w-full gap-1.5 ${isRetrying ? "items-center" : "items-end"}`}>
+        {message.deliveryStatus === "SENT" && message.unreadCount > 0 && (
           <span
             className="text-caption text-muted"
             aria-label={`읽지 않은 사람 ${message.unreadCount}명`}
@@ -80,13 +234,19 @@ function MyMessage({ message }: { message: AnonymousChatMessage }) {
             {message.unreadCount}
           </span>
         )}
-        <p className="rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5 text-body break-words whitespace-pre-wrap text-on-primary">
+        {isRetrying && <MessageDeliveryAction status="RETRYING" />}
+        <p className="min-w-0 rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5 text-body break-words whitespace-pre-wrap text-on-primary">
           {message.content}
         </p>
       </div>
       <time dateTime={message.sentAt} className="mt-1.5 text-caption text-muted">
         {formatChatMessageTime(message.sentAt)}
       </time>
+      {message.deliveryStatus === "SENDING" && !isRetrying && (
+        <p role="status" className="mt-1 text-caption text-muted">
+          전송 중
+        </p>
+      )}
     </article>
   );
 }
@@ -94,12 +254,18 @@ function MyMessage({ message }: { message: AnonymousChatMessage }) {
 export default function AnonymousChatMessageList({
   counterpartName,
   messages,
+  pendingMessages,
   hasNext,
   isLoadingPreviousMessages,
   previousMessagesError,
   onLoadPreviousMessages,
   onLastVisibleCounterpartMessageChange,
+  onRetryMessage,
 }: AnonymousChatMessageListProps) {
+  const displayMessages = useMemo(
+    () => createDisplayMessages(messages, pendingMessages),
+    [messages, pendingMessages],
+  );
   const listRef = useRef<HTMLDivElement>(null);
   const previousScrollHeightRef = useRef<number | null>(null);
   const previousScrollTopRef = useRef(0);
@@ -115,7 +281,7 @@ export default function AnonymousChatMessageList({
 
     previousScrollHeightRef.current = list.scrollHeight;
     previousScrollTopRef.current = list.scrollTop;
-    previousMessageCountRef.current = messages.length;
+    previousMessageCountRef.current = displayMessages.length;
     void onLoadPreviousMessages();
   };
 
@@ -135,17 +301,17 @@ export default function AnonymousChatMessageList({
 
     list.scrollTop = list.scrollHeight;
     isInitialScrollCompleteRef.current = true;
-  }, [messages.length]);
+  }, [displayMessages.length]);
 
   useEffect(() => {
     if (
       !isLoadingPreviousMessages &&
       previousScrollHeightRef.current !== null &&
-      previousMessageCountRef.current === messages.length
+      previousMessageCountRef.current === displayMessages.length
     ) {
       previousScrollHeightRef.current = null;
     }
-  }, [isLoadingPreviousMessages, messages.length]);
+  }, [isLoadingPreviousMessages, displayMessages.length]);
 
   useEffect(() => {
     const list = listRef.current;
@@ -160,10 +326,14 @@ export default function AnonymousChatMessageList({
         return;
       }
 
-      for (let index = messages.length - 1; index >= 0; index -= 1) {
-        const message = messages[index];
+      for (let index = displayMessages.length - 1; index >= 0; index -= 1) {
+        const message = displayMessages[index];
 
-        if (!message.isMine && visibleMessageIds.has(message.messageId)) {
+        if (
+          !message.isMine &&
+          message.messageId !== null &&
+          visibleMessageIds.has(message.messageId)
+        ) {
           onLastVisibleCounterpartMessageChange(message.messageId);
           return;
         }
@@ -202,7 +372,7 @@ export default function AnonymousChatMessageList({
       observer.disconnect();
       document.removeEventListener("visibilitychange", reportLastVisibleMessage);
     };
-  }, [messages, onLastVisibleCounterpartMessageChange]);
+  }, [displayMessages, onLastVisibleCounterpartMessageChange]);
 
   const handleScroll = () => {
     const list = listRef.current;
@@ -255,17 +425,17 @@ export default function AnonymousChatMessageList({
       </div>
 
       <div className="flex flex-col gap-5">
-        {messages.map((message, index) => {
-          const previousMessage = messages[index - 1];
+        {displayMessages.map((message, index) => {
+          const previousMessage = displayMessages[index - 1];
           const hasDateDivider =
             !previousMessage ||
             getChatMessageDateKey(message.sentAt) !== getChatMessageDateKey(previousMessage.sentAt);
 
           return (
-            <Fragment key={message.messageId}>
+            <Fragment key={message.key}>
               {hasDateDivider && <DateDivider dateTime={message.sentAt} />}
               {message.isMine ? (
-                <MyMessage message={message} />
+                <MyMessage message={message} onRetryMessage={onRetryMessage} />
               ) : (
                 <CounterpartMessage counterpartName={counterpartName} message={message} />
               )}

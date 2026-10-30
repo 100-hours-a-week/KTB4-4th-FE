@@ -49,10 +49,7 @@ export interface AnonymousChatRoomEntity {
   areMessagesLoaded: boolean;
 }
 
-export type AnonymousChatMessageEntity = AnonymousChatMessage & {
-  roomId: number;
-  clientMessageId?: string;
-};
+export type AnonymousChatMessageEntity = AnonymousChatMessage & { roomId: number };
 
 export interface AnonymousChatListPagination {
   nextCursor: string | null;
@@ -92,6 +89,7 @@ interface AnonymousChatState {
   markOwnMessagesRead: (roomId: number, lastReadMessageId: number) => void;
   acknowledgeRoomRead: (roomId: number, lastReadMessageId: number) => void;
   setRoomUnreadCount: (roomId: number, unreadMessageCount: number) => void;
+  markRoomEnded: (roomId: number) => void;
   removeRoom: (roomId: number) => void;
   reset: () => void;
 }
@@ -434,6 +432,21 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
       return {
         roomsById,
         totalUnreadCount: calculateTotalUnreadCount(roomsById),
+      };
+    }),
+
+  markRoomEnded: (roomId) =>
+    set((state) => {
+      const currentRoom = state.roomsById[roomId] ?? createRoomEntity(roomId);
+
+      return {
+        roomsById: {
+          ...state.roomsById,
+          [roomId]: {
+            ...currentRoom,
+            roomStatus: "ENDED",
+          },
+        },
       };
     }),
 

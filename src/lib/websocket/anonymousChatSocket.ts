@@ -6,6 +6,7 @@ import { Client, Versions, type IFrame, type IMessage } from "@stomp/stompjs";
 import { redirectToLogin, refreshAccessToken } from "@/lib/api/client";
 import {
   ANONYMOUS_CHAT_HEARTBEAT_MS,
+  ANONYMOUS_CHAT_MESSAGE_LENGTH,
   ANONYMOUS_CHAT_SOCKET_PATH,
   ANONYMOUS_CHAT_STOMP_DESTINATIONS,
   parseAnonymousChatStompError,
@@ -16,6 +17,26 @@ import { useAnonymousChatStore } from "@/stores/anonymousChatStore";
 const INITIAL_RECONNECT_DELAY_MS = 5_000;
 const MAX_RECONNECT_DELAY_MS = 5 * 60_000;
 const ONBOARDING_PATH = "/onboarding";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type AnonymousChatMessagePublishErrorCode =
+  "NOT_CONNECTED" | "INVALID_ROOM_ID" | "INVALID_CLIENT_MESSAGE_ID" | "INVALID_CONTENT";
+
+export class AnonymousChatMessagePublishError extends Error {
+  constructor(
+    public readonly code: AnonymousChatMessagePublishErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "AnonymousChatMessagePublishError";
+  }
+}
+
+export interface AnonymousChatMessagePublishRequest {
+  roomId: number;
+  clientMessageId: string;
+  content: string;
+}
 
 type PendingStompError =
   { type: "known"; error: AnonymousChatStompErrorPayload } | { type: "unknown" } | null;
@@ -256,6 +277,52 @@ export function openAnonymousChatSocket() {
   shouldMaintainConnection = true;
   clearReconnectTimer();
   activateClient();
+}
+
+export function publishAnonymousChatMessage({
+  roomId,
+  clientMessageId,
+  content,
+}: AnonymousChatMessagePublishRequest) {
+  if (!Number.isSafeInteger(roomId) || roomId <= 0) {
+    throw new AnonymousChatMessagePublishError(
+      "INVALID_ROOM_ID",
+      "유효한 익명대화방에서 메시지를 보내 주세요.",
+    );
+  }
+
+  if (!UUID_PATTERN.test(clientMessageId)) {
+    throw new AnonymousChatMessagePublishError(
+      "INVALID_CLIENT_MESSAGE_ID",
+      "메시지 식별자 형식이 올바르지 않습니다.",
+    );
+  }
+
+  if (
+    content.length < ANONYMOUS_CHAT_MESSAGE_LENGTH.min ||
+    content.length > ANONYMOUS_CHAT_MESSAGE_LENGTH.max ||
+    content.trim().length === 0
+  ) {
+    throw new AnonymousChatMessagePublishError(
+      "INVALID_CONTENT",
+      `메시지는 ${ANONYMOUS_CHAT_MESSAGE_LENGTH.min}자 이상 ${ANONYMOUS_CHAT_MESSAGE_LENGTH.max}자 이하로 입력해 주세요.`,
+    );
+  }
+
+  const socketClient = getClient();
+
+  if (!socketClient.connected) {
+    throw new AnonymousChatMessagePublishError(
+      "NOT_CONNECTED",
+      "익명대화 연결을 확인한 뒤 다시 시도해 주세요.",
+    );
+  }
+
+  socketClient.publish({
+    destination: ANONYMOUS_CHAT_STOMP_DESTINATIONS.messages(roomId),
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ clientMessageId, content }),
+  });
 }
 
 export async function closeAnonymousChatSocket() {
