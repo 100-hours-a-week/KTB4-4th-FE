@@ -19,6 +19,7 @@ import { getAnonymousChatListHref } from "@/lib/anonymousChatNavigation";
 import {
   getAnonymousChatRoomInfo,
   getAnonymousChatRoomMessages,
+  isAnonymousChatRoomClosed,
   markAnonymousChatMessagesRead,
   type AnonymousChatMessage,
   type AnonymousChatRoom,
@@ -802,12 +803,12 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       {room.messages.length > 0 ||
       pendingMessages.length > 0 ||
       room.hasNext ||
-      room.roomStatus === "ENDED" ? (
+      isAnonymousChatRoomClosed(room.roomStatus) ? (
         <AnonymousChatMessageList
           counterpartName={room.counterpartName}
           messages={room.messages}
           pendingMessages={pendingMessages}
-          isRoomEnded={room.roomStatus === "ENDED"}
+          isRoomEnded={isAnonymousChatRoomClosed(room.roomStatus)}
           hasNext={room.hasNext}
           isLoadingPreviousMessages={isLoadingPreviousMessages}
           previousMessagesError={previousMessagesError}
@@ -819,7 +820,10 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatStartGuide />
       )}
 
-      <AnonymousChatComposer chatId={room.roomId} isDisabled={room.roomStatus === "ENDED"} />
+      <AnonymousChatComposer
+        chatId={room.roomId}
+        isDisabled={isAnonymousChatRoomClosed(room.roomStatus)}
+      />
 
       <AnonymousChatReportModal
         open={openModal === "report"}

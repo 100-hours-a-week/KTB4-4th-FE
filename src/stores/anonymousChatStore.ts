@@ -58,6 +58,7 @@ export interface AnonymousChatListPagination {
 }
 
 export interface AnonymousChatRoomEndUpdate {
+  roomStatus?: Extract<AnonymousChatRoomStatus, "ENDED" | "EXPIRED">;
   endedReason?: AnonymousChatRoomEndedReason | null;
   endedAt?: string | null;
 }
@@ -447,7 +448,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
         ...state.roomsById,
         [roomId]: {
           ...currentRoom,
-          roomStatus: "ENDED" as const,
+          roomStatus: update?.roomStatus ?? "ENDED",
           hasUnreadMessage: false,
           unreadMessageCount: 0,
           ...(update?.endedReason !== undefined ? { endedReason: update.endedReason } : {}),

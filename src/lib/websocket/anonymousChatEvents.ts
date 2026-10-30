@@ -46,8 +46,8 @@ export interface AnonymousChatRoomEndedEvent {
   type: "ANONYMOUS_CHAT_ROOM_ENDED";
   data: {
     roomId: number;
-    roomStatus: "ENDED";
-    endedReason: "PARTNER_LEFT";
+    roomStatus: "ENDED" | "EXPIRED";
+    endedReason: "PARTNER_LEFT" | "USER_BLOCKED";
     endedAt: string;
   };
 }
@@ -182,8 +182,8 @@ function parseRoomEnded(value: Record<string, unknown>): AnonymousChatRoomEndedE
   if (
     !isRecord(data) ||
     !isPositiveSafeInteger(data.roomId) ||
-    data.roomStatus !== "ENDED" ||
-    data.endedReason !== "PARTNER_LEFT" ||
+    (data.roomStatus !== "ENDED" && data.roomStatus !== "EXPIRED") ||
+    (data.endedReason !== "PARTNER_LEFT" && data.endedReason !== "USER_BLOCKED") ||
     !isDateTimeString(data.endedAt)
   ) {
     return null;
@@ -193,8 +193,8 @@ function parseRoomEnded(value: Record<string, unknown>): AnonymousChatRoomEndedE
     type: "ANONYMOUS_CHAT_ROOM_ENDED",
     data: {
       roomId: data.roomId,
-      roomStatus: "ENDED",
-      endedReason: "PARTNER_LEFT",
+      roomStatus: data.roomStatus,
+      endedReason: data.endedReason,
       endedAt: data.endedAt,
     },
   };
@@ -298,6 +298,7 @@ function applyEventToStore(event: AnonymousChatEvent) {
       break;
     case "ANONYMOUS_CHAT_ROOM_ENDED":
       store.markRoomEnded(event.data.roomId, {
+        roomStatus: event.data.roomStatus,
         endedReason: event.data.endedReason,
         endedAt: event.data.endedAt,
       });
