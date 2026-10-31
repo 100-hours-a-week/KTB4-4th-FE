@@ -14,13 +14,14 @@ export interface AnonymousChatProfile {
 }
 
 export const DEFAULT_ANONYMOUS_CHAT_PROFILE_IMAGE = "/icons/icon-user.svg";
+const ANONYMOUS_CHAT_PROFILE_IMAGE_VERSION = "2";
 
 export function getAnonymousChatProfileImageSource(profile: AnonymousChatProfile) {
   if (profile.type === "ANONYMOUS" && profile.avatar) {
     const animal = encodeURIComponent(profile.avatar.animal);
     const color = encodeURIComponent(profile.avatar.color);
 
-    return `/icons/anonymous-profiles/${animal}-${color}.svg`;
+    return `/icons/anonymous-profiles/${animal}-${color}.svg?v=${ANONYMOUS_CHAT_PROFILE_IMAGE_VERSION}`;
   }
 
   if (profile.type === "USER" && profile.profileImageUrl) {
