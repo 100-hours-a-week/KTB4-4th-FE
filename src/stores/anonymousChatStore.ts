@@ -4,6 +4,7 @@ import { create } from "zustand";
 
 import type {
   AnonymousChatMessage,
+  AnonymousChatPartnerStatus,
   AnonymousChatRoomEndedReason,
   AnonymousChatRoomInfo,
   AnonymousChatRoomMessages,
@@ -38,6 +39,7 @@ export interface AnonymousChatRoomEntity {
   counterpartName?: string;
   counterpartAlias?: string;
   counterpartProfile?: AnonymousChatProfile;
+  partnerStatus?: AnonymousChatPartnerStatus;
   product?: AnonymousChatProductEntity;
   hasUnreadMessage: boolean;
   unreadMessageCount: number;
@@ -255,6 +257,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
             targetUserId: roomInfo.targetUserId,
             counterpartName: roomInfo.counterpartName,
             counterpartProfile: roomInfo.counterpartProfile,
+            partnerStatus: roomInfo.partnerStatus,
             product: {
               ...currentRoom.product,
               ...roomInfo.product,

@@ -26,8 +26,9 @@ export interface AnonymousChatMessage {
 
 export type AnonymousChatRoomStatus = "ACTIVE" | "ENDED" | "EXPIRED";
 export type AnonymousChatRoomEndedReason = "ME_LEFT" | "PARTNER_LEFT" | "USER_BLOCKED";
+export type AnonymousChatPartnerStatus = "JOINED" | "LEFT";
 
-// 상대방 나가기(EXPIRED)와 차단(ENDED) 모두 메시지를 더 보낼 수 없는 종료 상태로 판단함
+// 종료되거나 만료된 대화방을 더 이상 메시지를 보낼 수 없는 상태로 판단함
 export function isAnonymousChatRoomClosed(status: AnonymousChatRoomStatus | undefined) {
   return status === "ENDED" || status === "EXPIRED";
 }
@@ -36,6 +37,7 @@ interface AnonymousChatRoomInfoBase {
   roomId: number;
   counterpartName: string;
   counterpartProfile: AnonymousChatProfile;
+  partnerStatus: AnonymousChatPartnerStatus;
   product: AnonymousChatRoomProduct;
 }
 
@@ -66,6 +68,7 @@ interface AnonymousChatRoomInfoResponseBase {
   roomId: number;
   targetName: string;
   targetProfile: AnonymousChatProfile;
+  partnerStatus: AnonymousChatPartnerStatus;
   product: AnonymousChatRoomProduct;
 }
 
@@ -193,6 +196,7 @@ export async function getAnonymousChatRoomInfo({
       targetUserId: data.targetUserId,
       counterpartName: data.targetName,
       counterpartProfile: data.targetProfile,
+      partnerStatus: data.partnerStatus,
       product: data.product,
     };
   }
@@ -207,6 +211,7 @@ export async function getAnonymousChatRoomInfo({
     targetUserId: null,
     counterpartName: data.targetName,
     counterpartProfile: data.targetProfile,
+    partnerStatus: data.partnerStatus,
     product: data.product,
   };
 }

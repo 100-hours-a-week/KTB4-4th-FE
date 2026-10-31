@@ -786,6 +786,8 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   }
 
   const { room } = roomState;
+  const isPartnerLeft = room.partnerStatus === "LEFT";
+  const isMessageSendingDisabled = isAnonymousChatRoomClosed(room.roomStatus) || isPartnerLeft;
 
   return (
     <main
@@ -811,13 +813,13 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       {room.messages.length > 0 ||
       pendingMessages.length > 0 ||
       room.hasNext ||
-      isAnonymousChatRoomClosed(room.roomStatus) ? (
+      isMessageSendingDisabled ? (
         <AnonymousChatMessageList
           counterpartName={room.counterpartName}
           counterpartProfile={room.counterpartProfile}
           messages={room.messages}
           pendingMessages={pendingMessages}
-          isRoomEnded={isAnonymousChatRoomClosed(room.roomStatus)}
+          isRoomEnded={isMessageSendingDisabled}
           hasNext={room.hasNext}
           isLoadingPreviousMessages={isLoadingPreviousMessages}
           previousMessagesError={previousMessagesError}
@@ -829,10 +831,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatStartGuide />
       )}
 
-      <AnonymousChatComposer
-        chatId={room.roomId}
-        isDisabled={isAnonymousChatRoomClosed(room.roomStatus)}
-      />
+      <AnonymousChatComposer chatId={room.roomId} isDisabled={isMessageSendingDisabled} />
 
       <AnonymousChatReportModal
         open={openModal === "report"}
