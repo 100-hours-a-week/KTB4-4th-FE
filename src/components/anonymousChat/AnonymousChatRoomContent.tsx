@@ -596,7 +596,11 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   }, [chatId, roomState, router]);
 
   const processReadReceipt = useCallback(async () => {
-    if (isMarkingMessagesReadRef.current || readRetryTimerRef.current) {
+    if (
+      document.visibilityState !== "visible" ||
+      isMarkingMessagesReadRef.current ||
+      readRetryTimerRef.current
+    ) {
       return;
     }
 
@@ -648,21 +652,6 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         return;
       }
 
-      if (error instanceof ApiRequestError && error.status === 404) {
-        setRoomState({ status: "notFound" });
-        return;
-      }
-
-      if (error instanceof ApiRequestError && error.status === 403) {
-        setRoomState({
-          status: "failed",
-          message: error.message,
-          retryAfterSeconds: 0,
-          canRetry: false,
-        });
-        return;
-      }
-
       const isRetryableError =
         error instanceof ApiRequestError &&
         (error.status === 429 || error.status === 500 || error.status === 503);
@@ -702,11 +691,14 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   }, [processReadReceipt]);
 
   const handleLastVisibleCounterpartMessageChange = useCallback((messageId: number) => {
-    if (messageId <= latestVisibleCounterpartMessageIdRef.current) {
+    if (messageId <= lastReadMessageIdRef.current) {
       return;
     }
 
-    latestVisibleCounterpartMessageIdRef.current = messageId;
+    latestVisibleCounterpartMessageIdRef.current = Math.max(
+      latestVisibleCounterpartMessageIdRef.current,
+      messageId,
+    );
     readRetryAttemptRef.current = 0;
 
     if (readRetryTimerRef.current) {
