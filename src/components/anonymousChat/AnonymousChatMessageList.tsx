@@ -138,7 +138,7 @@ function CounterpartMessage({
       />
       <div className="min-w-0">
         <p className="text-caption font-bold text-foreground">{counterpartName}</p>
-        <p className="mt-1.5 rounded-[18px] rounded-tl-[4px] bg-surface px-4 py-2.5 text-body break-words whitespace-pre-wrap text-foreground">
+        <p className="mt-1.5 w-fit max-w-full rounded-[18px] rounded-tl-[4px] bg-surface px-4 py-2.5 text-body break-words whitespace-pre-wrap text-foreground">
           {message.content}
         </p>
         <time dateTime={message.sentAt} className="mt-1.5 block text-caption text-muted">
