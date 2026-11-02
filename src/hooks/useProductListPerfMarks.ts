@@ -51,3 +51,19 @@ export function useProductListPerfMarks(productCount: number) {
     }
   }, []);
 }
+
+// 쿼리 캐시를 사용하는 목록용으로, 현재 조건의 첫 페이지가 바뀐 렌더링이 DOM에 반영된 직후 기록함
+// 이전 조건의 목록을 유지해 표시하는 동안에는 undefined를 전달해 기록하지 않음
+export function useProductListFirstPagePerfMarks(firstPage: { items: unknown[] } | undefined) {
+  // 다음 페이지를 이어 불러올 때는 첫 페이지 객체가 그대로이므로 다시 기록하지 않음
+  useLayoutEffect(() => {
+    if (!PERF_INSTRUMENT || firstPage === undefined) {
+      return;
+    }
+
+    const productCount = firstPage.items.length;
+
+    recordProductListPageLoad(productCount);
+    markPerfEnd(PERF_METRIC.productListFilterChange, { productCount });
+  }, [firstPage]);
+}
