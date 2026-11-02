@@ -101,12 +101,11 @@ function PersonalRecommendationsListContent({
         className={`grid grid-cols-3 gap-x-2 gap-y-5 ${isPlaceholderData ? "opacity-50" : ""}`}
       >
         {products.map((product) => (
-          <PerfProfiler key={product.recommendationId} id="product-card">
-            <ProductCard
-              product={product}
-              detailHref={`/products/${product.productId}?context=PERSONAL`}
-            />
-          </PerfProfiler>
+          <ProductCard
+            key={product.recommendationId}
+            product={product}
+            detailHref={`/products/${product.productId}?context=PERSONAL`}
+          />
         ))}
       </div>
 

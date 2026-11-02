@@ -114,18 +114,7 @@ function GiftRecommendationsListContent({
               : `/products/${product.productId}?context=MY_GIFT`;
 
           return (
-            <PerfProfiler key={product.recommendationId} id="product-card">
-              <ProductCard
-                product={{
-                  name: product.name,
-                  category: product.category,
-                  price: product.price,
-                  productImageUrl: product.productImageUrl,
-                  purchaseUrl: product.purchaseUrl,
-                }}
-                detailHref={detailHref}
-              />
-            </PerfProfiler>
+            <ProductCard key={product.recommendationId} product={product} detailHref={detailHref} />
           );
         })}
       </div>
