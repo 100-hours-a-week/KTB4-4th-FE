@@ -1,7 +1,9 @@
-// 추천 상품의 기본 정보를 표시하는 카드 컴포넌트
+// 추천 상품의 기본 정보를 표시하고, 표시 값이 같으면 다시 렌더링하지 않는 카드 컴포넌트
 
 import Link from "next/link";
+import { memo } from "react";
 
+import PerfProfiler from "@/components/perf/PerfProfiler";
 import { getProductCategoryName } from "@/lib/productCategories";
 
 type ProductCardProps = {
@@ -17,7 +19,7 @@ type ProductCardProps = {
 
 const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
 
-export default function ProductCard({ product, detailHref }: ProductCardProps) {
+function ProductCardContent({ product, detailHref }: ProductCardProps) {
   const content = (
     <>
       <div
@@ -57,3 +59,27 @@ export default function ProductCard({ product, detailHref }: ProductCardProps) {
     </a>
   );
 }
+
+// 렌더링을 건너뛴 카드는 update로 기록되지 않도록 Profiler를 memo 안쪽에 둠
+function ProfiledProductCard(props: ProductCardProps) {
+  return (
+    <PerfProfiler id="product-card">
+      <ProductCardContent {...props} />
+    </PerfProfiler>
+  );
+}
+
+// 조건 변경으로 상품 객체가 새로 만들어져도 표시 값이 같으면 렌더링을 건너뛰도록 값으로 비교함
+// 카드에 표시하는 상품 필드를 추가하면 이 비교에도 함께 추가해야 함
+function areProductCardPropsEqual(prev: ProductCardProps, next: ProductCardProps) {
+  return (
+    prev.detailHref === next.detailHref &&
+    prev.product.name === next.product.name &&
+    prev.product.category === next.product.category &&
+    prev.product.price === next.product.price &&
+    prev.product.productImageUrl === next.product.productImageUrl &&
+    prev.product.purchaseUrl === next.product.purchaseUrl
+  );
+}
+
+export default memo(ProfiledProductCard, areProductCardPropsEqual);
