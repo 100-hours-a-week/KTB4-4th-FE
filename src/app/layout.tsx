@@ -2,6 +2,7 @@
 import FontStylesheet from "@/components/layout/FontStylesheet";
 import GoogleAnalytics from "@/components/layout/GoogleAnalytics";
 import PerfInstrumentationLoader from "@/components/perf/PerfInstrumentationLoader";
+import { QueryProvider } from "@/contexts/QueryClientContext";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 import "./globals.css";
@@ -54,7 +55,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko">
       <body>
-        <div className="mobile-layout">{children}</div>
+        <QueryProvider>
+          <div className="mobile-layout">{children}</div>
+        </QueryProvider>
         {/* head에 두면 앞선 CSS를 기다리며 HTML 해석을 멈춰 JS 요청이 지연되므로 body 끝에 배치 */}
         <FontStylesheet />
         <GoogleAnalytics gaId="G-6HBHQRT9R6" />
