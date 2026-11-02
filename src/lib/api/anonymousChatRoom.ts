@@ -5,6 +5,7 @@ import type { AnonymousChatType } from "@/lib/api/anonymousChats";
 import { ApiRequestError, apiFetch } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import { sendMockAnonymousChatMessage } from "@/mocks/anonymousChatRoom";
+import type { AnonymousChatProfile } from "@/types/anonymousChatProfile";
 
 export interface AnonymousChatRoomProduct {
   productId: number;
@@ -16,21 +17,41 @@ export interface AnonymousChatRoomProduct {
 
 export interface AnonymousChatMessage {
   messageId: number;
+  clientMessageId?: string;
   content: string;
   isMine: boolean;
   unreadCount: number;
   sentAt: string;
 }
 
-export type AnonymousChatRoomStatus = "ACTIVE" | "ENDED";
-export type AnonymousChatRoomEndedReason = "ME_LEFT" | "PARTNER_LEFT";
+export type AnonymousChatRoomStatus = "ACTIVE" | "ENDED" | "EXPIRED";
+export type AnonymousChatRoomEndedReason = "ME_LEFT" | "PARTNER_LEFT" | "USER_BLOCKED";
+export type AnonymousChatPartnerStatus = "JOINED" | "LEFT";
 
-export interface AnonymousChatRoomInfo {
+// 종료되거나 만료된 대화방을 더 이상 메시지를 보낼 수 없는 상태로 판단함
+export function isAnonymousChatRoomClosed(status: AnonymousChatRoomStatus | undefined) {
+  return status === "ENDED" || status === "EXPIRED";
+}
+
+interface AnonymousChatRoomInfoBase {
   roomId: number;
-  type: AnonymousChatType;
   counterpartName: string;
+  counterpartProfile: AnonymousChatProfile;
+  partnerStatus: AnonymousChatPartnerStatus;
   product: AnonymousChatRoomProduct;
 }
+
+export type AnonymousChatRoomInfo = AnonymousChatRoomInfoBase &
+  (
+    | {
+        type: Extract<AnonymousChatType, "SENT">;
+        targetUserId: number;
+      }
+    | {
+        type: Extract<AnonymousChatType, "RECEIVED">;
+        targetUserId: null;
+      }
+  );
 
 export interface AnonymousChatRoomMessages {
   roomStatus: AnonymousChatRoomStatus;
@@ -43,14 +64,18 @@ export interface AnonymousChatRoomMessages {
 
 export type AnonymousChatRoom = AnonymousChatRoomInfo & AnonymousChatRoomMessages;
 
+interface AnonymousChatRoomInfoResponseBase {
+  roomId: number;
+  targetName: string;
+  targetProfile: AnonymousChatProfile;
+  partnerStatus: AnonymousChatPartnerStatus;
+  product: AnonymousChatRoomProduct;
+}
+
 interface AnonymousChatRoomInfoResponse {
   message: string;
-  data: {
-    roomId: number;
-    askedByMe: boolean;
-    targetName: string;
-    product: AnonymousChatRoomProduct;
-  };
+  data: AnonymousChatRoomInfoResponseBase &
+    ({ askedByMe: true; targetUserId: number } | { askedByMe: false; targetUserId: null });
 }
 
 interface AnonymousChatRoomErrorResponse {
@@ -160,10 +185,33 @@ export async function getAnonymousChatRoomInfo({
 
   const { data } = (await response.json()) as AnonymousChatRoomInfoResponse;
 
+  if (data.askedByMe) {
+    if (!Number.isSafeInteger(data.targetUserId) || data.targetUserId <= 0) {
+      throw new ApiRequestError("대화방 상품 정보를 불러오지 못했습니다.", 500);
+    }
+
+    return {
+      roomId: data.roomId,
+      type: "SENT",
+      targetUserId: data.targetUserId,
+      counterpartName: data.targetName,
+      counterpartProfile: data.targetProfile,
+      partnerStatus: data.partnerStatus,
+      product: data.product,
+    };
+  }
+
+  if (data.targetUserId !== null) {
+    throw new ApiRequestError("대화방 상품 정보를 불러오지 못했습니다.", 500);
+  }
+
   return {
     roomId: data.roomId,
-    type: data.askedByMe ? "SENT" : "RECEIVED",
+    type: "RECEIVED",
+    targetUserId: null,
     counterpartName: data.targetName,
+    counterpartProfile: data.targetProfile,
+    partnerStatus: data.partnerStatus,
     product: data.product,
   };
 }

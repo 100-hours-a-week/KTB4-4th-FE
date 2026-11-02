@@ -3,14 +3,20 @@
 
 import Link from "next/link";
 
+import AnonymousChatProfileImage from "@/components/anonymousChat/AnonymousChatProfileImage";
 import useSwipeReveal from "@/hooks/useSwipeReveal";
-import type { AnonymousChatListItem as AnonymousChatListItemData } from "@/lib/api/anonymousChats";
+import { getAnonymousChatRoomHref } from "@/lib/anonymousChatNavigation";
+import type {
+  AnonymousChatListItem as AnonymousChatListItemData,
+  AnonymousChatType,
+} from "@/lib/api/anonymousChats";
 import { formatChatTime } from "@/lib/formatChatTime";
 
 import type { MouseEvent } from "react";
 
 type AnonymousChatListItemProps = {
   chat: AnonymousChatListItemData;
+  type: AnonymousChatType;
   isLeaveRevealed: boolean;
   onRevealLeave: (roomId: number | null) => void;
   onLeave: (roomId: number) => void;
@@ -21,6 +27,7 @@ const MAX_UNREAD_COUNT_LABEL = 99;
 
 export default function AnonymousChatListItem({
   chat,
+  type,
   isLeaveRevealed,
   onRevealLeave,
   onLeave,
@@ -28,6 +35,7 @@ export default function AnonymousChatListItem({
   const {
     roomId,
     counterpartAlias,
+    counterpartProfile,
     product,
     lastMessage,
     lastActiveAt,
@@ -75,7 +83,7 @@ export default function AnonymousChatListItem({
       </button>
 
       <Link
-        href={`/chat/${roomId}`}
+        href={getAnonymousChatRoomHref(roomId, type)}
         draggable={false}
         aria-describedby={instructionId}
         className={`relative flex touch-pan-y gap-3 bg-background px-page py-4 select-none hover:bg-background-subtle ${
@@ -101,8 +109,12 @@ export default function AnonymousChatListItem({
           눌러서 대화방 열기, 왼쪽으로 밀거나 왼쪽 방향키를 눌러 나가기 버튼 표시
         </span>
 
-        {/* TODO: 프로필 이미지 정책 확정 후 이미지 표시 */}
-        <div aria-hidden="true" className="h-12 w-12 shrink-0 rounded-[35%] bg-background-subtle" />
+        <AnonymousChatProfileImage
+          profile={counterpartProfile}
+          alt={`${displayAlias} 프로필 이미지`}
+          size={48}
+          className="h-12 w-12"
+        />
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-[18px] leading-6 font-bold text-foreground">{displayAlias}</p>

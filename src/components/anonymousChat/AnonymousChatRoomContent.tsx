@@ -3,6 +3,7 @@
 
 import { notFound, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import AnonymousChatComposer from "@/components/anonymousChat/AnonymousChatComposer";
 import AnonymousChatGuideCard from "@/components/anonymousChat/AnonymousChatGuideCard";
@@ -14,9 +15,11 @@ import AnonymousChatRoomHeader from "@/components/anonymousChat/AnonymousChatRoo
 import AnonymousChatStartGuide from "@/components/anonymousChat/AnonymousChatStartGuide";
 import { useToastContext } from "@/contexts/ToastContext";
 import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
+import { getAnonymousChatListHref } from "@/lib/anonymousChatNavigation";
 import {
   getAnonymousChatRoomInfo,
   getAnonymousChatRoomMessages,
+  isAnonymousChatRoomClosed,
   markAnonymousChatMessagesRead,
   type AnonymousChatMessage,
   type AnonymousChatRoom,
@@ -26,7 +29,9 @@ import {
   addAnonymousChatEventHandler,
   type AnonymousChatEvent,
 } from "@/lib/websocket/anonymousChatEvents";
+import { retryAnonymousChatMessage } from "@/lib/websocket/anonymousChatMessageDelivery";
 import { addAnonymousChatSocketListener } from "@/lib/websocket/anonymousChatSocket";
+import { useAnonymousChatPendingMessageStore } from "@/stores/anonymousChatPendingMessageStore";
 import { useAnonymousChatStore } from "@/stores/anonymousChatStore";
 
 type AnonymousChatRoomContentProps = {
@@ -107,6 +112,14 @@ function mergeDisplayedMessage(
   return messages.map((message, index) => (index === currentIndex ? nextMessage : message));
 }
 
+function getProductDetailHref(room: AnonymousChatRoom) {
+  if (room.type === "SENT") {
+    return `/products/${room.product.productId}?context=FRIEND_GIFT&userId=${room.targetUserId}`;
+  }
+
+  return `/products/${room.product.productId}?context=MY_GIFT`;
+}
+
 export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomContentProps) {
   const [roomState, setRoomState] = useState<RoomState>({ status: "loading" });
   const [requestVersion, setRequestVersion] = useState(0);
@@ -129,6 +142,15 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   const processReadReceiptRef = useRef<() => void>(() => undefined);
   const router = useRouter();
   const { showToast } = useToastContext();
+  const pendingMessages = useAnonymousChatPendingMessageStore(
+    useShallow((state) =>
+      (state.clientMessageIdsByRoomId[chatId] ?? []).flatMap((clientMessageId) => {
+        const message = state.messagesByClientMessageId[clientMessageId];
+
+        return message ? [message] : [];
+      }),
+    ),
+  );
 
   useVisualViewportHeight();
 
@@ -183,6 +205,42 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
                       ? { ...message, unreadCount: 0 }
                       : message,
                   ),
+                },
+              }
+            : current,
+        );
+        return;
+      }
+
+      if (event.type === "ANONYMOUS_CHAT_ROOM_ENDED" && event.data.roomId === chatId) {
+        setRoomState((current) =>
+          current.status === "loaded"
+            ? {
+                ...current,
+                room: {
+                  ...current.room,
+                  roomStatus: event.data.roomStatus,
+                  endedReason: event.data.endedReason,
+                  endedAt: event.data.endedAt,
+                },
+              }
+            : current,
+        );
+        return;
+      }
+
+      if (
+        event.type === "ANONYMOUS_CHAT_ERROR" &&
+        event.code === "ANONYMOUS_CHAT_ROOM_ENDED" &&
+        event.data?.roomId === chatId
+      ) {
+        setRoomState((current) =>
+          current.status === "loaded"
+            ? {
+                ...current,
+                room: {
+                  ...current.room,
+                  roomStatus: "ENDED",
                 },
               }
             : current,
@@ -538,7 +596,11 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   }, [chatId, roomState, router]);
 
   const processReadReceipt = useCallback(async () => {
-    if (isMarkingMessagesReadRef.current || readRetryTimerRef.current) {
+    if (
+      document.visibilityState !== "visible" ||
+      isMarkingMessagesReadRef.current ||
+      readRetryTimerRef.current
+    ) {
       return;
     }
 
@@ -590,21 +652,6 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         return;
       }
 
-      if (error instanceof ApiRequestError && error.status === 404) {
-        setRoomState({ status: "notFound" });
-        return;
-      }
-
-      if (error instanceof ApiRequestError && error.status === 403) {
-        setRoomState({
-          status: "failed",
-          message: error.message,
-          retryAfterSeconds: 0,
-          canRetry: false,
-        });
-        return;
-      }
-
       const isRetryableError =
         error instanceof ApiRequestError &&
         (error.status === 429 || error.status === 500 || error.status === 503);
@@ -644,11 +691,14 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   }, [processReadReceipt]);
 
   const handleLastVisibleCounterpartMessageChange = useCallback((messageId: number) => {
-    if (messageId <= latestVisibleCounterpartMessageIdRef.current) {
+    if (messageId <= lastReadMessageIdRef.current) {
       return;
     }
 
-    latestVisibleCounterpartMessageIdRef.current = messageId;
+    latestVisibleCounterpartMessageIdRef.current = Math.max(
+      latestVisibleCounterpartMessageIdRef.current,
+      messageId,
+    );
     readRetryAttemptRef.current = 0;
 
     if (readRetryTimerRef.current) {
@@ -670,20 +720,16 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
     notFound();
   }
 
-  const appendMessage = (message: AnonymousChatMessage) => {
-    useAnonymousChatStore.getState().upsertMessage(chatId, message);
-    setRoomState((current) =>
-      current.status === "loaded"
-        ? {
-            ...current,
-            room: {
-              ...current.room,
-              messages: mergeDisplayedMessage(current.room.messages, message),
-            },
-          }
-        : current,
-    );
-  };
+  const handleRetryMessage = useCallback(
+    (clientMessageId: string) => {
+      try {
+        retryAnonymousChatMessage(clientMessageId);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "메시지를 다시 보내지 못했어요.");
+      }
+    },
+    [showToast],
+  );
 
   const closeModal = () => setOpenModal(null);
 
@@ -693,10 +739,14 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   };
 
   // 나간 채팅방은 더 이상 볼 수 없으므로 대화 목록으로 돌아감
-  const handleLeft = () => {
+  const handleLeft = (roomId: number) => {
+    const listType = roomState.status === "loaded" ? roomState.room.type : "SENT";
+
+    useAnonymousChatStore.getState().removeRoom(roomId);
+    useAnonymousChatPendingMessageStore.getState().removePendingMessagesByRoomId(roomId);
     setOpenModal(null);
     showToast("채팅방을 나갔어요.");
-    router.replace("/chat");
+    router.replace(getAnonymousChatListHref(listType));
   };
 
   if (roomState.status !== "loaded") {
@@ -728,6 +778,8 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   }
 
   const { room } = roomState;
+  const isPartnerLeft = room.partnerStatus === "LEFT";
+  const isMessageSendingDisabled = isAnonymousChatRoomClosed(room.roomStatus) || isPartnerLeft;
 
   return (
     <main
@@ -739,6 +791,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
         <AnonymousChatRoomHeader
           counterpartName={room.counterpartName}
           type={room.type}
+          listHref={getAnonymousChatListHref(room.type)}
           onReport={() => setOpenModal("report")}
           onLeave={() => setOpenModal("leave")}
         />
@@ -746,43 +799,31 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
 
       <div className="flex shrink-0 flex-col gap-3 pt-4 pb-2">
         <AnonymousChatGuideCard counterpartName={room.counterpartName} type={room.type} />
-        <AnonymousChatProductCard product={room.product} />
+        <AnonymousChatProductCard product={room.product} detailHref={getProductDetailHref(room)} />
       </div>
 
-      {room.roomStatus === "ENDED" && (
-        <section
-          aria-label="종료된 대화 정보"
-          className="mb-2 rounded-sm border border-border-strong bg-surface px-4 py-3 text-caption text-muted"
-        >
-          <p>roomStatus: {room.roomStatus}</p>
-          {room.endedReason && <p>endedReason: {room.endedReason}</p>}
-          {room.endedAt && (
-            <p>
-              endedAt: <time dateTime={room.endedAt}>{room.endedAt}</time>
-            </p>
-          )}
-        </section>
-      )}
-
-      {room.messages.length > 0 || room.hasNext ? (
+      {room.messages.length > 0 ||
+      pendingMessages.length > 0 ||
+      room.hasNext ||
+      isMessageSendingDisabled ? (
         <AnonymousChatMessageList
           counterpartName={room.counterpartName}
+          counterpartProfile={room.counterpartProfile}
           messages={room.messages}
+          pendingMessages={pendingMessages}
+          isRoomEnded={isMessageSendingDisabled}
           hasNext={room.hasNext}
           isLoadingPreviousMessages={isLoadingPreviousMessages}
           previousMessagesError={previousMessagesError}
           onLoadPreviousMessages={loadPreviousMessages}
           onLastVisibleCounterpartMessageChange={handleLastVisibleCounterpartMessageChange}
+          onRetryMessage={handleRetryMessage}
         />
       ) : (
         <AnonymousChatStartGuide />
       )}
 
-      <AnonymousChatComposer
-        chatId={room.roomId}
-        isDisabled={room.roomStatus === "ENDED"}
-        onMessageSent={appendMessage}
-      />
+      <AnonymousChatComposer chatId={room.roomId} isDisabled={isMessageSendingDisabled} />
 
       <AnonymousChatReportModal
         open={openModal === "report"}

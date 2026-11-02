@@ -4,6 +4,7 @@ import { create } from "zustand";
 
 import type {
   AnonymousChatMessage,
+  AnonymousChatPartnerStatus,
   AnonymousChatRoomEndedReason,
   AnonymousChatRoomInfo,
   AnonymousChatRoomMessages,
@@ -18,6 +19,7 @@ import type {
   AnonymousChatConnectionStatus,
   AnonymousChatStompErrorPayload,
 } from "@/lib/websocket/anonymousChatProtocol";
+import type { AnonymousChatProfile } from "@/types/anonymousChatProfile";
 
 type MessageMergePosition = "replace" | "prepend" | "append";
 type ChatListMergeMode = "replace" | "refresh" | "append";
@@ -33,8 +35,11 @@ export interface AnonymousChatProductEntity {
 export interface AnonymousChatRoomEntity {
   roomId: number;
   type?: AnonymousChatType;
+  targetUserId?: number | null;
   counterpartName?: string;
   counterpartAlias?: string;
+  counterpartProfile?: AnonymousChatProfile;
+  partnerStatus?: AnonymousChatPartnerStatus;
   product?: AnonymousChatProductEntity;
   hasUnreadMessage: boolean;
   unreadMessageCount: number;
@@ -49,15 +54,18 @@ export interface AnonymousChatRoomEntity {
   areMessagesLoaded: boolean;
 }
 
-export type AnonymousChatMessageEntity = AnonymousChatMessage & {
-  roomId: number;
-  clientMessageId?: string;
-};
+export type AnonymousChatMessageEntity = AnonymousChatMessage & { roomId: number };
 
 export interface AnonymousChatListPagination {
   nextCursor: string | null;
   hasNext: boolean;
   isInitialized: boolean;
+}
+
+export interface AnonymousChatRoomEndUpdate {
+  roomStatus?: Extract<AnonymousChatRoomStatus, "ENDED" | "EXPIRED">;
+  endedReason?: AnonymousChatRoomEndedReason | null;
+  endedAt?: string | null;
 }
 
 interface AnonymousChatState {
@@ -70,9 +78,12 @@ interface AnonymousChatState {
   messageIdsByRoomId: Record<number, number[]>;
   totalUnreadCount: number;
   activeRoomId: number | null;
+  // 대화방에서 목록으로 돌아올 때 복원할 마지막 선택 탭
+  lastSelectedType: AnonymousChatType | null;
   setConnectionStatus: (status: AnonymousChatConnectionStatus) => void;
   setConnectionError: (error: AnonymousChatStompErrorPayload | null) => void;
   setActiveRoomId: (roomId: number | null) => void;
+  setLastSelectedType: (type: AnonymousChatType) => void;
   mergeChatListPage: (
     type: AnonymousChatType,
     page: AnonymousChatsPage,
@@ -92,6 +103,7 @@ interface AnonymousChatState {
   markOwnMessagesRead: (roomId: number, lastReadMessageId: number) => void;
   acknowledgeRoomRead: (roomId: number, lastReadMessageId: number) => void;
   setRoomUnreadCount: (roomId: number, unreadMessageCount: number) => void;
+  markRoomEnded: (roomId: number, update?: AnonymousChatRoomEndUpdate) => void;
   removeRoom: (roomId: number) => void;
   reset: () => void;
 }
@@ -114,6 +126,7 @@ function createInitialState() {
     messageIdsByRoomId: {},
     totalUnreadCount: 0,
     activeRoomId: null,
+    lastSelectedType: null,
   };
 }
 
@@ -170,6 +183,8 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
 
   setActiveRoomId: (activeRoomId) => set({ activeRoomId }),
 
+  setLastSelectedType: (lastSelectedType) => set({ lastSelectedType }),
+
   mergeChatListPage: (type, page, mode = "replace") =>
     set((state) => {
       const roomsById = { ...state.roomsById };
@@ -186,6 +201,7 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
           ...currentRoom,
           type,
           counterpartAlias: item.counterpartAlias,
+          counterpartProfile: item.counterpartProfile,
           product: {
             ...currentRoom.product,
             ...item.product,
@@ -238,7 +254,10 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
           [roomInfo.roomId]: {
             ...currentRoom,
             type: roomInfo.type,
+            targetUserId: roomInfo.targetUserId,
             counterpartName: roomInfo.counterpartName,
+            counterpartProfile: roomInfo.counterpartProfile,
+            partnerStatus: roomInfo.partnerStatus,
             product: {
               ...currentRoom.product,
               ...roomInfo.product,
@@ -433,6 +452,31 @@ export const useAnonymousChatStore = create<AnonymousChatState>((set) => ({
 
       return {
         roomsById,
+        totalUnreadCount: calculateTotalUnreadCount(roomsById),
+      };
+    }),
+
+  markRoomEnded: (roomId, update) =>
+    set((state) => {
+      const currentRoom = state.roomsById[roomId] ?? createRoomEntity(roomId);
+      const roomsById = {
+        ...state.roomsById,
+        [roomId]: {
+          ...currentRoom,
+          roomStatus: update?.roomStatus ?? "ENDED",
+          hasUnreadMessage: false,
+          unreadMessageCount: 0,
+          ...(update?.endedReason !== undefined ? { endedReason: update.endedReason } : {}),
+          ...(update?.endedAt !== undefined ? { endedAt: update.endedAt } : {}),
+        },
+      };
+
+      return {
+        roomsById,
+        chatIdsByType: {
+          SENT: state.chatIdsByType.SENT.filter((id) => id !== roomId),
+          RECEIVED: state.chatIdsByType.RECEIVED.filter((id) => id !== roomId),
+        },
         totalUnreadCount: calculateTotalUnreadCount(roomsById),
       };
     }),

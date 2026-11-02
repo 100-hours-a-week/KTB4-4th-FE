@@ -16,6 +16,7 @@ type ChatComposerProps = {
   isSubmitLocked?: boolean;
   placeholder?: string;
   variant?: ComposerVariant;
+  trimBeforeSend?: boolean;
 };
 
 type ComposerVariant = "ai" | "anonymous";
@@ -49,12 +50,14 @@ export default function ChatComposer({
   isSubmitLocked = false,
   placeholder = "메시지 입력",
   variant = "ai",
+  trimBeforeSend = true,
 }: ChatComposerProps) {
   const variantClassNames = VARIANT_CLASS_NAMES[variant];
   const [draftMessage, setDraftMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const normalizedMessage = draftMessage.trim();
+  const messageToSend = trimBeforeSend ? normalizedMessage : draftMessage;
   const isSubmitDisabled = isDisabled || isSubmitLocked || isSending || !normalizedMessage;
 
   useEffect(() => {
@@ -90,9 +93,9 @@ export default function ChatComposer({
     }
 
     try {
-      await onSend(normalizedMessage);
+      await onSend(messageToSend);
     } catch {
-      setDraftMessage(normalizedMessage);
+      setDraftMessage(messageToSend);
       return;
     } finally {
       setIsSending(false);

@@ -4,6 +4,12 @@ export const ANONYMOUS_CHAT_SOCKET_PATH = "/ws/v1/anonymous-chats";
 
 export const ANONYMOUS_CHAT_STOMP_DESTINATIONS = {
   events: "/user/queue/anonymous-chats",
+  messages: (roomId: number) => `/app/anonymous-chats/${roomId}/messages`,
+} as const;
+
+export const ANONYMOUS_CHAT_MESSAGE_LENGTH = {
+  min: 1,
+  max: 500,
 } as const;
 
 export const ANONYMOUS_CHAT_HEARTBEAT_MS = {

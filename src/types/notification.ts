@@ -16,6 +16,13 @@ export interface PurchaseCheckNotificationPreview {
   friendName: string | null;
 }
 
+// resourceType이 ANONYMOUS_ROOM인 익명대화방 알림의 미리보기로, 친구가 물어본 상품 정보
+export interface AnonymousRoomNotificationPreview {
+  productId: number;
+  productName: string;
+  productImageUrl: string | null;
+}
+
 export interface NotificationItem {
   notificationId: number;
   category: NotificationCategory;
@@ -27,7 +34,7 @@ export interface NotificationItem {
   resourceId: number | null;
   targetAvailable: boolean;
   // 구조가 resourceType마다 다르며, 다른 알림이거나 서버 미리보기 조회에 실패하면 없거나 null로 내려옴
-  preview?: PurchaseCheckNotificationPreview | null;
+  preview?: PurchaseCheckNotificationPreview | AnonymousRoomNotificationPreview | null;
   readAt: string | null;
   createdAt: string;
 }

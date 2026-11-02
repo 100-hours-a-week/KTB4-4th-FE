@@ -2,7 +2,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import AnonymousChatRoomMenu from "@/components/anonymousChat/AnonymousChatRoomMenu";
 import type { AnonymousChatType } from "@/lib/api/anonymousChats";
@@ -10,6 +10,7 @@ import type { AnonymousChatType } from "@/lib/api/anonymousChats";
 type AnonymousChatRoomHeaderProps = {
   counterpartName: string;
   type: AnonymousChatType;
+  listHref: string;
   onReport: () => void;
   onLeave: () => void;
 };
@@ -22,21 +23,19 @@ const CHAT_TYPE_LABELS: Record<AnonymousChatType, string> = {
 export default function AnonymousChatRoomHeader({
   counterpartName,
   type,
+  listHref,
   onReport,
   onLeave,
 }: AnonymousChatRoomHeaderProps) {
-  const router = useRouter();
-
   return (
     <header className="grid h-[60px] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 bg-surface px-page">
-      <button
-        type="button"
+      <Link
+        href={listHref}
         aria-label="뒤로 가기"
         className="touch-target flex items-center justify-start border-0 bg-transparent p-0 text-foreground"
-        onClick={() => router.back()}
       >
         <Image src="/icons/arrow-left.svg" alt="" width={24} height={24} priority />
-      </button>
+      </Link>
 
       <div className="min-w-0 text-center">
         <h1 className="truncate text-heading-3 font-bold text-foreground">{counterpartName}</h1>

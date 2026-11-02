@@ -21,6 +21,8 @@ export function getNotificationTargetPath({
   switch (resourceType) {
     case "USER":
       return resourceId === null ? null : `/friends/${resourceId}`;
+    case "ANONYMOUS_ROOM":
+      return resourceId === null ? null : `/chat/${resourceId}`;
     case "PURCHASE_CHECK":
       // 화면 이동 없이 구매 확인 모달을 열므로 getPurchaseCheckTargetId로 처리함
       return null;

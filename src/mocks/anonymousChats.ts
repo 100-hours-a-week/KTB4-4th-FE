@@ -1,7 +1,6 @@
 // TODO: 모든 익명 대화 API 연동 완료 후 anonymousChatRoom.ts와 함께 삭제할 목업 데이터
 
 import type { AnonymousChatType } from "@/lib/api/anonymousChats";
-import { mockDelay } from "@/mocks/config";
 
 export interface MockAnonymousChatListItem {
   chatId: number;
@@ -104,9 +103,4 @@ export function createMockChats(): Record<AnonymousChatType, MockAnonymousChatLi
       },
     ],
   };
-}
-
-export async function leaveMockAnonymousChat(chatId: number) {
-  await mockDelay();
-  void chatId;
 }

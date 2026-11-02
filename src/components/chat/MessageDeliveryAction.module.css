@@ -1,0 +1,11 @@
+/* 메시지 재전송 아이콘 버튼과 진행 상태의 공통 크기·배경 */
+
+.action {
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+}
+
+.standalone {
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  backdrop-filter: blur(0.25rem);
+}

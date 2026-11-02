@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 
+import MessageDeliveryAction from "@/components/chat/MessageDeliveryAction";
 import type { ChatMessage, ChatMessageId } from "@/types/chat";
 
 import styles from "./ChatBubble.module.css";
@@ -41,60 +42,18 @@ export default function ChatBubble({ message, onRetryMessage, onCancelMessage }:
       {hasDeliveryAction && (
         <div className="flex shrink-0 self-center" aria-label="메시지 전송 작업">
           {isRetrying ? (
-            <span
-              role="status"
-              aria-label="메시지 재전송 중"
-              className="flex h-7 w-7 items-center justify-center text-muted"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="h-3.5 w-3.5 animate-spin"
-                fill="none"
-              >
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="9"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  className="opacity-25"
-                />
-                <path
-                  d="M21 12a9 9 0 0 0-9-9"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
+            <MessageDeliveryAction status="RETRYING" variant="grouped" />
           ) : (
             <div
               role="group"
               aria-label="실패한 메시지 작업"
               className={`${styles.actionGroup} flex items-center justify-center overflow-hidden rounded-md border border-border-strong`}
             >
-              <button
-                type="button"
-                aria-label="메시지 재전송"
-                title="재전송"
-                onClick={() => onRetryMessage(message.id)}
-                className={`${styles.compactActionButton} flex h-7 w-7 cursor-pointer items-center justify-center border-0 bg-transparent text-muted transition-colors hover:bg-surface/60 hover:text-foreground focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground`}
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="h-3 w-3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 12a9 9 0 1 1-3.36-7.02" />
-                  <path d="M21 3v6h-6" />
-                </svg>
-              </button>
+              <MessageDeliveryAction
+                status="FAILED"
+                variant="grouped"
+                onRetry={() => onRetryMessage(message.id)}
+              />
               <button
                 type="button"
                 aria-label="메시지 전송 취소"

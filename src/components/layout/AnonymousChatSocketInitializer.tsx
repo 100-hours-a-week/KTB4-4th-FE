@@ -8,6 +8,7 @@ import {
   startAnonymousChatEventDispatch,
   stopAnonymousChatEventDispatch,
 } from "@/lib/websocket/anonymousChatEvents";
+import { resetAnonymousChatMessageDelivery } from "@/lib/websocket/anonymousChatMessageDelivery";
 import {
   closeAnonymousChatSocket,
   openAnonymousChatSocket,
@@ -29,6 +30,7 @@ export default function AnonymousChatSocketInitializer() {
     return () => {
       requestController.abort();
       stopAnonymousChatEventDispatch();
+      resetAnonymousChatMessageDelivery();
       void closeAnonymousChatSocket();
     };
   }, []);
