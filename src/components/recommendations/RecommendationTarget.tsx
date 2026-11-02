@@ -65,7 +65,8 @@ export default function RecommendationTarget({
         <h1 className="min-w-0 text-heading-3 font-bold text-foreground">{recommendationTitle}</h1>
         {showBudget && hasValidPriceRange && (
           <PriceRangeSlider
-            key={`${availableMinPrice}:${availableMaxPrice}:${initialMinPrice}:${initialMaxPrice}`}
+            // 선택 가격 변경은 슬라이더가 내부에서 맞추고, 전체 가격 범위가 바뀔 때만 새로 만듦
+            key={`${availableMinPrice}:${availableMaxPrice}`}
             availableMinPrice={availableMinPrice}
             availableMaxPrice={availableMaxPrice}
             initialMinPrice={initialMinPrice}

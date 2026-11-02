@@ -47,11 +47,31 @@ export default function PriceRangeSlider({
   const clampedInitialMaxPrice = clamp(initialMaxPrice, availableMinPrice, availableMaxPrice);
   const [draftMinPrice, setDraftMinPrice] = useState(clampedInitialMinPrice);
   const [draftMaxPrice, setDraftMaxPrice] = useState(clampedInitialMaxPrice);
-  const lastCommittedRangeRef = useRef<PriceRange>({
+  const [lastCommittedRange, setLastCommittedRange] = useState<PriceRange>({
+    minPrice: clampedInitialMinPrice,
+    maxPrice: clampedInitialMaxPrice,
+  });
+  const [syncedInitialRange, setSyncedInitialRange] = useState<PriceRange>({
     minPrice: clampedInitialMinPrice,
     maxPrice: clampedInitialMaxPrice,
   });
   const activeThumbRef = useRef<RangeThumb | null>(null);
+
+  // 탭 전환 등으로 바깥 선택 가격이 바뀌면 슬라이더를 새로 만들지 않고 내부 값만 맞춤
+  if (
+    syncedInitialRange.minPrice !== clampedInitialMinPrice ||
+    syncedInitialRange.maxPrice !== clampedInitialMaxPrice
+  ) {
+    const nextInitialRange = {
+      minPrice: clampedInitialMinPrice,
+      maxPrice: clampedInitialMaxPrice,
+    };
+
+    setSyncedInitialRange(nextInitialRange);
+    setLastCommittedRange(nextInitialRange);
+    setDraftMinPrice(nextInitialRange.minPrice);
+    setDraftMaxPrice(nextInitialRange.maxPrice);
+  }
 
   const isFixedRange = availableMinPrice === availableMaxPrice;
   const isRangeValid = draftMinPrice <= draftMaxPrice;
@@ -109,8 +129,6 @@ export default function PriceRangeSlider({
   };
 
   const commitPriceRange = () => {
-    const lastCommittedRange = lastCommittedRangeRef.current;
-
     if (
       lastCommittedRange.minPrice === draftMinPrice &&
       lastCommittedRange.maxPrice === draftMaxPrice
@@ -123,7 +141,7 @@ export default function PriceRangeSlider({
       maxPrice: draftMaxPrice,
     };
 
-    lastCommittedRangeRef.current = nextPriceRange;
+    setLastCommittedRange(nextPriceRange);
     onPriceRangeCommit?.(nextPriceRange);
   };
 
