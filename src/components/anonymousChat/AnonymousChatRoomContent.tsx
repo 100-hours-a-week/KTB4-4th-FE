@@ -15,6 +15,7 @@ import AnonymousChatRoomHeader from "@/components/anonymousChat/AnonymousChatRoo
 import AnonymousChatStartGuide from "@/components/anonymousChat/AnonymousChatStartGuide";
 import { useToastContext } from "@/contexts/ToastContext";
 import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
+import { getDisplayAlias, UNKNOWN_ALIAS_LABEL } from "@/lib/anonymousChatAlias";
 import { getAnonymousChatListHref } from "@/lib/anonymousChatNavigation";
 import {
   getAnonymousChatRoomInfo,
@@ -807,7 +808,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       room.hasNext ||
       isMessageSendingDisabled ? (
         <AnonymousChatMessageList
-          counterpartName={room.counterpartName}
+          counterpartName={getDisplayAlias(room.counterpartName) ?? UNKNOWN_ALIAS_LABEL}
           counterpartProfile={room.counterpartProfile}
           messages={room.messages}
           pendingMessages={pendingMessages}

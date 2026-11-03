@@ -35,7 +35,7 @@ export function isAnonymousChatRoomClosed(status: AnonymousChatRoomStatus | unde
 
 interface AnonymousChatRoomInfoBase {
   roomId: number;
-  counterpartName: string;
+  counterpartName: string | null;
   counterpartProfile: AnonymousChatProfile;
   partnerStatus: AnonymousChatPartnerStatus;
   product: AnonymousChatRoomProduct;
@@ -66,7 +66,7 @@ export type AnonymousChatRoom = AnonymousChatRoomInfo & AnonymousChatRoomMessage
 
 interface AnonymousChatRoomInfoResponseBase {
   roomId: number;
-  targetName: string;
+  targetName: string | null;
   targetProfile: AnonymousChatProfile;
   partnerStatus: AnonymousChatPartnerStatus;
   product: AnonymousChatRoomProduct;
@@ -96,7 +96,7 @@ interface AnonymousChatMessageResponseItem {
 interface AnonymousChatRoomMessagesResponse {
   message: string;
   data: {
-    targetName: string;
+    targetName: string | null;
     roomStatus: AnonymousChatRoomStatus;
     endedReason: AnonymousChatRoomEndedReason | null;
     endedAt: string | null;
@@ -222,7 +222,7 @@ export async function getAnonymousChatRoomMessages({
   size = DEFAULT_MESSAGE_PAGE_SIZE,
   signal,
 }: GetAnonymousChatRoomMessagesParams): Promise<
-  AnonymousChatRoomMessages & { targetName: string }
+  AnonymousChatRoomMessages & { targetName: string | null }
 > {
   if (!Number.isSafeInteger(roomId) || roomId <= 0) {
     throw new ApiRequestError(ANONYMOUS_CHAT_ROOM_ERROR_MESSAGES[400] as string, 400);

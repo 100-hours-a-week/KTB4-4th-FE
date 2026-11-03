@@ -1,9 +1,10 @@
 // 채팅방 상단에서 대화 종류별 익명 대화 안내 문구를 표시하는 카드
 
+import AnonymousChatAlias from "@/components/anonymousChat/AnonymousChatAlias";
 import type { AnonymousChatType } from "@/lib/api/anonymousChats";
 
 type AnonymousChatGuideCardProps = {
-  counterpartName: string;
+  counterpartName: string | null;
   type: AnonymousChatType;
 };
 
@@ -27,7 +28,7 @@ export default function AnonymousChatGuideCard({
   return (
     <section className="rounded-md bg-surface px-4 py-4 text-foreground">
       <p className="break-keep text-body font-bold">
-        <span className="text-info">{counterpartName}</span>
+        <AnonymousChatAlias name={counterpartName} className="text-info" />
         {titleSuffix}
       </p>
       <p className="mt-0.5 break-keep text-caption text-muted">{description}</p>
