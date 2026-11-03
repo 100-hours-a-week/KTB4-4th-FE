@@ -37,7 +37,7 @@ export interface AnonymousChatRoomEntity {
   type?: AnonymousChatType;
   targetUserId?: number | null;
   counterpartName?: string;
-  counterpartAlias?: string;
+  counterpartAlias?: string | null;
   counterpartProfile?: AnonymousChatProfile;
   partnerStatus?: AnonymousChatPartnerStatus;
   product?: AnonymousChatProductEntity;

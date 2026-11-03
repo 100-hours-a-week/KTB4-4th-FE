@@ -23,7 +23,7 @@ export interface AnonymousChatLastMessage {
 
 export interface AnonymousChatListItem {
   roomId: number;
-  counterpartAlias: string;
+  counterpartAlias: string | null;
   counterpartProfile: AnonymousChatProfile;
   hasUnreadMessage: boolean;
   unreadMessageCount: number;

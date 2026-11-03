@@ -24,6 +24,7 @@ type AnonymousChatListItemProps = {
 
 const LEAVE_ACTION_WIDTH = 72;
 const MAX_UNREAD_COUNT_LABEL = 99;
+const UNKNOWN_ALIAS = "알 수 없음";
 
 export default function AnonymousChatListItem({
   chat,
@@ -42,7 +43,8 @@ export default function AnonymousChatListItem({
     hasUnreadMessage,
     unreadMessageCount,
   } = chat;
-  const displayAlias = counterpartAlias.trim();
+  // 상대가 탈퇴하는 등 별칭이 비어 있으면 기본 문구로 대체함
+  const displayAlias = counterpartAlias?.trim() || UNKNOWN_ALIAS;
   const unreadCountLabel =
     unreadMessageCount > MAX_UNREAD_COUNT_LABEL
       ? `${MAX_UNREAD_COUNT_LABEL}+`
