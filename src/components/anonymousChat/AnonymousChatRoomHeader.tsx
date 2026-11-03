@@ -4,11 +4,12 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import AnonymousChatAlias from "@/components/anonymousChat/AnonymousChatAlias";
 import AnonymousChatRoomMenu from "@/components/anonymousChat/AnonymousChatRoomMenu";
 import type { AnonymousChatType } from "@/lib/api/anonymousChats";
 
 type AnonymousChatRoomHeaderProps = {
-  counterpartName: string;
+  counterpartName: string | null;
   type: AnonymousChatType;
   listHref: string;
   onReport: () => void;
@@ -38,7 +39,9 @@ export default function AnonymousChatRoomHeader({
       </Link>
 
       <div className="min-w-0 text-center">
-        <h1 className="truncate text-heading-3 font-bold text-foreground">{counterpartName}</h1>
+        <h1 className="truncate text-heading-3 font-bold text-foreground">
+          <AnonymousChatAlias name={counterpartName} />
+        </h1>
         <p className="mt-0.5 text-caption text-muted">{CHAT_TYPE_LABELS[type]}</p>
       </div>
 
