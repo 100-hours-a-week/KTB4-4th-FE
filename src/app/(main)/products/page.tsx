@@ -6,6 +6,7 @@ import FriendRecommendationContent from "@/components/products/FriendRecommendat
 import PersonalRecommendationsContent from "@/components/products/PersonalRecommendationsContent";
 import { getProductCategories } from "@/lib/api/productCategories";
 import { ServerApiError } from "@/lib/api/serverClient";
+import { getServerLoginUser } from "@/lib/api/serverSession";
 import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
 
 import type { Metadata } from "next";
@@ -57,6 +58,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     );
   }
 
+  // proxy가 검증한 세션 정보를 사용해 클라이언트의 로그인 확인 대기 생략
+  const loginUser = await getServerLoginUser();
+
+  if (!loginUser) {
+    redirect("/login");
+  }
+
   const categories = await getProductCategoriesOrRedirect();
 
   return (
@@ -64,7 +72,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       aria-label="상품 추천"
       className="page-content flex flex-1 flex-col bg-background pb-[calc(var(--spacing-bottom-nav-overlap)+var(--spacing-page))]"
     >
-      <PersonalRecommendationsContent categories={categories} />
+      <PersonalRecommendationsContent loginUser={loginUser} categories={categories} />
     </main>
   );
 }

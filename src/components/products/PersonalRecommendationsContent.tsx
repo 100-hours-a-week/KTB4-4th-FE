@@ -1,8 +1,8 @@
 // 내 추천 상품의 전체 가격 범위와 선택 예산을 연결하는 콘텐츠
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useState } from "react";
 
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
 import GiftRecommendationsList from "@/components/products/GiftRecommendationsList";
@@ -10,8 +10,7 @@ import PersonalRecommendationsList from "@/components/products/PersonalRecommend
 import ProductCategoryBadges from "@/components/products/ProductCategoryBadges";
 import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
-import { ApiRequestError } from "@/lib/api/client";
-import { checkLoginValidity, type LoginValidityData } from "@/lib/api/loginValidity";
+import type { LoginUser } from "@/lib/api/loginSession";
 import { PERF_METRIC } from "@/lib/perf/metrics";
 import { markPerfStart } from "@/lib/perf/recorder";
 import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
@@ -34,18 +33,18 @@ const INITIAL_TAB_PRICE_RANGE_STATE: TabPriceRangeState = {
 };
 
 type PersonalRecommendationsContentProps = {
+  loginUser: LoginUser;
   categories: readonly ProductCategory[];
 };
 
 export default function PersonalRecommendationsContent({
+  loginUser,
   categories,
 }: PersonalRecommendationsContentProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   // 상세 화면에서 뒤로 가기로 돌아와도 선택한 탭이 유지되도록 URL 쿼리를 탭 상태의 기준으로 사용함
   const selectedVisibilityTab: ProductVisibilityTab =
     searchParams.get(VISIBILITY_TAB_QUERY_KEY) === "shared" ? "shared" : "private";
-  const [loginUser, setLoginUser] = useState<LoginValidityData["user"] | null>(null);
   const [priceRangesByTab, setPriceRangesByTab] = useState<
     Record<ProductVisibilityTab, TabPriceRangeState>
   >({
@@ -54,30 +53,6 @@ export default function PersonalRecommendationsContent({
   });
   const [selectedCategoryCode, setSelectedCategoryCode] =
     useState<string>(ALL_PRODUCT_CATEGORY_CODE);
-
-  useEffect(() => {
-    let isActive = true;
-
-    checkLoginValidity()
-      .then(({ user }) => {
-        if (isActive) {
-          setLoginUser(user);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!isActive) {
-          return;
-        }
-
-        router.replace(
-          error instanceof ApiRequestError && error.status === 401 ? "/login" : "/error",
-        );
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [router]);
 
   const updateTabPriceRange = useCallback(
     (tab: ProductVisibilityTab, nextState: Partial<TabPriceRangeState>) => {
@@ -138,14 +113,6 @@ export default function PersonalRecommendationsContent({
 
     setSelectedCategoryCode(categoryCode);
   };
-
-  if (!loginUser) {
-    return (
-      <p role="status" className="pt-8 text-center text-body-sm text-muted">
-        사용자 정보를 불러오는 중이에요.
-      </p>
-    );
-  }
 
   const privatePriceRange = priceRangesByTab.private;
   const sharedPriceRange = priceRangesByTab.shared;
