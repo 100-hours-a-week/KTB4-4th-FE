@@ -17,6 +17,9 @@ type ProductCardProps = {
     purchaseUrl: string;
   };
   detailHref?: string;
+  // 목록 안 위치에 따라 요청 순서를 정하도록 목록에서 전달함 (기본값은 화면 밖 카드 기준)
+  imagePriority?: "high" | "auto";
+  imageLoading?: "eager" | "lazy";
 };
 
 // empty: 이미지 주소 없음, loading: 받는 중, loaded: 받음, error: 받기 실패
@@ -29,7 +32,12 @@ type ImageResult = {
 
 const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
 
-function ProductCardContent({ product, detailHref }: ProductCardProps) {
+function ProductCardContent({
+  product,
+  detailHref,
+  imagePriority = "auto",
+  imageLoading = "lazy",
+}: ProductCardProps) {
   const imageUrl = product.productImageUrl;
   const imageAlt = `${product.name} 상품 이미지`;
   // 이미지 주소가 바뀌면 이전 주소의 결과를 쓰지 않도록 결과를 주소와 함께 저장함
@@ -61,7 +69,8 @@ function ProductCardContent({ product, detailHref }: ProductCardProps) {
             alt={imageAlt}
             fill
             unoptimized
-            loading="eager"
+            loading={imageLoading}
+            fetchPriority={imagePriority}
             sizes="33vw"
             className="object-cover"
             // 하이드레이션 전에 실패한 이미지도 next/image가 onLoad로 알려주므로 실제 크기로 성공 여부를 판단함
@@ -117,6 +126,8 @@ function ProfiledProductCard(props: ProductCardProps) {
 function areProductCardPropsEqual(prev: ProductCardProps, next: ProductCardProps) {
   return (
     prev.detailHref === next.detailHref &&
+    prev.imagePriority === next.imagePriority &&
+    prev.imageLoading === next.imageLoading &&
     prev.product.name === next.product.name &&
     prev.product.category === next.product.category &&
     prev.product.price === next.product.price &&
