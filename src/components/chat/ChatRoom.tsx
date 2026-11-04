@@ -2,6 +2,7 @@
 
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 
@@ -39,6 +40,7 @@ import {
 } from "@/lib/api/aiConversationMessageSend";
 import { startAiConversation, type AiConversation } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
+import { clearPersonalRecommendationsCache } from "@/lib/personalRecommendationsQuery";
 import type {
   AiConversationCompletedEvent,
   ChatMessage,
@@ -105,6 +107,7 @@ export default function ChatRoom({
   onAnalysisCompleted,
 }: ChatRoomProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { setConversation } = useAiConversationContext();
   const [
     { messages, isAwaitingResponse, sendError, turnErrorMessage, turn, needsMessageSync },
@@ -745,6 +748,8 @@ export default function ChatRoom({
       throw new Error("추천 생성이 완료되지 않았습니다. 다시 시도해 주세요.");
     }
 
+    // 확정 응답 시점에 새 추천이 만들어졌으므로 상품 화면에서 이전 추천 목록이 보이지 않도록 캐시를 지움
+    clearPersonalRecommendationsCache(queryClient);
     router.replace("/products");
   };
 
