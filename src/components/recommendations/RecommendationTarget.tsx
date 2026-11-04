@@ -4,6 +4,7 @@ import Image from "next/image";
 
 import PriceRangeSlider from "@/components/recommendations/PriceRangeSlider";
 import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
+import PriceRangeSliderSkeleton from "@/components/recommendations/PriceRangeSliderSkeleton";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type RecommendationTargetProps = {
@@ -13,6 +14,8 @@ type RecommendationTargetProps = {
   initialMinPrice?: number;
   initialMaxPrice?: number;
   showBudget?: boolean;
+  // 첫 목록을 받기 전에는 슬라이더 자리를 스켈레톤으로 유지해 목록이 밀리지 않게 함
+  isBudgetLoading?: boolean;
   onPriceRangeCommit?: (priceRange: PriceRange) => void;
 };
 
@@ -23,6 +26,7 @@ export default function RecommendationTarget({
   initialMinPrice,
   initialMaxPrice,
   showBudget = true,
+  isBudgetLoading = false,
   onPriceRangeCommit,
 }: RecommendationTargetProps) {
   const hasValidPriceRange =
@@ -63,7 +67,8 @@ export default function RecommendationTarget({
       <div className="min-w-0 flex-1">
         {/* TODO: 추천 API의 취향·관심사 키워드를 상품 추천 요청에 활용 */}
         <h1 className="min-w-0 text-heading-3 font-bold text-foreground">{recommendationTitle}</h1>
-        {showBudget && hasValidPriceRange && (
+        {isBudgetLoading && <PriceRangeSliderSkeleton />}
+        {!isBudgetLoading && showBudget && hasValidPriceRange && (
           <PriceRangeSlider
             // 선택 가격 변경은 슬라이더가 내부에서 맞추고, 전체 가격 범위가 바뀔 때만 새로 만듦
             key={`${availableMinPrice}:${availableMaxPrice}`}
