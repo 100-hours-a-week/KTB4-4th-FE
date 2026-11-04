@@ -2,12 +2,13 @@
 
 import ProductCardSkeleton from "@/components/products/ProductCardSkeleton";
 
-const SKELETON_COUNT = 3;
+// 한 줄(3열) 분량으로, 다음 페이지를 불러올 때 목록 끝에 붙이는 카드 수로도 사용함
+export const PRODUCT_SKELETON_COUNT = 3;
 
 export default function ProductGridSkeleton() {
   return (
     <div aria-hidden="true" className="grid grid-cols-3 gap-x-2 gap-y-5">
-      {Array.from({ length: SKELETON_COUNT }, (_, index) => (
+      {Array.from({ length: PRODUCT_SKELETON_COUNT }, (_, index) => (
         <ProductCardSkeleton key={index} />
       ))}
     </div>
