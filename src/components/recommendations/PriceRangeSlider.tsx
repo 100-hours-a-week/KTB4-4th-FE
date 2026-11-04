@@ -22,6 +22,10 @@ export interface PriceRange {
   maxPrice: number;
 }
 
+// 목록 첫 페이지를 받기 전(loading)과 받은 뒤 가격 범위가 없는 경우(loaded + null)를 구분하는 상태
+export type AvailablePriceRangeState =
+  { status: "loading" } | { status: "loaded"; priceRange: PriceRange | null };
+
 type RangeThumb = "minimum" | "maximum";
 
 const clamp = (value: number, minimum: number, maximum: number) =>

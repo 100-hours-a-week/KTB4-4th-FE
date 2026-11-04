@@ -7,6 +7,10 @@ import { useEffect, useMemo, useRef } from "react";
 import PerfProfiler from "@/components/perf/PerfProfiler";
 import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
+import ProductCardSkeleton from "@/components/products/ProductCardSkeleton";
+import ProductGridSkeleton, {
+  PRODUCT_SKELETON_COUNT,
+} from "@/components/products/ProductGridSkeleton";
 import {
   useGiftRecommendationsQuery,
   type GiftRecommendationsTarget,
@@ -95,7 +99,19 @@ function GiftRecommendationsListContent({
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetching]);
 
-  if (!isPending && !isPlaceholderData && !error && products.length === 0) {
+  // 첫 페이지를 받기 전에는 카드 자리를 스켈레톤으로 표시하고, 상태 문구는 스크린 리더에만 전달함
+  if (isPending) {
+    return (
+      <>
+        <p role="status" className="sr-only">
+          추천 상품을 불러오는 중이에요.
+        </p>
+        <ProductGridSkeleton />
+      </>
+    );
+  }
+
+  if (!isPlaceholderData && !error && products.length === 0) {
     return <EmptyRecommendedProducts />;
   }
 
@@ -117,12 +133,17 @@ function GiftRecommendationsListContent({
             <ProductCard key={product.recommendationId} product={product} detailHref={detailHref} />
           );
         })}
+        {/* 다음 페이지 카드가 들어올 칸에 바로 스켈레톤을 두어 같은 위치에서 교체되게 함 */}
+        {isFetchingNextPage &&
+          Array.from({ length: PRODUCT_SKELETON_COUNT }, (_, index) => (
+            <ProductCardSkeleton key={`next-page-skeleton-${index}`} />
+          ))}
       </div>
 
       {hasNextPage && <div ref={sentinelRef} aria-hidden="true" className="h-px" />}
 
-      {(isPending || isFetchingNextPage) && (
-        <p role="status" className="py-4 text-center text-body-sm text-muted">
+      {isFetchingNextPage && (
+        <p role="status" className="sr-only">
           추천 상품을 불러오는 중이에요.
         </p>
       )}

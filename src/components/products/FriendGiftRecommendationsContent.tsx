@@ -5,7 +5,10 @@ import { useCallback, useState } from "react";
 
 import GiftRecommendationsList from "@/components/products/GiftRecommendationsList";
 import ProductCategoryBadges from "@/components/products/ProductCategoryBadges";
-import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
+import type {
+  AvailablePriceRangeState,
+  PriceRange,
+} from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import type { GiftRecommendationsPriceRange } from "@/lib/api/giftRecommendations";
 import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
@@ -20,8 +23,8 @@ export default function FriendGiftRecommendationsContent({
   target,
   categories,
 }: FriendGiftRecommendationsContentProps) {
-  const [availablePriceRange, setAvailablePriceRange] =
-    useState<GiftRecommendationsPriceRange | null>(null);
+  const [availablePriceRangeState, setAvailablePriceRangeState] =
+    useState<AvailablePriceRangeState>({ status: "loading" });
   const [selectedPriceRange, setSelectedPriceRange] = useState<PriceRange | null>(null);
   const [appliedPriceRange, setAppliedPriceRange] = useState<PriceRange | null>(null);
   const [selectedCategoryCode, setSelectedCategoryCode] =
@@ -29,11 +32,13 @@ export default function FriendGiftRecommendationsContent({
 
   const handleAvailablePriceRangeLoad = useCallback(
     (priceRange: GiftRecommendationsPriceRange | null) => {
-      setAvailablePriceRange(priceRange);
+      setAvailablePriceRangeState({ status: "loaded", priceRange });
       setSelectedPriceRange(priceRange);
     },
     [],
   );
+  const availablePriceRange =
+    availablePriceRangeState.status === "loaded" ? availablePriceRangeState.priceRange : null;
 
   const handlePriceRangeCommit = (nextPriceRange: PriceRange) => {
     setSelectedPriceRange(nextPriceRange);
@@ -50,6 +55,7 @@ export default function FriendGiftRecommendationsContent({
           initialMinPrice={selectedPriceRange?.minPrice}
           initialMaxPrice={selectedPriceRange?.maxPrice}
           showBudget={availablePriceRange !== null}
+          isBudgetLoading={availablePriceRangeState.status === "loading"}
           onPriceRangeCommit={handlePriceRangeCommit}
         />
       </section>

@@ -8,7 +8,10 @@ import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/Segmen
 import GiftRecommendationsList from "@/components/products/GiftRecommendationsList";
 import PersonalRecommendationsList from "@/components/products/PersonalRecommendationsList";
 import ProductCategoryBadges from "@/components/products/ProductCategoryBadges";
-import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
+import type {
+  AvailablePriceRangeState,
+  PriceRange,
+} from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import type { LoginUser } from "@/lib/api/loginSession";
 import { PERF_METRIC } from "@/lib/perf/metrics";
@@ -21,13 +24,13 @@ type ProductVisibilityTab = "private" | "shared";
 const VISIBILITY_TAB_QUERY_KEY = "tab";
 
 type TabPriceRangeState = {
-  available: PriceRange | null;
+  available: AvailablePriceRangeState;
   selected: PriceRange | null;
   applied: PriceRange | null;
 };
 
 const INITIAL_TAB_PRICE_RANGE_STATE: TabPriceRangeState = {
-  available: null,
+  available: { status: "loading" },
   selected: null,
   applied: null,
 };
@@ -66,14 +69,20 @@ export default function PersonalRecommendationsContent({
 
   const handlePrivatePriceRangeLoad = useCallback(
     (priceRange: PriceRange | null) => {
-      updateTabPriceRange("private", { available: priceRange, selected: priceRange });
+      updateTabPriceRange("private", {
+        available: { status: "loaded", priceRange },
+        selected: priceRange,
+      });
     },
     [updateTabPriceRange],
   );
 
   const handleSharedPriceRangeLoad = useCallback(
     (priceRange: PriceRange | null) => {
-      updateTabPriceRange("shared", { available: priceRange, selected: priceRange });
+      updateTabPriceRange("shared", {
+        available: { status: "loaded", priceRange },
+        selected: priceRange,
+      });
     },
     [updateTabPriceRange],
   );
@@ -117,6 +126,8 @@ export default function PersonalRecommendationsContent({
   const privatePriceRange = priceRangesByTab.private;
   const sharedPriceRange = priceRangesByTab.shared;
   const currentPriceRange = priceRangesByTab[selectedVisibilityTab];
+  const currentAvailablePriceRange =
+    currentPriceRange.available.status === "loaded" ? currentPriceRange.available.priceRange : null;
   const selfTarget = {
     type: "SELF",
     userId: loginUser.id,
@@ -153,11 +164,12 @@ export default function PersonalRecommendationsContent({
         />
         <RecommendationTarget
           target={selfTarget}
-          availableMinPrice={currentPriceRange.available?.minPrice}
-          availableMaxPrice={currentPriceRange.available?.maxPrice}
+          availableMinPrice={currentAvailablePriceRange?.minPrice}
+          availableMaxPrice={currentAvailablePriceRange?.maxPrice}
           initialMinPrice={currentPriceRange.selected?.minPrice}
           initialMaxPrice={currentPriceRange.selected?.maxPrice}
-          showBudget={currentPriceRange.available !== null}
+          showBudget={currentAvailablePriceRange !== null}
+          isBudgetLoading={currentPriceRange.available.status === "loading"}
           onPriceRangeCommit={handlePriceRangeCommit}
         />
       </section>
