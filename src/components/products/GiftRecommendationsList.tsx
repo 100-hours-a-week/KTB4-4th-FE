@@ -19,8 +19,8 @@ import { useProductListFirstPagePerfMarks } from "@/hooks/useProductListPerfMark
 import { ApiRequestError } from "@/lib/api/client";
 import type { GiftRecommendationsPriceRange } from "@/lib/api/giftRecommendations";
 
-// 첫 화면 첫 줄(3열) 카드 이미지는 지연 로딩 없이 바로 요청함
-const EAGER_IMAGE_COUNT = 3;
+// 첫 화면에 보이는 두 줄(3열) 카드 이미지는 지연 로딩 없이 바로 요청함
+const EAGER_IMAGE_COUNT = 6;
 
 type GiftRecommendationsListProps = {
   target: GiftRecommendationsTarget;
