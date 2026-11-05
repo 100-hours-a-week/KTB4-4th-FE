@@ -19,6 +19,9 @@ import { useProductListFirstPagePerfMarks } from "@/hooks/useProductListPerfMark
 import { ApiRequestError } from "@/lib/api/client";
 import type { GiftRecommendationsPriceRange } from "@/lib/api/giftRecommendations";
 
+// 첫 화면에 보이는 두 줄(3열) 카드 이미지는 지연 로딩 없이 바로 요청함
+const EAGER_IMAGE_COUNT = 6;
+
 type GiftRecommendationsListProps = {
   target: GiftRecommendationsTarget;
   category?: string;
@@ -123,14 +126,21 @@ function GiftRecommendationsListContent({
         aria-busy={isPlaceholderData}
         className={`grid grid-cols-3 gap-x-2 gap-y-5 ${isPlaceholderData ? "opacity-50" : ""}`}
       >
-        {products.map((product) => {
+        {products.map((product, index) => {
           const detailHref =
             targetUserId !== undefined
               ? `/products/${product.productId}?context=FRIEND_GIFT&userId=${targetUserId}`
               : `/products/${product.productId}?context=MY_GIFT`;
 
           return (
-            <ProductCard key={product.recommendationId} product={product} detailHref={detailHref} />
+            <ProductCard
+              key={product.recommendationId}
+              product={product}
+              detailHref={detailHref}
+              // LCP 후보인 첫 카드만 우선순위를 높여 나머지 카드와 대역폭을 나눠 쓰지 않게 함
+              imagePriority={index === 0 ? "high" : "auto"}
+              imageLoading={index < EAGER_IMAGE_COUNT ? "eager" : "lazy"}
+            />
           );
         })}
         {/* 다음 페이지 카드가 들어올 칸에 바로 스켈레톤을 두어 같은 위치에서 교체되게 함 */}
