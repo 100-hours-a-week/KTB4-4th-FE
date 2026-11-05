@@ -1,6 +1,7 @@
 // 보호 페이지 요청의 인증 세션 검증과 액세스 토큰 재발급 프록시
 import { NextResponse } from "next/server";
 
+import { getBackendApiBaseUrl } from "@/lib/api/backendBaseUrl";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import {
   isLoginSessionResponse,
@@ -49,24 +50,6 @@ function createCookieStore(cookieHeader: string | null) {
 
 function serializeCookies(cookies: Map<string, string>) {
   return Array.from(cookies, ([name, value]) => `${name}=${value}`).join("; ");
-}
-
-function getBackendApiBaseUrl() {
-  const backendApiBaseUrl = process.env.BACKEND_API_BASE_URL?.trim();
-
-  if (!backendApiBaseUrl) {
-    throw new Error("BACKEND_API_BASE_URL 환경 변수가 설정되지 않았습니다.");
-  }
-
-  const normalizedBaseUrl = new URL(
-    backendApiBaseUrl.endsWith("/") ? backendApiBaseUrl : `${backendApiBaseUrl}/`,
-  );
-
-  if (!new Set(["http:", "https:"]).has(normalizedBaseUrl.protocol)) {
-    throw new Error("BACKEND_API_BASE_URL은 HTTP 또는 HTTPS 주소여야 합니다.");
-  }
-
-  return normalizedBaseUrl;
 }
 
 function createAuthLogContext(
@@ -246,7 +229,7 @@ async function fetchAuthApi(
     headers.set("cookie", cookieHeader);
   }
 
-  return fetch(new URL(endpoint, getBackendApiBaseUrl()), {
+  return fetch(new URL(endpoint, getBackendApiBaseUrl(endpoint)), {
     ...init,
     headers,
     cache: "no-store",
