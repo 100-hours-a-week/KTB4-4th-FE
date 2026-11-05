@@ -123,11 +123,11 @@ function ProfiledProductCard(props: ProductCardProps) {
 
 // 조건 변경으로 상품 객체가 새로 만들어져도 표시 값이 같으면 렌더링을 건너뛰도록 값으로 비교함
 // 카드에 표시하는 상품 필드를 추가하면 이 비교에도 함께 추가해야 함
+// imagePriority·imageLoading은 이미지 요청 시작에만 쓰여 화면 표시가 달라지지 않으므로,
+// 조건 변경으로 카드 순서만 바뀐 경우 렌더링하지 않도록 비교에서 제외함
 function areProductCardPropsEqual(prev: ProductCardProps, next: ProductCardProps) {
   return (
     prev.detailHref === next.detailHref &&
-    prev.imagePriority === next.imagePriority &&
-    prev.imageLoading === next.imageLoading &&
     prev.product.name === next.product.name &&
     prev.product.category === next.product.category &&
     prev.product.price === next.product.price &&
