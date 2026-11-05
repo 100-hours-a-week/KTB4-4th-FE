@@ -3,6 +3,8 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
+import { getBackendApiBaseUrl } from "@/lib/api/backendBaseUrl";
+
 interface ServerApiErrorResponse {
   message?: string;
   data?: {
@@ -23,24 +25,6 @@ export class ServerApiError extends Error {
     super(message);
     this.name = "ServerApiError";
   }
-}
-
-function getBackendApiBaseUrl() {
-  const backendApiBaseUrl = process.env.BACKEND_API_BASE_URL?.trim();
-
-  if (!backendApiBaseUrl) {
-    throw new Error("BACKEND_API_BASE_URL 환경 변수가 설정되지 않았습니다.");
-  }
-
-  const normalizedBaseUrl = new URL(
-    backendApiBaseUrl.endsWith("/") ? backendApiBaseUrl : `${backendApiBaseUrl}/`,
-  );
-
-  if (!new Set(["http:", "https:"]).has(normalizedBaseUrl.protocol)) {
-    throw new Error("BACKEND_API_BASE_URL은 HTTP 또는 HTTPS 주소여야 합니다.");
-  }
-
-  return normalizedBaseUrl;
 }
 
 function getRetryAfterSeconds(response: Response, errorResponse: ServerApiErrorResponse | null) {
@@ -88,7 +72,7 @@ export async function serverApiRequest<TResponse>(
     headers.delete("cookie");
   }
 
-  const response = await fetch(new URL(endpoint, getBackendApiBaseUrl()), {
+  const response = await fetch(new URL(endpoint, getBackendApiBaseUrl(endpoint)), {
     ...init,
     method: init.method?.toUpperCase() ?? "GET",
     headers,
