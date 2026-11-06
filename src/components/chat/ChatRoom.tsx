@@ -25,6 +25,7 @@ import useAiConversationStart from "@/hooks/useAiConversationStart";
 import useAiConversationStream, {
   type AiConversationStreamRecovery,
 } from "@/hooks/useAiConversationStream";
+import { clearMyGiftRecommendationsCache } from "@/hooks/useGiftRecommendationsQuery";
 import {
   confirmAiPreferenceAnalysis,
   requestAiPreferenceAnalysis,
@@ -41,6 +42,7 @@ import {
 import { startAiConversation, type AiConversation } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
 import { clearPersonalRecommendationsCache } from "@/lib/personalRecommendationsQuery";
+import { clearProductListFilters } from "@/stores/productListFilterStore";
 import type {
   AiConversationCompletedEvent,
   ChatMessage,
@@ -748,8 +750,10 @@ export default function ChatRoom({
       throw new Error("추천 생성이 완료되지 않았습니다. 다시 시도해 주세요.");
     }
 
-    // 확정 응답 시점에 새 추천이 만들어졌으므로 상품 화면에서 이전 추천 목록이 보이지 않도록 캐시를 지움
+    // 확정 응답 시점에 새 추천이 만들어졌으므로 상품 화면에서 이전 추천 목록과 복원 값이 보이지 않도록 지움
     clearPersonalRecommendationsCache(queryClient);
+    clearMyGiftRecommendationsCache(queryClient);
+    clearProductListFilters();
     router.replace("/products");
   };
 

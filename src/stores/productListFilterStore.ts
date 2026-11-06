@@ -37,6 +37,7 @@ type ProductListFilterEntry = {
 type ProductListFilterStoreState = {
   entries: Record<string, ProductListFilterEntry>;
   saveEntry: (entryKey: string, entry: ProductListFilterEntry) => void;
+  clearEntries: () => void;
 };
 
 const useProductListFilterStore = create<ProductListFilterStoreState>()((set) => ({
@@ -51,6 +52,7 @@ const useProductListFilterStore = create<ProductListFilterStoreState>()((set) =>
 
       return { entries: Object.fromEntries(recentEntries) };
     }),
+  clearEntries: () => set({ entries: {} }),
 }));
 
 const readHistoryEntryKey = () => {
@@ -87,4 +89,9 @@ export const readProductListFilter = (listId: string) => {
 
 export const saveProductListFilter = (listId: string, filter: ProductListFilterState) => {
   useProductListFilterStore.getState().saveEntry(ensureHistoryEntryKey(), { listId, filter });
+};
+
+// 취향 분석 확정으로 목록과 가격 범위가 바뀌므로 분석 전 기록의 필터가 복원되지 않도록 모두 지움
+export const clearProductListFilters = () => {
+  useProductListFilterStore.getState().clearEntries();
 };
