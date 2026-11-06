@@ -2,38 +2,31 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import SegmentedTabs, { type SegmentedTabItem } from "@/components/common/SegmentedTabs";
 import GiftRecommendationsList from "@/components/products/GiftRecommendationsList";
 import PersonalRecommendationsList from "@/components/products/PersonalRecommendationsList";
 import ProductCategoryBadges from "@/components/products/ProductCategoryBadges";
-import type {
-  AvailablePriceRangeState,
-  PriceRange,
-} from "@/components/recommendations/PriceRangeSlider";
+import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
 import type { LoginUser } from "@/lib/api/loginSession";
 import { PERF_METRIC } from "@/lib/perf/metrics";
 import { markPerfStart } from "@/lib/perf/recorder";
 import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
+import {
+  INITIAL_PRODUCT_LIST_PRICE_RANGE_STATE,
+  type ProductListPriceRangeState,
+  readProductListFilter,
+  replaceProductListUrl,
+  saveProductListFilter,
+} from "@/stores/productListFilterStore";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type ProductVisibilityTab = "private" | "shared";
 
 const VISIBILITY_TAB_QUERY_KEY = "tab";
-
-type TabPriceRangeState = {
-  available: AvailablePriceRangeState;
-  selected: PriceRange | null;
-  applied: PriceRange | null;
-};
-
-const INITIAL_TAB_PRICE_RANGE_STATE: TabPriceRangeState = {
-  available: { status: "loading" },
-  selected: null,
-  applied: null,
-};
+const PERSONAL_PRODUCT_LIST_ID = "personal";
 
 type PersonalRecommendationsContentProps = {
   loginUser: LoginUser;
@@ -48,17 +41,27 @@ export default function PersonalRecommendationsContent({
   // 상세 화면에서 뒤로 가기로 돌아와도 선택한 탭이 유지되도록 URL 쿼리를 탭 상태의 기준으로 사용함
   const selectedVisibilityTab: ProductVisibilityTab =
     searchParams.get(VISIBILITY_TAB_QUERY_KEY) === "shared" ? "shared" : "private";
+  // 상세 화면에서 뒤로 가기로 돌아오면 이 기록에 저장해 둔 필터로 첫 렌더링을 시작함
+  const [restoredFilter] = useState(() => readProductListFilter(PERSONAL_PRODUCT_LIST_ID));
   const [priceRangesByTab, setPriceRangesByTab] = useState<
-    Record<ProductVisibilityTab, TabPriceRangeState>
+    Record<ProductVisibilityTab, ProductListPriceRangeState>
   >({
-    private: INITIAL_TAB_PRICE_RANGE_STATE,
-    shared: INITIAL_TAB_PRICE_RANGE_STATE,
+    private: restoredFilter?.priceRanges.private ?? INITIAL_PRODUCT_LIST_PRICE_RANGE_STATE,
+    shared: restoredFilter?.priceRanges.shared ?? INITIAL_PRODUCT_LIST_PRICE_RANGE_STATE,
   });
-  const [selectedCategoryCode, setSelectedCategoryCode] =
-    useState<string>(ALL_PRODUCT_CATEGORY_CODE);
+  const [selectedCategoryCode, setSelectedCategoryCode] = useState<string>(
+    restoredFilter?.selectedCategoryCode ?? ALL_PRODUCT_CATEGORY_CODE,
+  );
+
+  useEffect(() => {
+    saveProductListFilter(PERSONAL_PRODUCT_LIST_ID, {
+      selectedCategoryCode,
+      priceRanges: priceRangesByTab,
+    });
+  }, [priceRangesByTab, selectedCategoryCode]);
 
   const updateTabPriceRange = useCallback(
-    (tab: ProductVisibilityTab, nextState: Partial<TabPriceRangeState>) => {
+    (tab: ProductVisibilityTab, nextState: Partial<ProductListPriceRangeState>) => {
       setPriceRangesByTab((currentPriceRanges) => ({
         ...currentPriceRanges,
         [tab]: { ...currentPriceRanges[tab], ...nextState },
@@ -87,7 +90,7 @@ export default function PersonalRecommendationsContent({
     [updateTabPriceRange],
   );
 
-  // 탭 전환마다 기록이 쌓이지 않도록 현재 기록의 URL만 교체함
+  // 탭 전환마다 기록이 쌓이지 않도록 현재 기록의 URL만 교체하고, 필터 복원용 키는 유지함
   const handleVisibilityTabChange = (tab: ProductVisibilityTab) => {
     const nextSearchParams = new URLSearchParams(searchParams.toString());
 
@@ -98,7 +101,7 @@ export default function PersonalRecommendationsContent({
     }
 
     const nextQuery = nextSearchParams.toString();
-    window.history.replaceState(null, "", nextQuery ? `?${nextQuery}` : window.location.pathname);
+    replaceProductListUrl(nextQuery ? `?${nextQuery}` : window.location.pathname);
   };
 
   const handlePriceRangeCommit = (priceRange: PriceRange) => {
