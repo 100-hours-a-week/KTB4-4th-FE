@@ -248,15 +248,15 @@ jobs:
           branch: automation/v3-${{ inputs.environment }}-frontend-rollback
           delete-branch: true
           add-paths: ${{ env.GITOPS_FILE }}
-          commit-message: "revert(v3-${{ inputs.environment }}): rollback frontend image"
-          title: "revert(v3-${{ inputs.environment }}): rollback frontend image"
+          commit-message: "revert(v3-${{ inputs.environment }}): 프론트엔드 이미지 롤백"
+          title: "revert(v3-${{ inputs.environment }}): 프론트엔드 이미지 롤백"
           body: |
             ## 변경 내용
-            - V3 Frontend GitOps 배포 변경 Revert
+            - V3 프론트엔드 GitOps 이미지 롤백
             - 대상 환경: `${{ inputs.environment }}`
-            - Rollback Commit: `${{ inputs.revert_commit }}`
-            - 복구 Image Tag: `${{ steps.image.outputs.tag }}`
-            - 복구 Image Digest: `${{ steps.image.outputs.digest }}`
+            - 롤백 대상 Commit: `${{ inputs.revert_commit }}`
+            - 복구 이미지 Tag: `${{ steps.image.outputs.tag }}`
+            - 복구 이미지 Digest: `${{ steps.image.outputs.digest }}`
 
             ## 배포 영향
             - Frontend Deployment
@@ -267,8 +267,8 @@ jobs:
             - Kubernetes Rolling Update
 
             ## 검증
-            - [ ] Rollback 대상 Commit 확인
-            - [ ] 이전 정상 Image Digest 확인
+            - [ ] 롤백 대상 Commit 확인
+            - [ ] 이전 정상 이미지 Digest 확인
             - [ ] GitOps CI 통과
             - [ ] Frontend Deployment Rolling Update 확인
             - [ ] Frontend Pod Ready 확인
@@ -276,7 +276,7 @@ jobs:
 
             ## 주의 사항
             - 이 PR은 자동 병합하지 않습니다.
-            - PR 병합 전 다른 Frontend 배포 PR이 없는지 확인합니다.
+            - PR 병합 전 다른 프론트엔드 배포 PR이 없는지 확인합니다.
             - Production은 승인 후 복구합니다.
 
       - name: Print Rollback PR Result
@@ -284,6 +284,6 @@ jobs:
         env:
           PR_URL: ${{ steps.create-pr.outputs.pull-request-url }}
         run: |
-          echo "Frontend V3 Rollback PR 생성 완료"
+          echo "Frontend V3 롤백 PR 생성 완료"
           echo "$PR_URL"
           echo "PR 검토 및 병합 후 Argo CD가 이전 이미지로 복구합니다."
