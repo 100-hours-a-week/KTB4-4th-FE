@@ -10,6 +10,7 @@ import type {
   PriceRange,
 } from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
+import { useProductListScrollRestore } from "@/hooks/useProductListScrollRestore";
 import type { GiftRecommendationsPriceRange } from "@/lib/api/giftRecommendations";
 import { ALL_PRODUCT_CATEGORY_CODE, type ProductCategory } from "@/lib/productCategories";
 import {
@@ -63,6 +64,8 @@ export default function FriendGiftRecommendationsContent({
     selectedCategoryCode,
     selectedPriceRange,
   ]);
+
+  useProductListScrollRestore(productListId);
 
   const handleAvailablePriceRangeLoad = useCallback(
     (priceRange: GiftRecommendationsPriceRange | null) => {
