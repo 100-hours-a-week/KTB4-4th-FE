@@ -10,6 +10,7 @@ import PersonalRecommendationsList from "@/components/products/PersonalRecommend
 import ProductCategoryBadges from "@/components/products/ProductCategoryBadges";
 import type { PriceRange } from "@/components/recommendations/PriceRangeSlider";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
+import { useProductListScrollRestore } from "@/hooks/useProductListScrollRestore";
 import type { LoginUser } from "@/lib/api/loginSession";
 import { PERF_METRIC } from "@/lib/perf/metrics";
 import { markPerfStart } from "@/lib/perf/recorder";
@@ -20,7 +21,7 @@ import {
   readProductListFilter,
   replaceProductListUrl,
   saveProductListFilter,
-} from "@/stores/productListFilterStore";
+} from "@/stores/productListRestoreStore";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type ProductVisibilityTab = "private" | "shared";
@@ -59,6 +60,8 @@ export default function PersonalRecommendationsContent({
       priceRanges: priceRangesByTab,
     });
   }, [priceRangesByTab, selectedCategoryCode]);
+
+  useProductListScrollRestore(PERSONAL_PRODUCT_LIST_ID);
 
   const updateTabPriceRange = useCallback(
     (tab: ProductVisibilityTab, nextState: Partial<ProductListPriceRangeState>) => {

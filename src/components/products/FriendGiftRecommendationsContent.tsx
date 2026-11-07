@@ -16,7 +16,7 @@ import {
   INITIAL_PRODUCT_LIST_PRICE_RANGE_STATE,
   readProductListFilter,
   saveProductListFilter,
-} from "@/stores/productListFilterStore";
+} from "@/stores/productListRestoreStore";
 import type { RecommendationTarget as RecommendationTargetData } from "@/types/recommendation";
 
 type FriendGiftRecommendationsContentProps = {

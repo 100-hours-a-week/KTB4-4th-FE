@@ -42,7 +42,7 @@ import {
 import { startAiConversation, type AiConversation } from "@/lib/api/aiConversations";
 import { ApiRequestError } from "@/lib/api/client";
 import { clearPersonalRecommendationsCache } from "@/lib/personalRecommendationsQuery";
-import { clearProductListFilters } from "@/stores/productListFilterStore";
+import { clearProductListRestoreState } from "@/stores/productListRestoreStore";
 import type {
   AiConversationCompletedEvent,
   ChatMessage,
@@ -753,7 +753,7 @@ export default function ChatRoom({
     // 확정 응답 시점에 새 추천이 만들어졌으므로 상품 화면에서 이전 추천 목록과 복원 값이 보이지 않도록 지움
     clearPersonalRecommendationsCache(queryClient);
     clearMyGiftRecommendationsCache(queryClient);
-    clearProductListFilters();
+    clearProductListRestoreState();
     router.replace("/products");
   };
 
