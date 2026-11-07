@@ -8,7 +8,8 @@ import type {
 import type { PersonalRecommendationsPage } from "@/lib/api/personalRecommendations";
 import { MOCK_PRODUCT_IMAGE_FORMAT, mockDelay } from "@/mocks/config";
 
-const MOCK_PRODUCT_COUNT = 1000;
+// 취향 분석마다 상품이 상한 없이 누적되는 상황을 가정해 긴 목록의 렌더링 비용을 측정하기 위한 상품 수
+const MOCK_PRODUCT_COUNT = 5_000;
 const MOCK_PRODUCT_ID_START = 900_001;
 // public/images/mock에 준비된 상품 이미지 수
 const MOCK_PRODUCT_IMAGE_COUNT = 45;
