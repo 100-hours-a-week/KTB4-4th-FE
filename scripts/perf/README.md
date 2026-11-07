@@ -4,6 +4,19 @@
 
 로컬 `next start`에는 개발 서버의 `/api/v1` rewrite가 적용되지 않아 브라우저의 API 요청이 404가 됩니다. 이 설정은 프로젝트 코드와 배포 이미지를 바꾸지 않고 이 문제를 해결합니다.
 
+> **필수:** `next start`로 실행한 빌드를 측정하거나 재현할 때는 반드시 Caddy를 실행하고 `https://localhost:3000`으로 접속합니다. `http://localhost:3001`에 바로 접속한 결과는 API 요청이 실패하므로 사용하지 않습니다.
+
+| 확인 환경                                                   | Caddy  | 접속 주소                |
+| ----------------------------------------------------------- | ------ | ------------------------ |
+| `next start` (`build:perf`, `build:perf:profile`) 측정·재현 | 필수   | `https://localhost:3000` |
+| `npm run dev` 로그인·화면 확인 (`/api/v1` rewrite가 적용됨) | 불필요 | `http://localhost:3000`  |
+
+측정 전에 다음 명령으로 실행 상태를 확인합니다. `3000` 포트에 `caddy`, `3001` 포트에 `node`, `8080` 포트에 백엔드가 표시되어야 합니다. `https://localhost:3000`이 502를 반환하면 Caddy는 실행 중이지만 `next start`가 꺼져 있는 상태입니다.
+
+```bash
+lsof -nP -iTCP:3000 -iTCP:3001 -iTCP:8080 -sTCP:LISTEN
+```
+
 ## 구성
 
 | 주소                     | 역할                                                                |
@@ -43,7 +56,7 @@ Caddy를 처음 실행하면 로컬 인증 기관이 만들어지고 macOS 키�
    npm run start -- -p 3001
    ```
 
-5. 다른 터미널에서 Caddy를 실행합니다.
+5. 다른 터미널에서 Caddy를 실행합니다. 측정·재현에 필수이며, `address already in use` 오류가 나면 이미 실행 중인 Caddy가 있는 것이므로 그대로 사용하거나 해당 터미널에서 종료한 뒤 다시 실행합니다.
 
    ```bash
    caddy run --config scripts/perf/Caddyfile --adapter caddyfile
