@@ -246,3 +246,22 @@ jobs:
       image_sha: ${{ github.sha }}
 
     secrets: inherit
+
+  # =========================================================
+  # V3 Dev: ECR Push 성공 후 GitOps PR 생성
+  # =========================================================
+  deploy-v3-dev:
+    name: Deploy V3 Dev via GitOps
+    needs: v2-ecr-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    uses: ./.github/workflows/v3-dev-deploy.yml
+
+    with:
+      image_sha: ${{ github.sha }}
+
+    secrets: inherit
