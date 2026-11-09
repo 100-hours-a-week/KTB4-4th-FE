@@ -89,7 +89,10 @@ function ProductCardContent({
         <p className="truncate text-body-sm font-bold text-foreground">
           {getProductCategoryName(product.category)}
         </p>
-        <h2 className="mt-0.5 line-clamp-2 text-body-sm font-medium text-muted">{product.name}</h2>
+        {/* 가상 목록의 줄 높이가 상품명 길이에 따라 달라지지 않도록 최대 2줄 높이를 항상 확보함 */}
+        <h2 className="mt-0.5 line-clamp-2 min-h-[2lh] text-body-sm font-medium text-muted">
+          {product.name}
+        </h2>
         <p className="mt-0.5 text-body font-bold text-foreground">{formatPrice(product.price)}</p>
       </div>
     </>
