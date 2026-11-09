@@ -17,6 +17,10 @@ const ROW_OVERSCAN = 4;
 const SCROLL_AREA_SELECTOR = "[data-main-scroll-area]";
 const ROW_SELECTOR = "[data-virtual-row]";
 
+// 줄 높이가 예상값과 다른 화면에서 뒤로 가기로 돌아오면 전체 높이가 짧아 복원 위치가 잘리므로,
+// 돌아온 첫 렌더링부터 실제 높이를 쓰도록 측정값을 보관함
+let lastMeasuredRowHeight: number | null = null;
+
 type VirtualProductGridProps<Item> = {
   items: readonly Item[];
   getItemKey: (item: Item) => Key;
@@ -35,7 +39,9 @@ export default function VirtualProductGrid<Item>({
 }: VirtualProductGridProps<Item>) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
-  const [rowHeight, setRowHeight] = useState(ESTIMATED_ROW_HEIGHT_PX);
+  const [rowHeight, setRowHeight] = useState(
+    () => lastMeasuredRowHeight ?? ESTIMATED_ROW_HEIGHT_PX,
+  );
   // 마지막 줄의 빈 칸부터 스켈레톤을 채워 다음 페이지 카드가 같은 위치에서 교체되게 함
   const cellCount = items.length + skeletonCount;
 
@@ -64,9 +70,13 @@ export default function VirtualProductGrid<Item>({
       // 상품명 2줄 높이를 확보해 모든 줄의 높이가 같으므로 렌더링된 한 줄만 측정함
       const row = grid.querySelector(ROW_SELECTOR);
       if (row) {
-        setRowHeight(row.getBoundingClientRect().height);
+        lastMeasuredRowHeight = row.getBoundingClientRect().height;
+        setRowHeight(lastMeasuredRowHeight);
       }
     };
+
+    // 복원으로 발생한 스크롤 이벤트가 ResizeObserver보다 먼저 처리되므로 위치 보정값을 바로 계산함
+    updateLayout();
 
     const observer = new ResizeObserver(updateLayout);
     observer.observe(grid);
