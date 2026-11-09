@@ -62,16 +62,20 @@ export default function VirtualProductGrid<Item>({
     if (!grid || !scrollArea) return;
 
     const updateLayout = () => {
+      // 깊은 위치에서 좌표 계산 오차로 값이 흔들려 다시 렌더링되지 않도록 정수로 반올림함
       setScrollMargin(
-        grid.getBoundingClientRect().top -
-          scrollArea.getBoundingClientRect().top +
-          scrollArea.scrollTop,
+        Math.round(
+          grid.getBoundingClientRect().top -
+            scrollArea.getBoundingClientRect().top +
+            scrollArea.scrollTop,
+        ),
       );
 
       // 상품명 2줄 높이를 확보해 모든 줄의 높이가 같으므로 렌더링된 한 줄만 측정함
+      // 큰 translateY 위치의 getBoundingClientRect는 오차가 있어 전체 높이가 흔들리므로 레이아웃 값을 읽음
       const row = grid.querySelector(ROW_SELECTOR);
       if (row) {
-        lastMeasuredRowHeight = row.getBoundingClientRect().height;
+        lastMeasuredRowHeight = parseFloat(getComputedStyle(row).height);
         setRowHeight(lastMeasuredRowHeight);
       }
     };
