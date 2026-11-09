@@ -13,6 +13,8 @@ const ROW_GAP_PX = 20;
 const ESTIMATED_ROW_HEIGHT_PX = 203;
 // 빠르게 스크롤해도 빈 영역이 보이지 않도록 화면 위아래로 더 렌더링하는 줄 수
 const ROW_OVERSCAN = 4;
+// 줄 높이를 측정하기 전(서버 HTML 포함)에 렌더링하는 줄 수로, 첫 페이지 20개를 모두 담는 값
+const INITIAL_ROW_COUNT = 7;
 
 const SCROLL_AREA_SELECTOR = "[data-main-scroll-area]";
 const ROW_SELECTOR = "[data-virtual-row]";
@@ -39,16 +41,15 @@ export default function VirtualProductGrid<Item>({
 }: VirtualProductGridProps<Item>) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
-  const [rowHeight, setRowHeight] = useState(
-    () => lastMeasuredRowHeight ?? ESTIMATED_ROW_HEIGHT_PX,
-  );
+  const [rowHeight, setRowHeight] = useState(() => lastMeasuredRowHeight);
   // 마지막 줄의 빈 칸부터 스켈레톤을 채워 다음 페이지 카드가 같은 위치에서 교체되게 함
   const cellCount = items.length + skeletonCount;
+  const rowCount = Math.ceil(cellCount / COLUMN_COUNT);
 
   const virtualizer = useVirtualizer({
-    count: Math.ceil(cellCount / COLUMN_COUNT),
+    count: rowCount,
     getScrollElement: () => gridRef.current?.closest<HTMLElement>(SCROLL_AREA_SELECTOR) ?? null,
-    estimateSize: () => rowHeight,
+    estimateSize: () => rowHeight ?? ESTIMATED_ROW_HEIGHT_PX,
     gap: ROW_GAP_PX,
     overscan: ROW_OVERSCAN,
     scrollMargin,
@@ -94,14 +95,25 @@ export default function VirtualProductGrid<Item>({
     virtualizer.measure();
   }, [rowHeight, virtualizer]);
 
+  // 서버에서는 스크롤 영역과 카드 폭을 알 수 없으므로 첫 줄들을 일반 흐름으로 렌더링하고,
+  // 하이드레이션 직후 측정한 높이로 그리기 전에 가상 배치로 전환함 (줄 key가 같아 카드는 유지됨)
+  const isMeasured = rowHeight !== null;
+  const rows = isMeasured
+    ? virtualizer.getVirtualItems()
+    : Array.from({ length: Math.min(rowCount, INITIAL_ROW_COUNT) }, (_, index) => ({
+        key: index,
+        index,
+        start: 0,
+      }));
+
   return (
     <div
       ref={gridRef}
       aria-busy={isDimmed}
-      className={`relative w-full ${isDimmed ? "opacity-50" : ""}`}
-      style={{ height: virtualizer.getTotalSize() }}
+      className={`w-full ${isMeasured ? "relative" : "grid gap-y-5"} ${isDimmed ? "opacity-50" : ""}`}
+      style={isMeasured ? { height: virtualizer.getTotalSize() } : undefined}
     >
-      {virtualizer.getVirtualItems().map((virtualRow) => {
+      {rows.map((virtualRow) => {
         const startIndex = virtualRow.index * COLUMN_COUNT;
         const endIndex = Math.min(startIndex + COLUMN_COUNT, cellCount);
         const rowSkeletonCount = endIndex - Math.max(startIndex, items.length);
@@ -110,8 +122,12 @@ export default function VirtualProductGrid<Item>({
           <div
             key={virtualRow.key}
             data-virtual-row
-            className="absolute left-0 top-0 grid w-full grid-cols-3 gap-x-2"
-            style={{ transform: `translateY(${virtualRow.start - scrollMargin}px)` }}
+            className={`grid w-full grid-cols-3 gap-x-2 ${isMeasured ? "absolute left-0 top-0" : ""}`}
+            style={
+              isMeasured
+                ? { transform: `translateY(${virtualRow.start - scrollMargin}px)` }
+                : undefined
+            }
           >
             {items.slice(startIndex, endIndex).map((item, columnIndex) => (
               <Fragment key={getItemKey(item)}>
