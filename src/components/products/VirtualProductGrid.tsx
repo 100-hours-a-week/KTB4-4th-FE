@@ -4,6 +4,8 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Fragment, type Key, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
+import ProductCardSkeleton from "@/components/products/ProductCardSkeleton";
+
 const COLUMN_COUNT = 3;
 // 행 클래스의 gap-x-2와 함께 기존 그리드 간격을 유지하는 gap-y-5 값
 const ROW_GAP_PX = 20;
@@ -19,6 +21,8 @@ type VirtualProductGridProps<Item> = {
   items: readonly Item[];
   getItemKey: (item: Item) => Key;
   renderItem: (item: Item, index: number) => ReactNode;
+  // 다음 페이지 카드가 들어올 칸에 표시할 스켈레톤 수
+  skeletonCount?: number;
   isDimmed?: boolean;
 };
 
@@ -26,14 +30,17 @@ export default function VirtualProductGrid<Item>({
   items,
   getItemKey,
   renderItem,
+  skeletonCount = 0,
   isDimmed = false,
 }: VirtualProductGridProps<Item>) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
   const [rowHeight, setRowHeight] = useState(ESTIMATED_ROW_HEIGHT_PX);
+  // 마지막 줄의 빈 칸부터 스켈레톤을 채워 다음 페이지 카드가 같은 위치에서 교체되게 함
+  const cellCount = items.length + skeletonCount;
 
   const virtualizer = useVirtualizer({
-    count: Math.ceil(items.length / COLUMN_COUNT),
+    count: Math.ceil(cellCount / COLUMN_COUNT),
     getScrollElement: () => gridRef.current?.closest<HTMLElement>(SCROLL_AREA_SELECTOR) ?? null,
     estimateSize: () => rowHeight,
     gap: ROW_GAP_PX,
@@ -86,6 +93,8 @@ export default function VirtualProductGrid<Item>({
     >
       {virtualizer.getVirtualItems().map((virtualRow) => {
         const startIndex = virtualRow.index * COLUMN_COUNT;
+        const endIndex = Math.min(startIndex + COLUMN_COUNT, cellCount);
+        const rowSkeletonCount = endIndex - Math.max(startIndex, items.length);
 
         return (
           <div
@@ -94,10 +103,13 @@ export default function VirtualProductGrid<Item>({
             className="absolute left-0 top-0 grid w-full grid-cols-3 gap-x-2"
             style={{ transform: `translateY(${virtualRow.start - scrollMargin}px)` }}
           >
-            {items.slice(startIndex, startIndex + COLUMN_COUNT).map((item, columnIndex) => (
+            {items.slice(startIndex, endIndex).map((item, columnIndex) => (
               <Fragment key={getItemKey(item)}>
                 {renderItem(item, startIndex + columnIndex)}
               </Fragment>
+            ))}
+            {Array.from({ length: Math.max(rowSkeletonCount, 0) }, (_, skeletonIndex) => (
+              <ProductCardSkeleton key={`next-page-skeleton-${skeletonIndex}`} />
             ))}
           </div>
         );

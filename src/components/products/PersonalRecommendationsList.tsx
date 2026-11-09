@@ -7,7 +7,9 @@ import { useEffect, useMemo, useRef } from "react";
 import PerfProfiler from "@/components/perf/PerfProfiler";
 import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
-import ProductGridSkeleton from "@/components/products/ProductGridSkeleton";
+import ProductGridSkeleton, {
+  PRODUCT_SKELETON_COUNT,
+} from "@/components/products/ProductGridSkeleton";
 import VirtualProductGrid from "@/components/products/VirtualProductGrid";
 import { usePersonalRecommendationsQuery } from "@/hooks/usePersonalRecommendationsQuery";
 import { useProductListFirstPagePerfMarks } from "@/hooks/useProductListPerfMarks";
@@ -115,6 +117,7 @@ function PersonalRecommendationsListContent({
       {/* 새 조건의 목록을 기다리는 동안 이전 목록을 흐리게 유지함 */}
       <VirtualProductGrid
         items={products}
+        skeletonCount={isFetchingNextPage ? PRODUCT_SKELETON_COUNT : 0}
         isDimmed={isPlaceholderData}
         getItemKey={(product) => product.recommendationId}
         renderItem={(product, index) => (
