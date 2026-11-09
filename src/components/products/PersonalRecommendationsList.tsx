@@ -7,10 +7,8 @@ import { useEffect, useMemo, useRef } from "react";
 import PerfProfiler from "@/components/perf/PerfProfiler";
 import EmptyRecommendedProducts from "@/components/products/EmptyRecommendedProducts";
 import ProductCard from "@/components/products/ProductCard";
-import ProductCardSkeleton from "@/components/products/ProductCardSkeleton";
-import ProductGridSkeleton, {
-  PRODUCT_SKELETON_COUNT,
-} from "@/components/products/ProductGridSkeleton";
+import ProductGridSkeleton from "@/components/products/ProductGridSkeleton";
+import VirtualProductGrid from "@/components/products/VirtualProductGrid";
 import { usePersonalRecommendationsQuery } from "@/hooks/usePersonalRecommendationsQuery";
 import { useProductListFirstPagePerfMarks } from "@/hooks/useProductListPerfMarks";
 import { ApiRequestError } from "@/lib/api/client";
@@ -115,26 +113,20 @@ function PersonalRecommendationsListContent({
   return (
     <>
       {/* 새 조건의 목록을 기다리는 동안 이전 목록을 흐리게 유지함 */}
-      <div
-        aria-busy={isPlaceholderData}
-        className={`grid grid-cols-3 gap-x-2 gap-y-5 ${isPlaceholderData ? "opacity-50" : ""}`}
-      >
-        {products.map((product, index) => (
+      <VirtualProductGrid
+        items={products}
+        isDimmed={isPlaceholderData}
+        getItemKey={(product) => product.recommendationId}
+        renderItem={(product, index) => (
           <ProductCard
-            key={product.recommendationId}
             product={product}
             detailHref={`/products/${product.productId}?context=PERSONAL`}
             // LCP 후보인 첫 카드만 우선순위를 높여 나머지 카드와 대역폭을 나눠 쓰지 않게 함
             imagePriority={index === 0 ? "high" : "auto"}
             imageLoading={index < EAGER_IMAGE_COUNT ? "eager" : "lazy"}
           />
-        ))}
-        {/* 다음 페이지 카드가 들어올 칸에 바로 스켈레톤을 두어 같은 위치에서 교체되게 함 */}
-        {isFetchingNextPage &&
-          Array.from({ length: PRODUCT_SKELETON_COUNT }, (_, index) => (
-            <ProductCardSkeleton key={`next-page-skeleton-${index}`} />
-          ))}
-      </div>
+        )}
+      />
 
       {hasNextPage && <div ref={sentinelRef} aria-hidden="true" className="h-px" />}
 
