@@ -20,11 +20,26 @@ function formatEventDate(dateKey: string) {
   });
 }
 
-// TODO: 상세 응답에 시간 정보가 추가되면 시작·종료 시간 또는 하루 종일 표시
-function formatEventPeriod({ startDate, endDate }: CalendarEventDetail) {
-  const start = formatEventDate(startDate);
+function formatEventTime(dateTime: string) {
+  return new Date(dateTime).toLocaleTimeString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
-  return startDate === endDate ? start : `${start} - ${formatEventDate(endDate)}`;
+function formatEventPeriod({ startDate, endDate, startAt, endAt, allDay }: CalendarEventDetail) {
+  const start = formatEventDate(startDate);
+  const datePeriod = startDate === endDate ? start : `${start} - ${formatEventDate(endDate)}`;
+
+  if (allDay) return `${datePeriod} · 하루 종일`;
+
+  const startTime = formatEventTime(startAt);
+  const endTime = formatEventTime(endAt);
+
+  return startDate === endDate
+    ? `${start} ${startTime} - ${endTime}`
+    : `${start} ${startTime} - ${formatEventDate(endDate)} ${endTime}`;
 }
 
 export default function CalendarEventDetailView({

@@ -1,22 +1,43 @@
 // 누르면 알림을 확인하고, 스와이프로 삭제 동작을 제공하는 개별 알림 항목
 "use client";
 
-import { useRef, useState } from "react";
-import { useSwipeable } from "react-swipeable";
-
-import type { NotificationThumbnail, NotificationTitleParts } from "@/lib/notificationDisplay";
+import useSwipeReveal from "@/hooks/useSwipeReveal";
+import type {
+  NotificationThumbnail,
+  NotificationTitleLead,
+  NotificationTitleParts,
+} from "@/lib/notificationDisplay";
 
 const DELETE_ACTION_WIDTH = 72;
-const SWIPE_THRESHOLD = DELETE_ACTION_WIDTH / 2;
-const SWIPE_DIRECTION_DELTA = 10;
 
-type SwipeAxis = "horizontal" | "vertical";
+function NotificationThumbnailImage({
+  thumbnail,
+  className,
+}: {
+  thumbnail: NotificationThumbnail;
+  className: string;
+}) {
+  return (
+    <div
+      role="img"
+      aria-label={`${thumbnail.productName} 상품 이미지`}
+      className={`size-12 rounded-sm bg-disabled bg-cover bg-center bg-no-repeat ${className}`}
+      style={
+        thumbnail.imageUrl
+          ? { backgroundImage: `url(${JSON.stringify(thumbnail.imageUrl)})` }
+          : undefined
+      }
+    />
+  );
+}
 
 type NotificationItemProps = {
   id: number;
   title: string;
   // 상품명처럼 제목 일부를 강조할 때만 전달하며, 없으면 title을 그대로 보여줌
   titleParts?: NotificationTitleParts | null;
+  // 익명대화방 알림처럼 첫 줄에 강조 문구(상품명), 둘째 줄에 나머지 문구를 표시할 때 전달함
+  titleLead?: NotificationTitleLead | null;
   description: string;
   // 구매 여부 알림처럼 상품 미리보기가 있는 알림에만 전달함
   thumbnail?: NotificationThumbnail | null;
@@ -32,6 +53,7 @@ export default function NotificationItem({
   id,
   title,
   titleParts,
+  titleLead,
   description,
   thumbnail,
   createdAt,
@@ -41,51 +63,11 @@ export default function NotificationItem({
   onDelete,
   onRevealDelete,
 }: NotificationItemProps) {
-  const [dragOffset, setDragOffset] = useState<number | null>(null);
-  const swipeAxisRef = useRef<SwipeAxis | null>(null);
-  const currentOffsetRef = useRef(0);
-  const hasMovedRef = useRef(false);
   const instructionId = `notification-swipe-instruction-${id}`;
-  const restingOffset = isDeleteRevealed ? -DELETE_ACTION_WIDTH : 0;
-  const translateX = dragOffset ?? restingOffset;
-
-  const resetSwipe = () => {
-    swipeAxisRef.current = null;
-    setDragOffset(null);
-  };
-
-  const swipeHandlers = useSwipeable({
-    delta: SWIPE_DIRECTION_DELTA,
-    trackMouse: true,
-    touchEventOptions: { passive: false },
-    onTouchStartOrOnMouseDown: () => {
-      swipeAxisRef.current = null;
-      currentOffsetRef.current = restingOffset;
-      hasMovedRef.current = false;
-    },
-    onSwiping: ({ first, absX, absY, deltaX, event }) => {
-      if (first) {
-        swipeAxisRef.current = absX > absY ? "horizontal" : "vertical";
-      }
-
-      if (swipeAxisRef.current !== "horizontal") return;
-
-      if (event.cancelable) event.preventDefault();
-
-      hasMovedRef.current = true;
-
-      const nextOffset = Math.max(-DELETE_ACTION_WIDTH, Math.min(0, restingOffset + deltaX));
-
-      currentOffsetRef.current = nextOffset;
-      setDragOffset(nextOffset);
-    },
-    onTouchEndOrOnMouseUp: () => {
-      if (swipeAxisRef.current === "horizontal") {
-        onRevealDelete(currentOffsetRef.current <= -SWIPE_THRESHOLD ? id : null);
-      }
-
-      resetSwipe();
-    },
+  const { translateX, isDragging, swipeHandlers, resetSwipe, consumeSwipeClick } = useSwipeReveal({
+    actionWidth: DELETE_ACTION_WIDTH,
+    isRevealed: isDeleteRevealed,
+    onRevealChange: (isRevealed) => onRevealDelete(isRevealed ? id : null),
   });
 
   // 삭제 버튼이 열려 있으면 알림을 열지 않고 삭제 버튼만 닫음
@@ -99,10 +81,7 @@ export default function NotificationItem({
   };
 
   const handleClick = () => {
-    if (hasMovedRef.current) {
-      hasMovedRef.current = false;
-      return;
-    }
+    if (consumeSwipeClick()) return;
 
     selectNotification();
   };
@@ -124,7 +103,7 @@ export default function NotificationItem({
         role="button"
         tabIndex={0}
         aria-describedby={instructionId}
-        className={`relative cursor-pointer touch-pan-y select-none px-5 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-info ${isUnread ? "bg-warning-subtle" : "bg-surface"} ${dragOffset === null ? "transition-transform duration-200 ease-standard" : ""}`}
+        className={`relative cursor-pointer touch-pan-y select-none px-5 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-info ${isUnread ? "bg-warning-subtle" : "bg-surface"} ${isDragging ? "" : "transition-transform duration-200 ease-standard"}`}
         style={{ transform: `translateX(${translateX}px)` }}
         onClick={handleClick}
         onKeyDown={(event) => {
@@ -150,33 +129,41 @@ export default function NotificationItem({
           눌러서 알림 확인, 왼쪽으로 밀거나 왼쪽 방향키를 눌러 삭제 버튼 표시
         </span>
         <div>
-          {titleParts ? (
-            // 상품명이 길어도 뒤 문구가 잘리지 않도록 둘째 줄에서 상품명만 말줄임 처리함
-            <p className="m-0 text-body font-bold text-foreground">
-              <span className="block">{titleParts.before}</span>
-              <span className="flex min-w-0">
-                <span className="min-w-0 truncate text-info">{titleParts.highlight}</span>
-                <span className="shrink-0">{titleParts.after}</span>
-              </span>
-            </p>
+          {titleLead ? (
+            // 썸네일 오른쪽에 첫 줄은 강조 문구(상품명)만 말줄임 처리하고, 뒤 문구는 둘째 줄에 표시하며
+            // 본문은 썸네일과 제목 아래에 표시함
+            <>
+              <div className="flex min-w-0 items-center gap-3">
+                {thumbnail && (
+                  <NotificationThumbnailImage thumbnail={thumbnail} className="shrink-0" />
+                )}
+                <p className="m-0 min-w-0 text-body font-bold text-foreground">
+                  <span className="block truncate text-info">{titleLead.highlight}</span>
+                  <span className="block">{titleLead.rest}</span>
+                </p>
+              </div>
+              <p className="mt-3 mb-0 text-body-sm text-muted">{description}</p>
+            </>
           ) : (
-            <p className="m-0 line-clamp-2 text-body-lg font-bold text-foreground">{title}</p>
-          )}
-          {/* 상품 미리보기가 있는 카드는 제목과 본문을 붙이고 썸네일과의 간격을 넓힘 */}
-          <p className={`${thumbnail ? "mt-1" : "mt-3"} mb-0 text-body-sm text-muted`}>
-            {description}
-          </p>
-          {thumbnail && (
-            <div
-              role="img"
-              aria-label={`${thumbnail.productName} 상품 이미지`}
-              className="mt-3 size-12 rounded-sm bg-disabled bg-cover bg-center bg-no-repeat"
-              style={
-                thumbnail.imageUrl
-                  ? { backgroundImage: `url(${JSON.stringify(thumbnail.imageUrl)})` }
-                  : undefined
-              }
-            />
+            <>
+              {titleParts ? (
+                // 상품명이 길어도 뒤 문구가 잘리지 않도록 둘째 줄에서 상품명만 말줄임 처리함
+                <p className="m-0 text-body font-bold text-foreground">
+                  <span className="block">{titleParts.before}</span>
+                  <span className="flex min-w-0">
+                    <span className="min-w-0 truncate text-info">{titleParts.highlight}</span>
+                    <span className="shrink-0">{titleParts.after}</span>
+                  </span>
+                </p>
+              ) : (
+                <p className="m-0 line-clamp-2 text-body-lg font-bold text-foreground">{title}</p>
+              )}
+              {/* 상품 미리보기가 있는 카드는 제목과 본문을 붙이고 썸네일과의 간격을 넓힘 */}
+              <p className={`${thumbnail ? "mt-1" : "mt-3"} mb-0 text-body-sm text-muted`}>
+                {description}
+              </p>
+              {thumbnail && <NotificationThumbnailImage thumbnail={thumbnail} className="mt-3" />}
+            </>
           )}
           <time className="mt-0.5 block text-right text-body-sm text-muted">{createdAt}</time>
         </div>

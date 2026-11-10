@@ -148,10 +148,10 @@ jobs:
             "$REGISTRY/$ECR_REPOSITORY:$IMAGE_SHA"
 
   # =========================================================
-  # V2: dev Push -> v2-SHA Image
+  # Dev: dev Push -> v2-SHA Image
   # =========================================================
-  v2-ecr-push:
-    name: Build & Push V2 Image
+  dev-ecr-push:
+    name: Build & Push Dev Image
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
@@ -171,7 +171,7 @@ jobs:
           role-to-assume: ${{ vars.AWS_CI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Load V2 Frontend Parameters
+      - name: Load Dev Frontend Parameters
         shell: bash
         run: |
           set -euo pipefail
@@ -190,7 +190,7 @@ jobs:
               --output text)
 
             if [[ -z "$value" || "$value" == "None" ]]; then
-              echo "Missing V2 parameter: $key"
+              echo "Missing Dev parameter: $key"
               exit 1
             fi
 
@@ -202,7 +202,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build V2 Docker Image
+      - name: Build Dev Docker Image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_SHA: ${{ github.sha }}
@@ -217,7 +217,7 @@ jobs:
             -t "$REGISTRY/$ECR_REPOSITORY:v2-$IMAGE_SHA" \
             .
 
-      - name: Push V2 Docker Image
+      - name: Push Dev Docker Image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_SHA: ${{ github.sha }}
@@ -226,23 +226,20 @@ jobs:
             "$REGISTRY/$ECR_REPOSITORY:v2-$IMAGE_SHA"
 
   # =========================================================
-  # V2 Dev: ECR Push 성공 후 ECS 자동 배포
+  # V3 Dev: ECR Push 성공 후 GitOps PR 생성
   # =========================================================
-  deploy-dev:
-    name: Deploy V2 Dev
-    needs: v2-ecr-push
+  deploy-v3-dev:
+    name: Create V3 Dev GitOps PR
+    needs: dev-ecr-push
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
 
     permissions:
       contents: read
-      actions: read
       id-token: write
 
-    uses: ./.github/workflows/deploy.yml
+    uses: ./.github/workflows/v3-dev-deploy.yml
 
     with:
-      environment: dev
-      github_environment: dev
       image_sha: ${{ github.sha }}
 
     secrets: inherit

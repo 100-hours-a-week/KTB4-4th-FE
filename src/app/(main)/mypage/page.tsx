@@ -61,7 +61,12 @@ export default async function MyPage() {
           )}
         </div>
       ) : (
-        <p className="mt-8 text-body text-foreground-secondary">아직 취향 분석을 하지 않았어요</p>
+        <section aria-label="취향 분석 안내" className="mt-8 rounded-md bg-background-subtle p-4">
+          <p className="text-body font-bold text-foreground">아직 취향 분석을 하지 않았어요!</p>
+          <p className="mt-1 text-body text-foreground-secondary">
+            니쥬와 대화를 통해 {myPageData.profile.nickname}님의 취향을 알아가요
+          </p>
+        </section>
       )}
     </main>
   );

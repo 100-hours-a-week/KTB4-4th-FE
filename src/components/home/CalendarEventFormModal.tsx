@@ -1,7 +1,7 @@
 // 캘린더 일정을 추가하거나 수정하는 가운데 모달 입력 폼
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import CalendarBottomSheet, {
   type CalendarBottomSheetState,
@@ -11,6 +11,7 @@ import CalendarEventInlineDatePicker from "@/components/home/CalendarEventInline
 import CalendarWheelPicker, {
   type CalendarWheelColumn,
 } from "@/components/home/CalendarWheelPicker";
+import { ApiRequestError } from "@/lib/api/client";
 import {
   CALENDAR_EVENT_COLORS,
   DEFAULT_CALENDAR_EVENT_COLOR,
@@ -42,6 +43,8 @@ type TimeValue = {
 
 const HOUR_IN_MS = 60 * 60 * 1000;
 const MINUTE_STEP = 5;
+const MAX_TITLE_LENGTH = 50;
+const ERROR_DISPLAY_DURATION_MS = 3000;
 
 const timeColumns: CalendarWheelColumn<keyof TimeValue>[] = [
   {
@@ -105,7 +108,6 @@ function formatFormTime(dateTime: Date) {
   return dateTime.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
 }
 
-// TODO: 사용자 시간대 처리 방식이 확정되면 한국 시간(+09:00) 고정 대신 실제 시간대 반영
 function toKstIsoString(dateTime: Date) {
   const hour = String(dateTime.getHours()).padStart(2, "0");
   const minute = String(dateTime.getMinutes()).padStart(2, "0");
@@ -115,6 +117,16 @@ function toKstIsoString(dateTime: Date) {
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getSaveErrorMessage(error: unknown, fallbackMessage: string) {
+  if (!(error instanceof ApiRequestError)) return fallbackMessage;
+
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
+
+  return error.message;
 }
 
 const formTextByMode = {
@@ -143,6 +155,8 @@ export default function CalendarEventFormModal({
   const formText = formTextByMode[initialEvent ? "edit" : "create"];
   const titleInputId = useId();
   const allDayLabelId = useId();
+  const notificationLabelId = useId();
+  const notificationDescriptionId = useId();
   const descriptionInputId = useId();
   const [title, setTitle] = useState(initialEvent?.title ?? "");
   const [description, setDescription] = useState(initialEvent?.description ?? "");
@@ -159,10 +173,23 @@ export default function CalendarEventFormModal({
       : new Date(getInitialStartAt(initialDate).getTime() + HOUR_IN_MS),
   );
   const [isAllDay, setIsAllDay] = useState(initialEvent?.allDay ?? false);
+  const [isNotificationEnabled, setIsNotificationEnabled] = useState(
+    initialEvent?.notificationEnabled ?? false,
+  );
   const [expandedField, setExpandedField] = useState<ExpandedField | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const isSaveDisabled = title.trim() === "" || isSaving;
+
+  useEffect(() => {
+    if (!saveErrorMessage) return;
+
+    const timer = window.setTimeout(() => {
+      setSaveErrorMessage(null);
+    }, ERROR_DISPLAY_DURATION_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [saveErrorMessage]);
 
   const saveEvent = async () => {
     if (isSaveDisabled) return;
@@ -178,9 +205,10 @@ export default function CalendarEventFormModal({
         allDay: isAllDay,
         description: description.trim() || null,
         color,
+        notificationEnabled: isNotificationEnabled,
       });
-    } catch {
-      setSaveErrorMessage(formText.error);
+    } catch (error) {
+      setSaveErrorMessage(getSaveErrorMessage(error, formText.error));
       setIsSaving(false);
     }
   };
@@ -201,6 +229,10 @@ export default function CalendarEventFormModal({
   const toggleAllDay = () => {
     setIsAllDay((currentIsAllDay) => !currentIsAllDay);
     setExpandedField((currentField) => (currentField?.endsWith("Time") ? null : currentField));
+  };
+
+  const toggleNotification = () => {
+    setIsNotificationEnabled((currentIsNotificationEnabled) => !currentIsNotificationEnabled);
   };
 
   const dateTimeRows: { edge: DateTimeEdge; label: string; value: Date }[] = [
@@ -248,14 +280,6 @@ export default function CalendarEventFormModal({
       onClosed={onClosed}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-        {saveErrorMessage && (
-          <p
-            role="alert"
-            className="m-0 mb-3 rounded-sm bg-danger-subtle px-3 py-2 text-body-sm text-danger"
-          >
-            {saveErrorMessage}
-          </p>
-        )}
         <div className="flex items-center gap-2 border-b border-border-strong pb-2">
           <button
             type="button"
@@ -281,6 +305,7 @@ export default function CalendarEventFormModal({
               value={title}
               placeholder="일정 제목을 입력해 주세요."
               autoComplete="off"
+              maxLength={MAX_TITLE_LENGTH}
               className="w-full border-0 bg-transparent p-0 text-foreground outline-none select-text placeholder:text-muted"
               onChange={(event) => setTitle(event.target.value)}
             />
@@ -389,6 +414,42 @@ export default function CalendarEventFormModal({
                 </span>
               </button>
             </div>
+
+            <div className="border-b border-border pb-3">
+              <div className="flex min-h-14 items-center justify-between gap-4">
+                <span id={notificationLabelId} className="text-body-lg">
+                  알림 허용
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isNotificationEnabled}
+                  aria-labelledby={notificationLabelId}
+                  aria-describedby={notificationDescriptionId}
+                  className="relative h-touch w-11 shrink-0 cursor-pointer border-0 bg-transparent p-0"
+                  onClick={toggleNotification}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute top-1/2 left-0 h-5 w-11 -translate-y-1/2 rounded-full transition-colors duration-200 ${
+                      isNotificationEnabled ? "bg-primary" : "bg-disabled"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-surface shadow-sm transition-[left] duration-200 ${
+                        isNotificationEnabled ? "left-[26px]" : "left-0.5"
+                      }`}
+                    />
+                  </span>
+                </button>
+              </div>
+              <p
+                id={notificationDescriptionId}
+                className="m-0 whitespace-nowrap text-caption text-muted"
+              >
+                일정 시작 하루 전, 3일 전, 7일 전에 알림을 받을 수 있어요
+              </p>
+            </div>
           </div>
         </div>
 
@@ -420,6 +481,14 @@ export default function CalendarEventFormModal({
               className="block w-full resize-none border-0 bg-transparent p-0 text-foreground outline-none select-text placeholder:text-muted"
               onChange={(event) => setDescription(event.target.value)}
             />
+            {saveErrorMessage && (
+              <p
+                role="alert"
+                className="m-0 mt-3 rounded-sm bg-danger-subtle px-3 py-2 text-body-sm text-danger"
+              >
+                {saveErrorMessage}
+              </p>
+            )}
           </div>
         </div>
       </div>

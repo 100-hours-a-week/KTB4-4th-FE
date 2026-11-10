@@ -13,6 +13,8 @@ function getNotificationTargetPath(payload) {
   switch (payload.resourceType) {
     case "USER":
       return payload.resourceId === null ? null : `/friends/${payload.resourceId}`;
+    case "ANONYMOUS_ROOM":
+      return payload.resourceId === null ? null : `/chat/${payload.resourceId}`;
     default:
       return null;
   }

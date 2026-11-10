@@ -39,6 +39,14 @@ function formatSheetTitle(date: Date) {
   return date.toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "long" });
 }
 
+function formatEventTime(dateTime: string) {
+  return new Date(dateTime).toLocaleTimeString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function CalendarEventListSheet({
   state,
   date,
@@ -54,7 +62,12 @@ export default function CalendarEventListSheet({
   onClose,
   onClosed,
 }: CalendarEventListSheetProps) {
-  const statusMessage = isLoading ? "일정을 불러오는 중입니다." : errorMessage;
+  const hasEvents = events.length > 0;
+  const blockingStatusMessage = hasEvents
+    ? null
+    : isLoading
+      ? "일정을 불러오는 중입니다."
+      : (errorMessage ?? "등록된 일정이 없습니다.");
 
   if (detail.isOpen) {
     return (
@@ -105,35 +118,44 @@ export default function CalendarEventListSheet({
       onClose={onClose}
       onClosed={onClosed}
     >
-      {statusMessage ? (
+      {blockingStatusMessage ? (
         <p
           role={errorMessage && !isLoading ? "alert" : "status"}
           className="m-0 flex-1 py-6 text-center text-body text-muted"
         >
-          {statusMessage}
+          {blockingStatusMessage}
         </p>
       ) : (
-        <ul className="m-0 flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto overscroll-contain border-t border-border p-0 pt-3">
-          {events.map(({ eventId, title, color }) => (
-            <li key={eventId} className="shrink-0">
-              <button
-                type="button"
-                className="flex min-h-14 w-full cursor-pointer items-stretch gap-3 rounded-sm border-0 bg-transparent px-0 py-1 text-left transition-colors active:bg-background-subtle"
-                onClick={() => onSelectEvent(eventId)}
-              >
-                <span
-                  aria-hidden="true"
-                  className="w-1 shrink-0 rounded-full"
-                  style={{ backgroundColor: getCalendarEventColorHex(color) }}
-                />
-                <span className="flex min-w-0 flex-col justify-center">
-                  <span className="truncate text-body-lg text-foreground">{title}</span>
-                  {/* TODO: 일정 목록 응답에 시간 정보가 추가되면 시작·종료 시간 또는 하루 종일 표시 */}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {errorMessage && (
+            <p role="alert" className="m-0 py-2 text-center text-body-sm text-danger">
+              {errorMessage}
+            </p>
+          )}
+          <ul className="m-0 flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto overscroll-contain border-t border-border p-0 pt-3">
+            {events.map(({ eventId, title, startAt, endAt, color }) => (
+              <li key={eventId} className="shrink-0">
+                <button
+                  type="button"
+                  className="flex min-h-14 w-full cursor-pointer items-stretch gap-3 rounded-sm border-0 bg-transparent px-0 py-1 text-left transition-colors active:bg-background-subtle"
+                  onClick={() => onSelectEvent(eventId)}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="w-1 shrink-0 rounded-full"
+                    style={{ backgroundColor: getCalendarEventColorHex(color) }}
+                  />
+                  <span className="flex min-w-0 flex-col justify-center">
+                    <span className="truncate text-body-lg text-foreground">{title}</span>
+                    <span className="text-body-sm text-muted">
+                      {formatEventTime(startAt)}–{formatEventTime(endAt)}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <ActionButton className="mt-6 shrink-0" onClick={onClose}>
         닫기

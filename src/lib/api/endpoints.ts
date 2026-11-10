@@ -13,6 +13,15 @@ export const API_ENDPOINTS = {
     conversationConfirmation: (conversationId: number) =>
       `${API_V1_PREFIX}/ai/conversations/${conversationId}/confirm`,
   },
+  anonymousChats: {
+    create: `${API_V1_PREFIX}/anonymous-chats`,
+    list: `${API_V1_PREFIX}/anonymous-chats`,
+    room: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}`,
+    messages: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/messages`,
+    read: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/read`,
+    leave: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/leave`,
+    report: (roomId: number) => `${API_V1_PREFIX}/anonymous-chats/${roomId}/reports`,
+  },
   analytics: {
     productLinkClicks: `${API_V1_PREFIX}/analytics/product-link-clicks`,
   },
@@ -23,9 +32,15 @@ export const API_ENDPOINTS = {
     loginValidity: `${API_V1_PREFIX}/auth/session`,
     logout: `${API_V1_PREFIX}/auth/logout`,
   },
+  calendar: {
+    events: `${API_V1_PREFIX}/calendar/events`,
+    dailyEvents: `${API_V1_PREFIX}/calendar/events/daily`,
+    event: (eventId: number) => `${API_V1_PREFIX}/calendar/events/${eventId}`,
+  },
   errorReports: `${API_V1_PREFIX}/error-reports`,
   friends: {
     list: `${API_V1_PREFIX}/friends`,
+    upcomingEvents: `${API_V1_PREFIX}/friends/upcoming-events`,
     detail: (userId: number) => `${API_V1_PREFIX}/friends/${userId}`,
     favorite: (userId: number) => `${API_V1_PREFIX}/friends/${userId}/favorite`,
     pokes: (userId: number) => `${API_V1_PREFIX}/friends/${userId}/pokes`,

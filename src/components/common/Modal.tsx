@@ -20,6 +20,8 @@ type ModalProps = {
   actions?: ReactNode;
   actionsClassName?: string;
   keepHeaderInteractive?: boolean;
+  // 제목 오른쪽에 모달을 닫는 X 버튼을 표시함
+  showCloseButton?: boolean;
 };
 
 export default function Modal({
@@ -35,6 +37,7 @@ export default function Modal({
   actions,
   actionsClassName = "mt-4",
   keepHeaderInteractive = false,
+  showCloseButton = false,
 }: ModalProps) {
   const dialogRef = useDialogControl({
     open,
@@ -66,7 +69,27 @@ export default function Modal({
           keepHeaderInteractive ? "top-[60px]" : "top-0"
         }`}
       >
-        <h2 id={titleId} className={`text-xl font-bold ${titleClassName}`}>
+        {showCloseButton && (
+          <button
+            type="button"
+            aria-label="닫기"
+            className="touch-target absolute top-4 right-2 flex items-center justify-center border-0 bg-transparent p-0 text-foreground"
+            onClick={onClose}
+          >
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M5 5L15 15M15 5L5 15"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        )}
+        <h2
+          id={titleId}
+          className={`text-xl font-bold ${showCloseButton ? "pr-10" : ""} ${titleClassName}`}
+        >
           {title}
         </h2>
         {description && (

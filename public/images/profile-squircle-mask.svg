@@ -1,0 +1,4 @@
+<!-- 마이페이지 프로필 이미지를 참고 디자인의 스쿼클 형태로 자르는 마스크 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" rx="84" fill="white" />
+</svg>

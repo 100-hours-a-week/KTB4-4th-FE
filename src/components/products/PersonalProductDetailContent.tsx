@@ -2,10 +2,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import ActionButton from "@/components/common/ActionButton";
 import Modal from "@/components/common/Modal";
+import { createAnonymousChat } from "@/lib/api/anonymousChats";
 import { ApiRequestError } from "@/lib/api/client";
 import { checkLoginValidity } from "@/lib/api/loginValidity";
 import type { ProductDetail, ProductDetailContext } from "@/lib/api/productDetail";
@@ -27,6 +28,7 @@ type PersonalProductDetailContentProps = {
 );
 
 const formatPrice = (price: number) => `${price.toLocaleString("ko-KR")}원`;
+const ANONYMOUS_CHAT_RETRY_TICK_MS = 1_000;
 
 const getFeedbackErrorMessage = (error: unknown) => {
   if (!(error instanceof ApiRequestError)) {
@@ -52,7 +54,17 @@ export default function PersonalProductDetailContent({
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [feedbackErrorMessage, setFeedbackErrorMessage] = useState("");
   const [loginNickname, setLoginNickname] = useState<string | null>(null);
+  const [isCreatingAnonymousChat, setIsCreatingAnonymousChat] = useState(false);
+  const [anonymousChatErrorMessage, setAnonymousChatErrorMessage] = useState("");
+  const [anonymousChatRetryUntil, setAnonymousChatRetryUntil] = useState<number | null>(null);
+  const [anonymousChatNow, setAnonymousChatNow] = useState(() => Date.now());
+  const anonymousChatStatusId = useId();
   const isFriendGift = context === "FRIEND_GIFT";
+  const anonymousChatRetryAfterSeconds =
+    anonymousChatRetryUntil === null
+      ? 0
+      : Math.max(0, Math.ceil((anonymousChatRetryUntil - anonymousChatNow) / 1_000));
+  const isAnonymousChatCoolingDown = anonymousChatRetryAfterSeconds > 0;
 
   // 내 상품 상세에서만 추천 이유 제목에 표시할 로그인 사용자 닉네임을 조회하고, 실패 시 "나"로 표시함
   useEffect(() => {
@@ -74,6 +86,28 @@ export default function PersonalProductDetailContent({
       isActive = false;
     };
   }, [isFriendGift]);
+
+  useEffect(() => {
+    if (anonymousChatRetryUntil === null) {
+      return;
+    }
+
+    const updateRetryTime = () => {
+      const now = Date.now();
+
+      setAnonymousChatNow(now);
+
+      if (now >= anonymousChatRetryUntil) {
+        setAnonymousChatRetryUntil(null);
+        setAnonymousChatErrorMessage("");
+      }
+    };
+
+    updateRetryTime();
+    const retryTimer = window.setInterval(updateRetryTime, ANONYMOUS_CHAT_RETRY_TICK_MS);
+
+    return () => window.clearInterval(retryTimer);
+  }, [anonymousChatRetryUntil]);
 
   const handlePurchase = () => {
     const clickRecord =
@@ -163,6 +197,48 @@ export default function PersonalProductDetailContent({
     }
   };
 
+  const handleAnonymousChatCreate = async () => {
+    if (context !== "FRIEND_GIFT" || isCreatingAnonymousChat || isAnonymousChatCoolingDown) {
+      return;
+    }
+
+    setIsCreatingAnonymousChat(true);
+    setAnonymousChatErrorMessage("");
+
+    try {
+      const chat = await createAnonymousChat({
+        recipientUserId: friendUserId,
+        productId: product.productId,
+      });
+
+      router.push(`/chat/${chat.roomId}`);
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      if (
+        error instanceof ApiRequestError &&
+        error.status === 429 &&
+        error.retryAfterSeconds !== undefined
+      ) {
+        const now = Date.now();
+
+        setAnonymousChatNow(now);
+        setAnonymousChatRetryUntil(now + error.retryAfterSeconds * 1_000);
+      }
+
+      setAnonymousChatErrorMessage(
+        error instanceof ApiRequestError
+          ? error.message
+          : "익명 대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    } finally {
+      setIsCreatingAnonymousChat(false);
+    }
+  };
+
   return (
     <article className="flex w-full flex-col gap-3 pt-2">
       <div
@@ -193,11 +269,7 @@ export default function PersonalProductDetailContent({
         </p>
       </section>
 
-      <section
-        aria-labelledby="recommendation-reason-title"
-        // 내 상품 상세는 바로 아래 피드백 영역과 이어지도록 구분선을 표시하지 않음
-        className={`pt-1 pb-4 ${isFriendGift ? "border-b border-border" : ""}`}
-      >
+      <section aria-labelledby="recommendation-reason-title" className="pt-1 pb-4">
         <h2
           id="recommendation-reason-title"
           className="flex min-w-0 text-heading-3 font-bold whitespace-nowrap text-foreground"
@@ -259,6 +331,58 @@ export default function PersonalProductDetailContent({
           {feedbackErrorMessage && !isDislikeModalOpen && (
             <p role="alert" className="mt-2 text-body-sm text-danger">
               {feedbackErrorMessage}
+            </p>
+          )}
+        </section>
+      )}
+
+      {isFriendGift && (
+        <section
+          aria-labelledby="anonymous-ask-title"
+          className="rounded-md border border-border-strong px-4 py-4"
+        >
+          <h2 id="anonymous-ask-title" className="text-body-lg font-bold text-foreground">
+            친구에게 <span className="text-info">익명</span>으로 이 상품 어떤지 물어볼까요?
+          </h2>
+          <button
+            type="button"
+            disabled={isCreatingAnonymousChat || isAnonymousChatCoolingDown}
+            aria-busy={isCreatingAnonymousChat}
+            aria-describedby={anonymousChatErrorMessage ? anonymousChatStatusId : undefined}
+            onClick={() => void handleAnonymousChatCreate()}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-sm border-0 bg-foreground px-4 py-2.5 text-surface transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted disabled:hover:opacity-100"
+          >
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M9.09 9A3 3 0 0 1 14.92 10C14.92 12 11.92 13 11.92 13"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M12 17H12.01"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="text-body-sm font-bold">
+              {isCreatingAnonymousChat ? "대화방 생성 중" : "슬쩍 물어보기"}
+            </span>
+          </button>
+          {anonymousChatErrorMessage && (
+            <p id={anonymousChatStatusId} role="alert" className="mt-2 text-body-sm text-danger">
+              {anonymousChatErrorMessage}
+              {isAnonymousChatCoolingDown &&
+                ` ${anonymousChatRetryAfterSeconds}초 후 다시 시도해 주세요.`}
             </p>
           )}
         </section>

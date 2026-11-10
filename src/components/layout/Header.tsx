@@ -13,8 +13,10 @@ import { updateFriendFavorite } from "@/lib/api/friends";
 
 import NotificationDropdown from "./NotificationDropdown";
 
-const pathsWithoutBackButton = new Set(["/", "/friends"]);
+// 뒤로 가기 버튼을 표시하지 않는 최상위 페이지 경로
+const pathsWithoutBackButton = new Set(["/", "/friends", "/chat", "/mypage", "/error"]);
 const friendDetailPathPattern = /^\/friends\/\d+\/?$/;
+const anonymousChatRoomPathPattern = /^\/chat\/\d+\/?$/;
 
 type FriendDetailHeaderActionProps = {
   userId: number;
@@ -140,13 +142,15 @@ export default function Header() {
   const friendUserId = friendDetailMatch ? Number(pathname.split("/")[2]) : null;
   const showBackButton = !pathsWithoutBackButton.has(pathname);
   const handleBack = () => {
-    if (pathname === "/products") {
+    if (pathname === "/ai" || pathname === "/products") {
       router.push("/");
       return;
     }
 
     router.back();
   };
+
+  if (anonymousChatRoomPathPattern.test(pathname)) return null;
 
   return (
     <header className="relative flex h-[60px] shrink-0 items-center justify-center bg-surface px-page">

@@ -1,6 +1,7 @@
 // 메인페이지에서 월별 이벤트 일정을 확인하는 캘린더 컴포넌트
 "use client";
 
+import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { DayPicker, labelDayButton, type DayButtonProps, type Labels } from "react-day-picker";
 import { ko } from "react-day-picker/locale";
@@ -15,16 +16,18 @@ import CalendarEventListSheet from "@/components/home/CalendarEventListSheet";
 import CalendarWheelPicker, {
   type CalendarWheelColumn,
 } from "@/components/home/CalendarWheelPicker";
+import { useToastContext } from "@/contexts/ToastContext";
+import {
+  createCalendarEvent,
+  deleteCalendarEvent,
+  getCalendarDailyEvents,
+  getCalendarEventDetail,
+  getCalendarSummary,
+  updateCalendarEvent,
+} from "@/lib/api/calendarEvents";
+import { ApiRequestError } from "@/lib/api/client";
 import { getCalendarEventColorHex } from "@/lib/calendarEventColors";
 import { formatDateKey } from "@/lib/formatDateKey";
-import {
-  createMockCalendarEvent,
-  deleteMockCalendarEvent,
-  updateMockCalendarEvent,
-  getMockCalendarEventDetail,
-  getMockCalendarEventList,
-  getMockCalendarSummary,
-} from "@/mocks/calendar";
 import type {
   CalendarDaySummary,
   CalendarEventCreateRequest,
@@ -33,23 +36,73 @@ import type {
   CalendarEventListItem,
 } from "@/types/calendar";
 
-const VISIBLE_DAY_COUNT = 42;
-
 const MAX_VISIBLE_INDICATORS = 5;
+const ONBOARDING_REQUIRED_MESSAGE = "온보딩 진행이 필요합니다.";
 
 const DaySummaryContext = createContext<ReadonlyMap<string, CalendarDaySummary>>(new Map());
 
-function getVisibleRange(month: Date) {
-  const firstDayOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
-  const from = new Date(firstDayOfMonth);
+function formatTargetMonth(month: Date) {
+  return `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+}
 
-  from.setDate(from.getDate() - firstDayOfMonth.getDay());
+function getSummaryErrorMessage(error: unknown) {
+  if (!(error instanceof ApiRequestError)) {
+    return "캘린더 일정 요약을 불러오지 못했습니다.";
+  }
 
-  const to = new Date(from);
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
 
-  to.setDate(to.getDate() + VISIBLE_DAY_COUNT - 1);
+  return error.message;
+}
 
-  return { from, to };
+function getEventListErrorMessage(error: unknown) {
+  if (!(error instanceof ApiRequestError)) {
+    return "캘린더 일정 목록을 불러오지 못했습니다.";
+  }
+
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
+
+  return error.message;
+}
+
+function getEventDetailErrorMessage(error: unknown) {
+  if (!(error instanceof ApiRequestError)) {
+    return "캘린더 일정을 불러오지 못했습니다.";
+  }
+
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
+
+  return error.message;
+}
+
+function getEventDeleteErrorMessage(error: unknown) {
+  if (!(error instanceof ApiRequestError)) {
+    return "캘린더 일정을 삭제하지 못했습니다.";
+  }
+
+  if (error.status === 429 && error.retryAfterSeconds !== undefined) {
+    return `${error.message} ${error.retryAfterSeconds}초 후 다시 시도해 주세요.`;
+  }
+
+  return error.message;
+}
+
+function formatKstDateKey(dateTime: string) {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(dateTime));
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function CalendarDayButton({ day, modifiers, children, ...buttonProps }: DayButtonProps) {
@@ -137,6 +190,8 @@ function MonthWheelPicker({ initialMonth, onConfirm }: MonthWheelPickerProps) {
 }
 
 export default function MainCalendar() {
+  const router = useRouter();
+  const { showToast } = useToastContext();
   const [month, setMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [monthPickerState, setMonthPickerState] = useState<CalendarBottomSheetState>("closed");
@@ -151,6 +206,7 @@ export default function MainCalendar() {
   const [daySummaries, setDaySummaries] = useState<ReadonlyMap<string, CalendarDaySummary>>(
     () => new Map(),
   );
+  const summaryRequestIdRef = useRef(0);
   const [eventListState, setEventListState] = useState<CalendarBottomSheetState>("closed");
   const [eventListDate, setEventListDate] = useState<Date | null>(null);
   const [eventListItems, setEventListItems] = useState<CalendarEventListItem[]>([]);
@@ -164,25 +220,80 @@ export default function MainCalendar() {
   const eventDetailRequestIdRef = useRef(0);
 
   useEffect(() => {
-    let isCurrent = true;
-    const { from, to } = getVisibleRange(month);
+    const requestId = summaryRequestIdRef.current + 1;
 
-    // TODO: 카카오 캘린더 일정 요약 조회 API 연동 후 mock 조회를 대체하고 실패 처리 추가
-    void getMockCalendarSummary(from, to).then(({ items }) => {
-      if (isCurrent) setDaySummaries(new Map(items.map((item) => [item.date, item])));
-    });
+    summaryRequestIdRef.current = requestId;
+    void getCalendarSummary(formatTargetMonth(month))
+      .then(({ items }) => {
+        if (summaryRequestIdRef.current !== requestId) return;
+
+        setDaySummaries(
+          new Map(
+            items.map((item) => [
+              item.date,
+              {
+                ...item,
+                indicators: [...item.indicators].sort(
+                  (left, right) =>
+                    right.createdAt.localeCompare(left.createdAt) || right.eventId - left.eventId,
+                ),
+              },
+            ]),
+          ),
+        );
+      })
+      .catch((error: unknown) => {
+        if (summaryRequestIdRef.current !== requestId) return;
+
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        if (
+          error instanceof ApiRequestError &&
+          error.status === 403 &&
+          error.message === ONBOARDING_REQUIRED_MESSAGE
+        ) {
+          router.replace("/onboarding");
+          return;
+        }
+
+        showToast(getSummaryErrorMessage(error));
+      });
 
     return () => {
-      isCurrent = false;
+      if (summaryRequestIdRef.current === requestId) {
+        summaryRequestIdRef.current += 1;
+      }
     };
-  }, [month, summaryRefreshKey]);
+  }, [month, router, showToast, summaryRefreshKey]);
 
   const createEvent = async (request: CalendarEventCreateRequest) => {
-    // TODO: 카카오 캘린더 일정 생성 API 연동 후 mock 저장 대체
-    await createMockCalendarEvent(request);
+    const { description, ...requiredPayload } = request;
+
+    try {
+      await createCalendarEvent({
+        ...requiredPayload,
+        ...(description ? { description } : {}),
+      });
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+      } else if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+      }
+
+      throw error;
+    }
 
     setEventCreateState("closing");
     setSummaryRefreshKey((currentKey) => currentKey + 1);
+    showToast("캘린더 일정을 등록했습니다.");
   };
 
   const openEventList = async (date: Date) => {
@@ -204,16 +315,37 @@ export default function MainCalendar() {
     setIsEventListLoading(true);
 
     try {
-      // TODO: 카카오 캘린더 날짜별 일정 목록 조회 API 연동 후 mock 조회 대체
-      const { items } = await getMockCalendarEventList(date);
+      const { items } = await getCalendarDailyEvents(formatDateKey(date));
+      const sortedItems: CalendarEventListItem[] = [...items]
+        .sort(
+          (left, right) =>
+            right.startAt.localeCompare(left.startAt) ||
+            right.createdAt.localeCompare(left.createdAt) ||
+            right.eventId - left.eventId,
+        )
+        .map((item) => ({ ...item, eventId: String(item.eventId) }));
 
-      if (eventListRequestIdRef.current === requestId) setEventListItems(items);
+      if (eventListRequestIdRef.current === requestId) setEventListItems(sortedItems);
 
-      return items;
-    } catch {
-      if (eventListRequestIdRef.current === requestId) {
-        setEventListErrorMessage("일정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      return sortedItems;
+    } catch (error) {
+      if (eventListRequestIdRef.current !== requestId) return null;
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return null;
       }
+
+      if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+        return null;
+      }
+
+      setEventListErrorMessage(getEventListErrorMessage(error));
 
       return null;
     } finally {
@@ -247,14 +379,39 @@ export default function MainCalendar() {
     setIsEventDetailLoading(true);
 
     try {
-      // TODO: 카카오 캘린더 일정 상세 조회 API 연동 후 mock 조회 대체
-      const detail = await getMockCalendarEventDetail(eventId);
+      const detail = await getCalendarEventDetail(Number(eventId));
+      const mappedDetail: CalendarEventDetail = {
+        eventId: String(detail.eventId),
+        title: detail.title,
+        description: detail.description,
+        startDate: formatKstDateKey(detail.startAt),
+        endDate: formatKstDateKey(detail.endAt),
+        startAt: detail.startAt,
+        endAt: detail.endAt,
+        allDay: detail.isAllDay,
+        notificationEnabled: detail.isNotificationEnabled,
+        color: detail.color,
+      };
 
-      if (eventDetailRequestIdRef.current === requestId) setEventDetail(detail);
-    } catch {
-      if (eventDetailRequestIdRef.current === requestId) {
-        setEventDetailErrorMessage("일정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      if (eventDetailRequestIdRef.current === requestId) setEventDetail(mappedDetail);
+    } catch (error) {
+      if (eventDetailRequestIdRef.current !== requestId) return;
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
       }
+
+      if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      setEventDetailErrorMessage(getEventDetailErrorMessage(error));
     } finally {
       if (eventDetailRequestIdRef.current === requestId) setIsEventDetailLoading(false);
     }
@@ -268,12 +425,30 @@ export default function MainCalendar() {
   const updateEvent = async (request: CalendarEventUpdateRequest) => {
     if (!eventDetail) return;
 
-    // TODO: 카카오 캘린더 일정 수정 API 연동 후 mock 수정 대체
-    await updateMockCalendarEvent(eventDetail.eventId, request);
+    let updatedEventId: number;
+
+    try {
+      ({ eventId: updatedEventId } = await updateCalendarEvent(
+        Number(eventDetail.eventId),
+        request,
+      ));
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+      } else if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+      }
+
+      throw error;
+    }
 
     setEventEditState("closing");
     setSummaryRefreshKey((currentKey) => currentKey + 1);
-    void openEventDetail(eventDetail.eventId);
+    void openEventDetail(String(updatedEventId));
 
     if (eventListDate) void loadEventList(eventListDate);
   };
@@ -290,8 +465,7 @@ export default function MainCalendar() {
     setEventDeleteErrorMessage(null);
 
     try {
-      // TODO: 카카오 캘린더 일정 삭제 API 연동 후 mock 삭제 대체 (401 로그인 이동, 403 CSRF 재발급 후 1회 재시도, 404 목록 재조회, 429 retryAfterSeconds 안내, 500 목록 유지)
-      await deleteMockCalendarEvent(eventDetail.eventId);
+      await deleteCalendarEvent(Number(eventDetail.eventId));
 
       setIsEventDeleteModalOpen(false);
       closeEventDetail();
@@ -301,11 +475,21 @@ export default function MainCalendar() {
 
       if (items?.length === 0) closeEventList();
     } catch (error) {
-      setEventDeleteErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "일정을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-      );
+      if (error instanceof ApiRequestError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      if (
+        error instanceof ApiRequestError &&
+        error.status === 403 &&
+        error.message === ONBOARDING_REQUIRED_MESSAGE
+      ) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      setEventDeleteErrorMessage(getEventDeleteErrorMessage(error));
     } finally {
       setIsEventDeleting(false);
     }

@@ -1,4 +1,5 @@
 // 서버 프록시 인증이 적용된 공통 보호 페이지 레이아웃
+import AnonymousChatSocketInitializer from "@/components/layout/AnonymousChatSocketInitializer";
 import BottomNavigation from "@/components/layout/BottomNavigation";
 import Header from "@/components/layout/Header";
 import ServiceWorkerRegistration from "@/components/layout/ServiceWorkerRegistration";
@@ -14,12 +15,17 @@ export default function MainLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <NotificationProvider>
       <ToastProvider>
+        <AnonymousChatSocketInitializer />
         <ServiceWorkerRegistration />
         <AiConversationProvider>
           <FriendDetailProvider>
             <Header />
             {/* 자체 스크롤 영역을 가진 페이지는 data-scrollbar-gutter="none"으로 스크롤바 여백 제외 */}
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-gutter:stable] has-[[data-scrollbar-gutter=none]]:[scrollbar-gutter:auto]">
+            {/* data-main-scroll-area는 상품 목록의 스크롤 위치 복원에서 이 영역을 찾는 데 사용함 */}
+            <div
+              data-main-scroll-area
+              className="flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-gutter:stable] has-[[data-scrollbar-gutter=none]]:[scrollbar-gutter:auto]"
+            >
               {children}
             </div>
             <Toast />

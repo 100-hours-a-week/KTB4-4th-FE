@@ -261,17 +261,20 @@ npm run dev
 
 `NEXT_PUBLIC_` 접두사가 있는 값은 브라우저 번들에 포함되어 빌드 후 바꿀 수 없습니다. 로컬 개발에는 `BACKEND_API_BASE_URL`만 있으면 됩니다.
 
-| 변수                        | 필수 | 주입 시점 | 설명                                                  |
-| --------------------------- | :--: | :-------: | ----------------------------------------------------- |
-| `BACKEND_API_BASE_URL`      |  ✓   |   실행    | Next.js 서버가 호출할 BE API 기본 주소. 환경별로 다름 |
-| `SENTRY_ENVIRONMENT`        |      |   실행    | 서버와 Edge의 Sentry 환경 이름. 환경별로 다름         |
-| `SENTRY_DSN`                |      |   실행    | 서버에서 공개 DSN 대신 사용할 선택 값                 |
-| `NEXT_PUBLIC_SENTRY_DSN`    |      |   빌드    | 브라우저와 서버의 Sentry 이벤트 전송 주소             |
-| `NEXT_PUBLIC_USE_MOCK_DATA` |      |   빌드    | 친구·추천 상품 목업 데이터 사용 여부                  |
-| `SENTRY_ORG`                |      |   빌드    | Sentry 조직 slug                                      |
-| `SENTRY_PROJECT`            |      |   빌드    | Sentry 프로젝트 slug                                  |
-| `SENTRY_AUTH_TOKEN`         |      |   빌드    | 프로덕션 빌드의 소스맵 업로드 인증. **비밀값**        |
-| `SENTRY_RELEASE`            |      |   빌드    | 오류와 소스맵을 연결할 릴리스 식별자                  |
+| 변수                                  | 필수 | 주입 시점 | 설명                                                                |
+| ------------------------------------- | :--: | :-------: | ------------------------------------------------------------------- |
+| `BACKEND_API_BASE_URL`                |  ✓   |   실행    | Next.js 서버가 호출할 BE API 기본 주소이자 대체 주소. 환경별로 다름 |
+| `BACKEND_AUTH_API_BASE_URL`           |      |   실행    | 서버 요청을 보낼 auth Service 주소                                  |
+| `BACKEND_RECOMMENDATION_API_BASE_URL` |      |   실행    | 서버 요청을 보낼 recommendation Service 주소                        |
+| `BACKEND_SOCIAL_API_BASE_URL`         |      |   실행    | 서버 요청을 보낼 social Service 주소                                |
+| `SENTRY_ENVIRONMENT`                  |      |   실행    | 서버와 Edge의 Sentry 환경 이름. 환경별로 다름                       |
+| `SENTRY_DSN`                          |      |   실행    | 서버에서 공개 DSN 대신 사용할 선택 값                               |
+| `NEXT_PUBLIC_SENTRY_DSN`              |      |   빌드    | 브라우저와 서버의 Sentry 이벤트 전송 주소                           |
+| `NEXT_PUBLIC_USE_MOCK_DATA`           |      |   빌드    | 친구·추천 상품 목업 데이터 사용 여부                                |
+| `SENTRY_ORG`                          |      |   빌드    | Sentry 조직 slug                                                    |
+| `SENTRY_PROJECT`                      |      |   빌드    | Sentry 프로젝트 slug                                                |
+| `SENTRY_AUTH_TOKEN`                   |      |   빌드    | 프로덕션 빌드의 소스맵 업로드 인증. **비밀값**                      |
+| `SENTRY_RELEASE`                      |      |   빌드    | 오류와 소스맵을 연결할 릴리스 식별자                                |
 
 **환경별 실행 값**
 
@@ -294,6 +297,16 @@ npm run dev
 **API 요청 경로**
 
 로컬 개발에서는 Next.js가 브라우저의 `/api/v1/*` 요청을 `BACKEND_API_BASE_URL`로 중계합니다. 배포 환경에서는 이 rewrite를 만들지 않으며, ALB Listener Rule이 `/api/v1/*` 요청을 Backend Target Group으로 전달합니다. 다만 `src/proxy.ts`와 서버 컴포넌트는 배포 환경에서도 BE API를 직접 호출하므로, 컨테이너 실행 시 `BACKEND_API_BASE_URL`을 반드시 주입해야 합니다.
+
+`src/proxy.ts`와 서버 컴포넌트의 요청은 [`backendBaseUrl.ts`](./src/lib/api/backendBaseUrl.ts)가 API 경로에 따라 주소를 선택합니다. 브라우저 요청은 이 분기와 관계없이 ALB를 거칩니다.
+
+| 변수                                  | 담당 경로 (`/api/v1` 생략)                                                        |
+| ------------------------------------- | --------------------------------------------------------------------------------- |
+| `BACKEND_AUTH_API_BASE_URL`           | `/auth/*`, `/guidance`, `/users/me`, `/users/me/consents`                         |
+| `BACKEND_RECOMMENDATION_API_BASE_URL` | `/products/*`, `/users/me/personal-recommendations`, `/users/me/gift-preferences` |
+| `BACKEND_SOCIAL_API_BASE_URL`         | `/friends/*`, `/users/me/settings/notifications`                                  |
+
+Service 주소가 없거나 규칙에 없는 경로는 `BACKEND_API_BASE_URL`로 보내므로, 이 값은 Service 주소를 넣은 환경에서도 유지합니다. 새 서버 API를 추가할 때는 `backendBaseUrl.ts`의 규칙도 함께 추가합니다.
 
 **CI 빌드 변수**
 

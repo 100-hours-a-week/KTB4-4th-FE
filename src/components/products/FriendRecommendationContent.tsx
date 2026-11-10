@@ -6,7 +6,10 @@ import { useEffect, useRef, useState } from "react";
 
 import FriendGiftRecommendationsContent from "@/components/products/FriendGiftRecommendationsContent";
 import FriendTasteAnalysisRequired from "@/components/products/FriendTasteAnalysisRequired";
+import ProductCategoryBadgesSkeleton from "@/components/products/ProductCategoryBadgesSkeleton";
+import ProductGridSkeleton from "@/components/products/ProductGridSkeleton";
 import RecommendationTarget from "@/components/recommendations/RecommendationTarget";
+import RecommendationTargetSkeleton from "@/components/recommendations/RecommendationTargetSkeleton";
 import { ApiRequestError } from "@/lib/api/client";
 import { getFriendDetail, type FriendDetail } from "@/lib/api/friends";
 import type { ProductCategory } from "@/lib/productCategories";
@@ -56,11 +59,22 @@ export default function FriendRecommendationContent({
     };
   }, [router, userId]);
 
+  // 이동 중 로딩 화면(loading.tsx)과 같은 배치로 표시해 친구 정보를 받는 동안 화면이 바뀌지 않게 함
+  // TODO: 친구 정보 서버 선조회 적용 시 이 대기 화면 제거
   if (!friend) {
     return (
-      <p role="status" className="pt-8 text-center text-body-sm text-muted">
-        친구 정보를 불러오는 중이에요.
-      </p>
+      <>
+        <p role="status" className="sr-only">
+          친구 정보를 불러오는 중이에요.
+        </p>
+        <section aria-hidden="true" className="w-full pt-8">
+          <RecommendationTargetSkeleton />
+        </section>
+        <section aria-hidden="true" className="flex w-full flex-col gap-4 py-5">
+          <ProductCategoryBadgesSkeleton />
+          <ProductGridSkeleton />
+        </section>
+      </>
     );
   }
 

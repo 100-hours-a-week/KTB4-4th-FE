@@ -1,6 +1,10 @@
-// 성능 측정용 목업 데이터 사용 여부와 공통 응답 지연 설정
+// 성능 측정용 목업 데이터 사용 여부, 목업 상품 이미지 형식, 공통 응답 지연 설정
 
 export const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
+
+// 실제 상품 썸네일과 같은 WebP가 기본값이고, jpg로 지정한 경우에만 800px JPEG 사용
+export const MOCK_PRODUCT_IMAGE_FORMAT =
+  process.env.NEXT_PUBLIC_MOCK_IMAGE_FORMAT === "jpg" ? "jpg" : "webp";
 
 const MOCK_RESPONSE_DELAY_MS = 150;
 

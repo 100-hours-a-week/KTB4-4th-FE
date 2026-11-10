@@ -22,6 +22,10 @@ export interface PriceRange {
   maxPrice: number;
 }
 
+// 목록 첫 페이지를 받기 전(loading)과 받은 뒤 가격 범위가 없는 경우(loaded + null)를 구분하는 상태
+export type AvailablePriceRangeState =
+  { status: "loading" } | { status: "loaded"; priceRange: PriceRange | null };
+
 type RangeThumb = "minimum" | "maximum";
 
 const clamp = (value: number, minimum: number, maximum: number) =>
@@ -47,11 +51,31 @@ export default function PriceRangeSlider({
   const clampedInitialMaxPrice = clamp(initialMaxPrice, availableMinPrice, availableMaxPrice);
   const [draftMinPrice, setDraftMinPrice] = useState(clampedInitialMinPrice);
   const [draftMaxPrice, setDraftMaxPrice] = useState(clampedInitialMaxPrice);
-  const lastCommittedRangeRef = useRef<PriceRange>({
+  const [lastCommittedRange, setLastCommittedRange] = useState<PriceRange>({
+    minPrice: clampedInitialMinPrice,
+    maxPrice: clampedInitialMaxPrice,
+  });
+  const [syncedInitialRange, setSyncedInitialRange] = useState<PriceRange>({
     minPrice: clampedInitialMinPrice,
     maxPrice: clampedInitialMaxPrice,
   });
   const activeThumbRef = useRef<RangeThumb | null>(null);
+
+  // 탭 전환 등으로 바깥 선택 가격이 바뀌면 슬라이더를 새로 만들지 않고 내부 값만 맞춤
+  if (
+    syncedInitialRange.minPrice !== clampedInitialMinPrice ||
+    syncedInitialRange.maxPrice !== clampedInitialMaxPrice
+  ) {
+    const nextInitialRange = {
+      minPrice: clampedInitialMinPrice,
+      maxPrice: clampedInitialMaxPrice,
+    };
+
+    setSyncedInitialRange(nextInitialRange);
+    setLastCommittedRange(nextInitialRange);
+    setDraftMinPrice(nextInitialRange.minPrice);
+    setDraftMaxPrice(nextInitialRange.maxPrice);
+  }
 
   const isFixedRange = availableMinPrice === availableMaxPrice;
   const isRangeValid = draftMinPrice <= draftMaxPrice;
@@ -109,8 +133,6 @@ export default function PriceRangeSlider({
   };
 
   const commitPriceRange = () => {
-    const lastCommittedRange = lastCommittedRangeRef.current;
-
     if (
       lastCommittedRange.minPrice === draftMinPrice &&
       lastCommittedRange.maxPrice === draftMaxPrice
@@ -123,7 +145,7 @@ export default function PriceRangeSlider({
       maxPrice: draftMaxPrice,
     };
 
-    lastCommittedRangeRef.current = nextPriceRange;
+    setLastCommittedRange(nextPriceRange);
     onPriceRangeCommit?.(nextPriceRange);
   };
 

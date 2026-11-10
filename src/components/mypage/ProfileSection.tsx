@@ -4,6 +4,8 @@ import Image from "next/image";
 
 import type { MyPageProfile } from "@/types/mypage";
 
+import styles from "./ProfileSection.module.css";
+
 type ProfileSectionProps = {
   profile: MyPageProfile;
 };
@@ -11,7 +13,9 @@ type ProfileSectionProps = {
 export default function ProfileSection({ profile }: ProfileSectionProps) {
   return (
     <section aria-labelledby="profile-heading" className="flex items-center gap-5 pt-5">
-      <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border border-border bg-background-subtle shadow-sm">
+      <div
+        className={`${styles.profileImage} relative h-24 w-24 shrink-0 overflow-hidden bg-background-subtle shadow-sm`}
+      >
         {profile.profileImageUrl ? (
           <Image
             src={profile.profileImageUrl}

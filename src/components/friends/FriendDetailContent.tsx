@@ -10,45 +10,12 @@ import KeywordSection from "@/components/common/KeywordSection";
 import FriendPokeButton from "@/components/friends/FriendPokeButton";
 import { useFriendDetailContext } from "@/contexts/FriendDetailContext";
 import type { FriendDetail } from "@/lib/api/friends";
+import { getDaysUntilBirthday, parseBirthday } from "@/lib/upcomingBirthdays";
 
 type FriendDetailContentProps = {
   userId: number;
   initialFriend: FriendDetail;
 };
-
-function parseBirthday(birthDate: string | null) {
-  if (!birthDate) {
-    return null;
-  }
-
-  const match = birthDate.match(/^\d{4}-(\d{2})-(\d{2})$/);
-
-  if (!match) {
-    return null;
-  }
-
-  const month = Number(match[1]);
-  const day = Number(match[2]);
-  const date = new Date(Date.UTC(2000, month - 1, day));
-
-  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
-    return null;
-  }
-
-  return { month, day };
-}
-
-function getDaysUntilBirthday(month: number, day: number) {
-  const today = new Date();
-  const todayAtUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  let birthdayAtUtc = Date.UTC(today.getFullYear(), month - 1, day);
-
-  if (birthdayAtUtc < todayAtUtc) {
-    birthdayAtUtc = Date.UTC(today.getFullYear() + 1, month - 1, day);
-  }
-
-  return Math.round((birthdayAtUtc - todayAtUtc) / (1000 * 60 * 60 * 24));
-}
 
 export default function FriendDetailContent({ userId, initialFriend }: FriendDetailContentProps) {
   const { friend: friendDetail, initializeFriend } = useFriendDetailContext();

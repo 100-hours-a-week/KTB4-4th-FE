@@ -71,7 +71,7 @@ export async function getPersonalRecommendations({
   if (USE_MOCK_DATA) {
     const { getMockPersonalRecommendationsPage } = await import("@/mocks/recommendations");
 
-    return getMockPersonalRecommendationsPage({ cursor, size, minPrice, maxPrice });
+    return getMockPersonalRecommendationsPage({ category, cursor, size, minPrice, maxPrice });
   }
 
   const searchParams = new URLSearchParams({ size: String(size) });

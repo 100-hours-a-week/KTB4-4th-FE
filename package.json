@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
+    "build:perf": "NEXT_PUBLIC_USE_MOCK_DATA=true NEXT_PUBLIC_PERF_INSTRUMENT=true next build",
+    "build:perf:profile": "NEXT_PUBLIC_USE_MOCK_DATA=true NEXT_PUBLIC_PERF_INSTRUMENT=true next build --profile --no-mangling",
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
@@ -17,12 +19,16 @@
   "dependencies": {
     "@next/third-parties": "^16.3.6",
     "@sentry/nextjs": "^11.1.0",
+    "@stomp/stompjs": "^7.5.0",
+    "@tanstack/react-query": "^5.105.0",
+    "@tanstack/react-virtual": "^3.14.26",
     "next": "16.3.5",
     "react": "19.2.8",
     "react-day-picker": "^10.0.2",
     "react-dom": "19.2.8",
     "react-mobile-picker": "^1.2.0",
-    "react-swipeable": "^7.0.2"
+    "react-swipeable": "^7.0.2",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.1",
