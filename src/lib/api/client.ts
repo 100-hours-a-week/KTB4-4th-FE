@@ -13,6 +13,10 @@ interface CsrfErrorResponse {
   } | null;
 }
 
+interface ApiFetchOptions {
+  refreshAccessTokenOnUnauthorized?: boolean;
+}
+
 let refreshRequest: Promise<void> | null = null;
 let refreshVersion = 0;
 
@@ -97,7 +101,11 @@ export function redirectToLogin() {
   }
 }
 
-export async function apiFetch(input: string | URL, init: RequestInit = {}) {
+export async function apiFetch(
+  input: string | URL,
+  init: RequestInit = {},
+  { refreshAccessTokenOnUnauthorized = true }: ApiFetchOptions = {},
+) {
   const requestVersion = refreshVersion;
   let requestInit = await createRequestInit(init);
   let response = await fetch(input, requestInit);
@@ -108,7 +116,11 @@ export async function apiFetch(input: string | URL, init: RequestInit = {}) {
     response = await fetch(input, requestInit);
   }
 
-  if (response.status !== 401 || input.toString().includes(API_ENDPOINTS.auth.refresh)) {
+  if (
+    response.status !== 401 ||
+    !refreshAccessTokenOnUnauthorized ||
+    input.toString().includes(API_ENDPOINTS.auth.refresh)
+  ) {
     return response;
   }
 
