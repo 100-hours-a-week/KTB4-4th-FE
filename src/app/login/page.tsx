@@ -1,5 +1,6 @@
-// 카카오 로그인을 시작하는 로그인 페이지
+// 카카오 로그인과 테스트 계정 로그인을 제공하는 로그인 페이지
 import Image from "next/image";
+import Link from "next/link";
 
 import KakaoLoginButton from "@/components/auth/KakaoLoginButton";
 
@@ -35,6 +36,13 @@ export default function LoginPage() {
       </div>
 
       <KakaoLoginButton />
+
+      <Link
+        href="/login/demo"
+        className="mt-3 self-center px-3 py-2 text-caption font-medium text-muted underline decoration-muted decoration-1 underline-offset-4 transition-colors hover:text-foreground-secondary focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground-secondary"
+      >
+        테스트 계정으로 로그인하기
+      </Link>
     </main>
   );
 }
