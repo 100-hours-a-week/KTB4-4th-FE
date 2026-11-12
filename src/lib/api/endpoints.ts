@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
   auth: {
     kakaoAuthorize: `${API_V1_PREFIX}/auth/kakao/authorize`,
     csrf: `${API_V1_PREFIX}/auth/csrf`,
+    demoLogin: `${API_V1_PREFIX}/auth/demo/login`,
     refresh: `${API_V1_PREFIX}/auth/refresh`,
     loginValidity: `${API_V1_PREFIX}/auth/session`,
     logout: `${API_V1_PREFIX}/auth/logout`,
