@@ -118,7 +118,7 @@ export default function SegmentedTabs<T extends string>({
               isSelected ? "text-foreground" : "text-muted"
             }`}
           >
-            <span className="inline-flex items-center justify-center gap-1.5 font-bold">
+            <span className="inline-flex min-w-0 max-w-full items-center justify-center gap-1.5 font-bold">
               {item.label}
               {item.hasNotification && (
                 <>
