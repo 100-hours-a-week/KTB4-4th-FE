@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-import styles from "./TypingIndicator.module.css";
+import TypingDots from "@/components/chat/TypingDots";
 
 export default function TypingIndicator() {
   return (
@@ -22,11 +22,9 @@ export default function TypingIndicator() {
 
       <div className="min-w-0 max-w-[calc(100%-3.75rem)] rounded-md bg-surface p-4">
         <p className="text-body-sm font-bold text-foreground">니쥬</p>
-        <span aria-hidden="true" className={styles.dots}>
-          <span className={styles.dot} />
-          <span className={styles.dot} />
-          <span className={styles.dot} />
-        </span>
+        <div className="mt-2">
+          <TypingDots />
+        </div>
       </div>
     </article>
   );

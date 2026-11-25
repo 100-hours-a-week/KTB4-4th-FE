@@ -13,7 +13,9 @@ import AnonymousChatProductCard from "@/components/anonymousChat/AnonymousChatPr
 import AnonymousChatReportModal from "@/components/anonymousChat/AnonymousChatReportModal";
 import AnonymousChatRoomHeader from "@/components/anonymousChat/AnonymousChatRoomHeader";
 import AnonymousChatStartGuide from "@/components/anonymousChat/AnonymousChatStartGuide";
+import AnonymousChatTypingIndicator from "@/components/anonymousChat/AnonymousChatTypingIndicator";
 import { useToastContext } from "@/contexts/ToastContext";
+import { useAnonymousChatTypingReceiver } from "@/hooks/useAnonymousChatTypingReceiver";
 import useVisualViewportHeight from "@/hooks/useVisualViewportHeight";
 import { getDisplayAlias, UNKNOWN_ALIAS_LABEL } from "@/lib/anonymousChatAlias";
 import { getAnonymousChatListHref } from "@/lib/anonymousChatNavigation";
@@ -152,6 +154,8 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
       }),
     ),
   );
+
+  const isCounterpartTypingInRoom = useAnonymousChatTypingReceiver(chatId);
 
   useVisualViewportHeight();
 
@@ -781,6 +785,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
   const { room } = roomState;
   const isPartnerLeft = room.partnerStatus === "LEFT";
   const isMessageSendingDisabled = isAnonymousChatRoomClosed(room.roomStatus) || isPartnerLeft;
+  const isCounterpartTyping = isCounterpartTypingInRoom && !isMessageSendingDisabled;
 
   return (
     <main
@@ -813,6 +818,7 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
           messages={room.messages}
           pendingMessages={pendingMessages}
           isRoomEnded={isMessageSendingDisabled}
+          isCounterpartTyping={isCounterpartTyping}
           hasNext={room.hasNext}
           isLoadingPreviousMessages={isLoadingPreviousMessages}
           previousMessagesError={previousMessagesError}
@@ -821,7 +827,17 @@ export default function AnonymousChatRoomContent({ chatId }: AnonymousChatRoomCo
           onRetryMessage={handleRetryMessage}
         />
       ) : (
-        <AnonymousChatStartGuide />
+        <>
+          <AnonymousChatStartGuide />
+          {isCounterpartTyping && (
+            <div className="shrink-0 pb-4">
+              <AnonymousChatTypingIndicator
+                counterpartName={getDisplayAlias(room.counterpartName) ?? UNKNOWN_ALIAS_LABEL}
+                counterpartProfile={room.counterpartProfile}
+              />
+            </div>
+          )}
+        </>
       )}
 
       <AnonymousChatComposer chatId={room.roomId} isDisabled={isMessageSendingDisabled} />

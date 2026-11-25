@@ -17,6 +17,8 @@ type ChatComposerProps = {
   placeholder?: string;
   variant?: ComposerVariant;
   trimBeforeSend?: boolean;
+  // 사용자가 입력창 내용을 직접 바꿀 때만 호출되며 전송 후 비우기에는 호출되지 않음
+  onDraftChange?: (value: string) => void;
 };
 
 type ComposerVariant = "ai" | "anonymous";
@@ -51,6 +53,7 @@ export default function ChatComposer({
   placeholder = "메시지 입력",
   variant = "ai",
   trimBeforeSend = true,
+  onDraftChange,
 }: ChatComposerProps) {
   const variantClassNames = VARIANT_CLASS_NAMES[variant];
   const [draftMessage, setDraftMessage] = useState("");
@@ -68,6 +71,7 @@ export default function ChatComposer({
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     setDraftMessage(event.target.value);
+    onDraftChange?.(event.target.value);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {

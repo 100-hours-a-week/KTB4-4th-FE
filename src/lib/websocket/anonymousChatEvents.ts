@@ -52,6 +52,14 @@ export interface AnonymousChatRoomEndedEvent {
   };
 }
 
+export interface AnonymousChatTypingEvent {
+  type: "ANONYMOUS_CHAT_TYPING";
+  data: {
+    roomId: number;
+    isTyping: boolean;
+  };
+}
+
 export interface AnonymousChatMessageErrorEvent {
   type: "ANONYMOUS_CHAT_ERROR";
   code: string;
@@ -68,6 +76,7 @@ export type AnonymousChatEvent =
   | AnonymousChatMessageReceivedEvent
   | AnonymousChatMessageReadEvent
   | AnonymousChatRoomEndedEvent
+  | AnonymousChatTypingEvent
   | AnonymousChatMessageErrorEvent;
 
 export type AnonymousChatEventHandler = (event: AnonymousChatEvent) => void;
@@ -200,6 +209,26 @@ function parseRoomEnded(value: Record<string, unknown>): AnonymousChatRoomEndedE
   };
 }
 
+function parseTyping(value: Record<string, unknown>): AnonymousChatTypingEvent | null {
+  const data = value.data;
+
+  if (
+    !isRecord(data) ||
+    !isPositiveSafeInteger(data.roomId) ||
+    typeof data.isTyping !== "boolean"
+  ) {
+    return null;
+  }
+
+  return {
+    type: "ANONYMOUS_CHAT_TYPING",
+    data: {
+      roomId: data.roomId,
+      isTyping: data.isTyping,
+    },
+  };
+}
+
 function parseMessageError(value: Record<string, unknown>): AnonymousChatMessageErrorEvent | null {
   const data = value.data;
 
@@ -257,6 +286,8 @@ export function parseAnonymousChatEvent(body: string): AnonymousChatEvent | null
       return parseMessageRead(value);
     case "ANONYMOUS_CHAT_ROOM_ENDED":
       return parseRoomEnded(value);
+    case "ANONYMOUS_CHAT_TYPING":
+      return parseTyping(value);
     case "ANONYMOUS_CHAT_ERROR":
       return parseMessageError(value);
     default:

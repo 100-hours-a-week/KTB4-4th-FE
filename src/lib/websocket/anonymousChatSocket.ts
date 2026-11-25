@@ -325,6 +325,21 @@ export function publishAnonymousChatMessage({
   });
 }
 
+// 입력 중 상태는 실패해도 화면에 영향이 없어야 하므로 연결이 없거나 방 번호가 잘못되면 조용히 무시함
+export function publishAnonymousChatTyping(roomId: number, isTyping: boolean) {
+  if (!Number.isSafeInteger(roomId) || roomId <= 0) return;
+
+  const socketClient = client;
+
+  if (!socketClient?.connected) return;
+
+  socketClient.publish({
+    destination: ANONYMOUS_CHAT_STOMP_DESTINATIONS.typing(roomId),
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ isTyping }),
+  });
+}
+
 export async function closeAnonymousChatSocket() {
   const closeVersion = ++lifecycleVersion;
   const socketClient = client;
