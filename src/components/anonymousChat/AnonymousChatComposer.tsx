@@ -4,6 +4,7 @@
 import { useState } from "react";
 
 import ChatComposer from "@/components/chat/ChatComposer";
+import { useAnonymousChatTypingSender } from "@/hooks/useAnonymousChatTypingSender";
 import { sendAnonymousChatMessage } from "@/lib/websocket/anonymousChatMessageDelivery";
 
 type AnonymousChatComposerProps = {
@@ -16,9 +17,11 @@ export default function AnonymousChatComposer({
   isDisabled = false,
 }: AnonymousChatComposerProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { handleDraftChange, handleMessageSent } = useAnonymousChatTypingSender(chatId, isDisabled);
 
   const handleSend = async (content: string) => {
     setErrorMessage(null);
+    handleMessageSent();
 
     try {
       sendAnonymousChatMessage({ roomId: chatId, content });
@@ -44,6 +47,7 @@ export default function AnonymousChatComposer({
         placeholder={isDisabled ? "종료된 대화입니다" : "메시지 입력"}
         variant="anonymous"
         trimBeforeSend={false}
+        onDraftChange={handleDraftChange}
       />
     </div>
   );

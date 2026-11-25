@@ -4,6 +4,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import AnonymousChatProfileImage from "@/components/anonymousChat/AnonymousChatProfileImage";
+import AnonymousChatTypingIndicator from "@/components/anonymousChat/AnonymousChatTypingIndicator";
 import MessageDeliveryAction from "@/components/chat/MessageDeliveryAction";
 import type { AnonymousChatMessage } from "@/lib/api/anonymousChatRoom";
 import {
@@ -25,6 +26,7 @@ type AnonymousChatMessageListProps = {
   messages: AnonymousChatMessage[];
   pendingMessages: AnonymousChatPendingMessage[];
   isRoomEnded: boolean;
+  isCounterpartTyping: boolean;
   hasNext: boolean;
   isLoadingPreviousMessages: boolean;
   previousMessagesError: {
@@ -59,6 +61,8 @@ type PendingDisplayMessage = {
 type AnonymousChatDisplayMessage = ConfirmedDisplayMessage | PendingDisplayMessage;
 
 const LOAD_PREVIOUS_SCROLL_THRESHOLD_PX = 80;
+// 입력 중 말풍선(약 80px)이 추가된 뒤 기준으로 바닥 근처인지 판단하는 거리
+const TYPING_INDICATOR_FOLLOW_THRESHOLD_PX = 160;
 
 function createDisplayMessages(
   messages: AnonymousChatMessage[],
@@ -267,6 +271,7 @@ export default function AnonymousChatMessageList({
   messages,
   pendingMessages,
   isRoomEnded,
+  isCounterpartTyping,
   hasNext,
   isLoadingPreviousMessages,
   previousMessagesError,
@@ -274,6 +279,7 @@ export default function AnonymousChatMessageList({
   onLastVisibleCounterpartMessageChange,
   onRetryMessage,
 }: AnonymousChatMessageListProps) {
+  const shouldShowTypingIndicator = isCounterpartTyping && !isRoomEnded;
   const displayMessages = useMemo(
     () => createDisplayMessages(messages, pendingMessages),
     [messages, pendingMessages],
@@ -314,6 +320,21 @@ export default function AnonymousChatMessageList({
     list.scrollTop = list.scrollHeight;
     isInitialScrollCompleteRef.current = true;
   }, [displayMessages.length, isRoomEnded]);
+
+  // 이전 메시지를 읽고 있을 때는 위치를 유지하고, 바닥 근처일 때만 입력 중 말풍선을 따라 내려감
+  useLayoutEffect(() => {
+    const list = listRef.current;
+
+    if (!list || !shouldShowTypingIndicator) {
+      return;
+    }
+
+    const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+
+    if (distanceFromBottom <= TYPING_INDICATOR_FOLLOW_THRESHOLD_PX) {
+      list.scrollTop = list.scrollHeight;
+    }
+  }, [shouldShowTypingIndicator]);
 
   useEffect(() => {
     if (
@@ -458,6 +479,13 @@ export default function AnonymousChatMessageList({
             </Fragment>
           );
         })}
+
+        {shouldShowTypingIndicator && (
+          <AnonymousChatTypingIndicator
+            counterpartName={counterpartName}
+            counterpartProfile={counterpartProfile}
+          />
+        )}
 
         {isRoomEnded && (
           <p
