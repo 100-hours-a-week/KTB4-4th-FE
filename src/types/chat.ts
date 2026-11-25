@@ -47,10 +47,12 @@ export interface AiConversationConnectedEvent {
 export interface AiConversationAcceptedEvent {
   userMessageId: number;
   clientMessageId: string;
+  attempt?: number;
 }
 
 export interface AiConversationDeltaEvent {
   userMessageId: number;
+  attempt?: number;
   // 0부터 1씩 증가하며 재전송하면 0부터 다시 시작함
   index: number;
   text: string;
@@ -67,6 +69,7 @@ export interface AiConversationCompletedEvent {
 
 export interface AiConversationErrorEvent {
   userMessageId: number;
+  attempt?: number;
   message: string;
   retryable: boolean;
   restartRequired: boolean;

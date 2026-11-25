@@ -67,6 +67,7 @@ type ChatRoomProps = {
 
 type TypingToken = {
   userMessageId: number;
+  attempt?: number;
   index: number;
   text: string;
   isChunkEnd: boolean;
@@ -551,14 +552,25 @@ export default function ChatRoom({
     onConnected: ({ generating, pendingUserMessageId }, isReconnected) => {
       dispatch({ type: "STREAM_CONNECTED", generating, pendingUserMessageId, isReconnected });
     },
-    onAccepted: ({ clientMessageId, userMessageId }) => {
-      dispatch({ type: "SEND_ACCEPTED", clientMessageId, userMessageId });
+    onAccepted: ({ clientMessageId, userMessageId, attempt }) => {
+      const isRepublishedAttempt =
+        attempt !== undefined &&
+        turn?.userMessageId === userMessageId &&
+        turn.attempt !== null &&
+        attempt > turn.attempt;
+
+      if (isRepublishedAttempt) {
+        clearTypingState();
+      }
+
+      dispatch({ type: "SEND_ACCEPTED", clientMessageId, userMessageId, attempt });
     },
-    onDelta: ({ userMessageId, index, text }) => {
+    onDelta: ({ userMessageId, attempt, index, text }) => {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         dispatch({
           type: "DELTA_TOKEN_DISPLAYED",
           userMessageId,
+          attempt,
           index,
           text,
           isChunkEnd: true,
@@ -569,6 +581,7 @@ export default function ChatRoom({
       const words = splitIntoTypingTokens(text);
       const tokens = (words.length > 0 ? words : [""]).map((word, wordIndex, allWords) => ({
         userMessageId,
+        attempt,
         index,
         text: word,
         isChunkEnd: wordIndex === allWords.length - 1,
@@ -584,7 +597,11 @@ export default function ChatRoom({
         finishPendingTurn();
       }
     },
-    onError: ({ userMessageId, message, retryable, restartRequired }) => {
+    onError: ({ userMessageId, attempt, message, retryable, restartRequired }) => {
+      if (attempt !== undefined && turn?.attempt !== null && attempt !== turn?.attempt) {
+        return;
+      }
+
       clearTypingState();
 
       // AI 세션이 사라진 대화라 어느 탭의 턴이든 새 대화 시작으로 안내함
@@ -593,7 +610,7 @@ export default function ChatRoom({
         return;
       }
 
-      dispatch({ type: "TURN_FAILED", userMessageId, message, retryable });
+      dispatch({ type: "TURN_FAILED", userMessageId, attempt, message, retryable });
     },
     onDone: ({ userMessageId }) => {
       pendingDoneUserMessageIdRef.current = userMessageId;

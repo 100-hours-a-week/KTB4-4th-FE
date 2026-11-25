@@ -19,6 +19,8 @@ export type ChatTurn = {
   clientMessageId: string | null;
   // 202 응답이나 accepted 이벤트 중 먼저 온 쪽에서 채워짐
   userMessageId: number | null;
+  // 백엔드 답변 생성 시도 번호이며 필드가 없는 기존 이벤트에서는 null
+  attempt: number | null;
   // completed 전까지 조각을 이어 붙이는 임시 AI 메시지 ID
   assistantMessageId: string;
   // null이면 생성 도중 들어온 턴이라 처음 받은 조각의 번호부터 이어 붙임
@@ -43,18 +45,25 @@ export type ChatRoomState = {
 export type ChatRoomAction =
   | { type: "SEND_STARTED"; clientMessageId: string; content: string }
   | { type: "RETRY_STARTED"; clientMessageId: string }
-  | { type: "SEND_ACCEPTED"; clientMessageId: string; userMessageId: number }
+  | { type: "SEND_ACCEPTED"; clientMessageId: string; userMessageId: number; attempt?: number }
   | { type: "SEND_FAILED"; clientMessageId: string; status: number; retryAfterSeconds: number }
   | { type: "SEND_REJECTED"; clientMessageId: string; message: string | null }
   | {
       type: "DELTA_TOKEN_DISPLAYED";
       userMessageId: number;
+      attempt?: number;
       index: number;
       text: string;
       isChunkEnd: boolean;
     }
   | { type: "TURN_COMPLETED"; userMessageId: number; messageId: number; content: string }
-  | { type: "TURN_FAILED"; userMessageId: number; message: string; retryable: boolean }
+  | {
+      type: "TURN_FAILED";
+      userMessageId: number;
+      attempt?: number;
+      message: string;
+      retryable: boolean;
+    }
   | { type: "TURN_DONE"; userMessageId: number }
   | { type: "TURN_ABORTED" }
   | {
@@ -97,6 +106,7 @@ const createTurn = (clientMessageId: string): ChatTurn => ({
   kind: "LOCAL",
   clientMessageId,
   userMessageId: null,
+  attempt: null,
   assistantMessageId: `assistant-${clientMessageId}`,
   nextDeltaIndex: 0,
   hasMissingDelta: false,
@@ -104,10 +114,15 @@ const createTurn = (clientMessageId: string): ChatTurn => ({
   isFailed: false,
 });
 
-const createServerTurn = (kind: "RESUMED" | "EXTERNAL", userMessageId: number): ChatTurn => ({
+const createServerTurn = (
+  kind: "RESUMED" | "EXTERNAL",
+  userMessageId: number,
+  attempt?: number,
+): ChatTurn => ({
   kind,
   clientMessageId: null,
   userMessageId,
+  attempt: attempt ?? null,
   assistantMessageId: `assistant-${userMessageId}`,
   nextDeltaIndex: null,
   hasMissingDelta: false,
@@ -126,6 +141,9 @@ const clearSendErrorFor = (sendError: MessageSendError | null, messageId: ChatMe
 
 const isCurrentTurn = (turn: ChatTurn | null, userMessageId: number): turn is ChatTurn =>
   turn?.userMessageId === userMessageId;
+
+const isCurrentAttempt = (turn: ChatTurn, attempt?: number) =>
+  attempt === undefined || turn.attempt === null || turn.attempt === attempt;
 
 const removeMessage = (messages: ChatMessage[], messageId: ChatMessageId) =>
   messages.filter((message) => message.id !== messageId);
@@ -176,7 +194,34 @@ export const chatRoomReducer = (state: ChatRoomState, action: ChatRoomAction): C
 
       // 진행 중인 턴이 없는데 접수 이벤트가 오면 다른 탭에서 보낸 메시지이므로 끝날 때까지 입력만 막음
       if (turn === null) {
-        return { ...state, turn: createServerTurn("EXTERNAL", action.userMessageId) };
+        return {
+          ...state,
+          turn: createServerTurn("EXTERNAL", action.userMessageId, action.attempt),
+        };
+      }
+
+      if (turn.userMessageId === action.userMessageId && action.attempt !== undefined) {
+        if (turn.attempt === null) {
+          return { ...state, turn: { ...turn, attempt: action.attempt } };
+        }
+
+        if (action.attempt <= turn.attempt) {
+          return state;
+        }
+
+        return {
+          ...state,
+          messages: state.messages.map((message) =>
+            message.id === turn.assistantMessageId ? { ...message, content: "" } : message,
+          ),
+          turnErrorMessage: null,
+          turn: {
+            ...turn,
+            attempt: action.attempt,
+            nextDeltaIndex: 0,
+            hasMissingDelta: false,
+          },
+        };
       }
 
       if (turn.clientMessageId !== action.clientMessageId || turn.userMessageId !== null) {
@@ -191,7 +236,11 @@ export const chatRoomReducer = (state: ChatRoomState, action: ChatRoomAction): C
             : message,
         ),
         sendError: null,
-        turn: { ...turn, userMessageId: action.userMessageId },
+        turn: {
+          ...turn,
+          userMessageId: action.userMessageId,
+          attempt: action.attempt ?? turn.attempt,
+        },
       };
     }
     case "SEND_FAILED": {
@@ -234,6 +283,7 @@ export const chatRoomReducer = (state: ChatRoomState, action: ChatRoomAction): C
         turn.kind === "EXTERNAL" ||
         turn.isCompleted ||
         turn.isFailed ||
+        !isCurrentAttempt(turn, action.attempt) ||
         turn.hasMissingDelta
       ) {
         return state;
@@ -268,6 +318,7 @@ export const chatRoomReducer = (state: ChatRoomState, action: ChatRoomAction): C
         isAwaitingResponse: false,
         turn: {
           ...turn,
+          attempt: action.attempt ?? turn.attempt,
           nextDeltaIndex: action.isChunkEnd ? action.index + 1 : turn.nextDeltaIndex,
         },
       };
@@ -304,7 +355,12 @@ export const chatRoomReducer = (state: ChatRoomState, action: ChatRoomAction): C
     case "TURN_FAILED": {
       const { turn } = state;
 
-      if (!isCurrentTurn(turn, action.userMessageId) || turn.isCompleted || turn.isFailed) {
+      if (
+        !isCurrentTurn(turn, action.userMessageId) ||
+        turn.isCompleted ||
+        turn.isFailed ||
+        !isCurrentAttempt(turn, action.attempt)
+      ) {
         return state;
       }
 
@@ -325,7 +381,7 @@ export const chatRoomReducer = (state: ChatRoomState, action: ChatRoomAction): C
         ),
         isAwaitingResponse: false,
         turnErrorMessage: canRetry ? null : action.message,
-        turn: { ...turn, isFailed: true },
+        turn: { ...turn, attempt: action.attempt ?? turn.attempt, isFailed: true },
       };
     }
     case "TURN_DONE": {
